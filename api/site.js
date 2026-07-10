@@ -11,11 +11,14 @@ export default function handler(req, res) {
   const cards = [...document.querySelectorAll('.price h3')];
   const headingText = document.querySelector('#prices .heading p');
   const notice = document.querySelector('#prices .notice');
-  const money = value => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+  const money = value => new Intl.NumberFormat('en-US', {
+    style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2
+  }).format(value);
+  let previous = [];
 
   async function updateSpotPrices() {
     try {
-      const response = await fetch('/api/metals', { cache: 'no-store' });
+      const response = await fetch('/api/metals?t=' + Date.now(), { cache: 'no-store' });
       const data = await response.json();
       if (!response.ok || !data.metals) throw new Error(data.error || 'Unable to load prices');
 
@@ -27,15 +30,26 @@ export default function handler(req, res) {
       ];
 
       cards.forEach((card, index) => {
-        card.textContent = money(values[index]);
+        const next = values[index];
+        if (Number.isFinite(previous[index]) && previous[index] !== next) {
+          card.style.color = next > previous[index] ? '#17865b' : '#b94c45';
+          setTimeout(() => { card.style.color = ''; }, 1400);
+        }
+        card.textContent = money(next);
       });
+      previous = values;
 
-      if (headingText) headingText.textContent = 'Live spot prices per troy ounce in U.S. dollars.';
+      const isSpot = data.sourceType === 'spot';
+      if (headingText) {
+        headingText.textContent = isSpot
+          ? 'Live spot prices per troy ounce in U.S. dollars.'
+          : 'Live indicative precious-metals market prices per troy ounce in U.S. dollars.';
+      }
       if (notice) {
-        const updated = new Date(data.timestamp || Date.now()).toLocaleTimeString([], {
+        const updated = new Date(data.updatedAt || Date.now()).toLocaleTimeString([], {
           hour: 'numeric', minute: '2-digit', second: '2-digit'
         });
-        notice.textContent = 'LIVE • Updated ' + updated + ' • Product premiums and final availability are confirmed before payment.';
+        notice.textContent = 'LIVE • ' + (data.source || 'Market feed') + ' • Updated ' + updated + ' • Refreshes every 15 seconds.';
         notice.style.color = '#17865b';
         notice.style.fontWeight = '700';
       }
@@ -50,7 +64,7 @@ export default function handler(req, res) {
   }
 
   updateSpotPrices();
-  setInterval(updateSpotPrices, 60000);
+  setInterval(updateSpotPrices, 15000);
 })();
 </script>`;
 

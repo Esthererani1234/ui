@@ -1,11 +1,14 @@
 {
-  "functions": {
-    "api/site.js": {
-      "includeFiles": "index.html"
-    }
-  },
   "rewrites": [
-    { "source": "/", "destination": "/api/site" },
-    { "source": "/index.html", "destination": "/api/site" }
+    { "source": "/", "destination": "/live.html" },
+    { "source": "/index.html", "destination": "/live.html" }
+  ],
+  "headers": [
+    {
+      "source": "/api/prices",
+      "headers": [
+        { "key": "Cache-Control", "value": "s-maxage=55, stale-while-revalidate=300" }
+      ]
+    }
   ]
 }

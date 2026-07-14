@@ -1,13 +1,13 @@
 {
   "rewrites": [
-    { "source": "/", "destination": "/live.html" },
-    { "source": "/index.html", "destination": "/live.html" }
+    { "source": "/", "destination": "/api/site" },
+    { "source": "/index.html", "destination": "/api/site" }
   ],
   "headers": [
     {
-      "source": "/api/prices",
+      "source": "/api/metals",
       "headers": [
-        { "key": "Cache-Control", "value": "s-maxage=55, stale-while-revalidate=300" }
+        { "key": "Cache-Control", "value": "public, s-maxage=30, stale-while-revalidate=60" }
       ]
     }
   ]

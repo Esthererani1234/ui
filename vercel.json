@@ -1,13 +1,15 @@
 {
-  "rewrites": [
-    { "source": "/", "destination": "/api/site" },
-    { "source": "/index.html", "destination": "/api/site" }
-  ],
   "headers": [
     {
       "source": "/api/metals",
       "headers": [
         { "key": "Cache-Control", "value": "public, s-maxage=30, stale-while-revalidate=60" }
+      ]
+    },
+    {
+      "source": "/index.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, max-age=0, must-revalidate" }
       ]
     }
   ]

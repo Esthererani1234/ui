@@ -8,30 +8,52 @@ export default function handler(req, res) {
   const liveScript = `
 <script>
 (() => {
-  const cards = [...document.querySelectorAll('.price h3')];
-  const headingText = document.querySelector('#prices .heading p');
-  const notice = document.querySelector('#prices .notice');
-  const money = value => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
-  let lastValues = null;
+  const tickerValues = [...document.querySelectorAll('.market-cell .status')];
+  const marketStrip = document.querySelector('.market-strip .container');
+  const money = value => new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(value);
 
-  function showUnavailable(message) {
-    cards.forEach(card => {
-      card.textContent = 'Unavailable';
-      card.style.color = '#b94c45';
+  let lastValues = null;
+  let statusLine = document.getElementById('liveMarketStatus');
+
+  if (!statusLine && marketStrip) {
+    statusLine = document.createElement('div');
+    statusLine.id = 'liveMarketStatus';
+    statusLine.style.gridColumn = '1 / -1';
+    statusLine.style.padding = '7px 18px';
+    statusLine.style.fontSize = '11px';
+    statusLine.style.borderTop = '1px solid #d8e0e6';
+    statusLine.style.background = '#f8fafb';
+    statusLine.style.color = '#687985';
+    marketStrip.appendChild(statusLine);
+  }
+
+  function setUnavailable(message) {
+    tickerValues.forEach(node => {
+      node.textContent = 'Unavailable';
+      node.style.color = '#c44a4a';
     });
-    if (headingText) headingText.textContent = 'A verified live spot-price feed is not connected.';
-    if (notice) {
-      notice.textContent = message || 'Do not use the displayed catalog estimates for trading or payment.';
-      notice.style.color = '#b94c45';
-      notice.style.fontWeight = '700';
+    if (statusLine) {
+      statusLine.textContent = message || 'Live precious-metal prices are temporarily unavailable.';
+      statusLine.style.color = '#c44a4a';
     }
   }
 
-  async function updateSpotPrices() {
+  function flash(node, direction) {
+    node.style.transition = 'color .2s ease';
+    node.style.color = direction > 0 ? '#1b8a5a' : direction < 0 ? '#c44a4a' : '#1a2a36';
+    window.setTimeout(() => { node.style.color = '#1a2a36'; }, 1800);
+  }
+
+  async function updatePrices() {
     try {
       const response = await fetch('/api/metals?ts=' + Date.now(), { cache: 'no-store' });
       const data = await response.json();
-      if (!response.ok || !data.metals) throw new Error(data.error || 'Unable to load prices');
+      if (!response.ok || !data?.metals) throw new Error(data?.error || 'Price feed request failed');
 
       const values = [
         Number(data.metals.gold),
@@ -41,34 +63,40 @@ export default function handler(req, res) {
       ];
 
       if (values.some(value => !Number.isFinite(value) || value <= 0)) {
-        throw new Error('Invalid metal-price response');
+        throw new Error('The provider returned an invalid price');
       }
 
-      cards.forEach((card, index) => {
-        const old = lastValues ? lastValues[index] : null;
-        card.textContent = money(values[index]);
-        card.style.color = old === null ? '#17140d' : values[index] > old ? '#17865b' : values[index] < old ? '#b94c45' : '#17140d';
-        setTimeout(() => { card.style.color = '#17140d'; }, 1800);
+      tickerValues.forEach((node, index) => {
+        const previous = lastValues ? lastValues[index] : null;
+        node.textContent = money(values[index]);
+        node.classList.remove('status');
+        node.classList.add('live-price');
+        node.style.fontWeight = '800';
+        flash(node, previous === null ? 0 : values[index] - previous);
       });
       lastValues = values;
 
-      if (headingText) headingText.textContent = 'Verified live spot prices per troy ounce in U.S. dollars.';
-      if (notice) {
-        const updated = new Date(data.timestamp || Date.now()).toLocaleTimeString([], {
-          hour: 'numeric', minute: '2-digit', second: '2-digit'
-        });
-        notice.textContent = 'LIVE SPOT • Updated ' + updated + ' • Source: ' + (data.source || 'verified provider') + '.';
-        notice.style.color = '#17865b';
-        notice.style.fontWeight = '700';
+      const updatedDate = new Date(data.timestamp || Date.now());
+      const updated = Number.isNaN(updatedDate.getTime())
+        ? new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })
+        : updatedDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+
+      if (statusLine) {
+        statusLine.textContent = (data.stale ? 'CACHED MARKET DATA' : 'LIVE MARKET DATA') +
+          ' • Updated ' + updated +
+          ' • Source: ' + (data.source || 'Gold-API.com') +
+          ' • Refreshes every 30 seconds.';
+        statusLine.style.color = data.stale ? '#a25a00' : '#1b8a5a';
+        statusLine.style.fontWeight = '700';
       }
     } catch (error) {
-      showUnavailable('Live spot feed unavailable: ' + (error.message || 'provider not connected') + '.');
+      setUnavailable('Live price feed unavailable: ' + (error?.message || 'unknown provider error') + '.');
     }
   }
 
-  showUnavailable('Connecting to verified live spot feed…');
-  updateSpotPrices();
-  setInterval(updateSpotPrices, 60000);
+  setUnavailable('Connecting to the live precious-metals feed…');
+  updatePrices();
+  window.setInterval(updatePrices, 30000);
 })();
 </script>`;
 

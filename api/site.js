@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
+const LIVE_METALS_ENDPOINT = "https://ui-plum-alpha.vercel.app/api/metals";
+
 const money = value => new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
@@ -12,13 +14,12 @@ export default async function handler(req, res) {
   const filePath = path.join(process.cwd(), "index.html");
   let html = fs.readFileSync(filePath, "utf8");
 
-  const protocol = req.headers["x-forwarded-proto"] || "https";
-  const host = req.headers.host;
-  const endpoint = `${protocol}://${host}/api/metals`;
-
   let initialData = null;
   try {
-    const response = await fetch(endpoint, { headers: { Accept: "application/json" }, cache: "no-store" });
+    const response = await fetch(`${LIVE_METALS_ENDPOINT}?pageLoad=${Date.now()}`, {
+      headers: { Accept: "application/json" },
+      cache: "no-store"
+    });
     const data = await response.json();
     if (response.ok && data?.metals) initialData = data;
   } catch {
@@ -88,7 +89,14 @@ export default async function handler(req, res) {
       if (!response.ok || !data.metals) throw new Error(data.detail || data.error || 'Price request failed');
       display(data);
     } catch (error) {
-      unavailable('Price refresh failed. Retrying automatically.');
+      try {
+        const response = await fetch('${LIVE_METALS_ENDPOINT}?fallback=' + Date.now(), { cache: 'no-store' });
+        const data = await response.json();
+        if (!response.ok || !data.metals) throw new Error('Fallback failed');
+        display(data);
+      } catch {
+        unavailable('Price refresh failed. Retrying automatically.');
+      }
     }
   }
 

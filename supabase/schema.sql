@@ -1,0 +1,320 @@
+create schema if not exists private;
+
+create table public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  first_name text,
+  last_name text,
+  phone text,
+  marketing_opt_in boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.admin_users (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+
+create table public.app_settings (
+  key text primary key,
+  value jsonb not null,
+  is_public boolean not null default false,
+  updated_at timestamptz not null default now()
+);
+
+create table public.products (
+  id bigint generated always as identity primary key,
+  slug text not null unique,
+  sku text not null unique,
+  name text not null,
+  short_description text,
+  description text,
+  metal text not null check (metal in ('gold', 'silver', 'platinum', 'palladium')),
+  category text not null check (category in ('coin', 'bar', 'round')),
+  metal_weight_oz numeric(12, 6) not null check (metal_weight_oz > 0),
+  price_mode text not null default 'dynamic' check (price_mode in ('dynamic', 'fixed', 'quote')),
+  fixed_price numeric(14, 2) check (fixed_price is null or fixed_price >= 0),
+  premium_fixed numeric(14, 2) not null default 0 check (premium_fixed >= 0),
+  premium_percent numeric(8, 4) not null default 0 check (premium_percent >= 0),
+  inventory_count integer not null default 0 check (inventory_count >= 0),
+  low_stock_threshold integer not null default 3 check (low_stock_threshold >= 0),
+  is_active boolean not null default false,
+  is_featured boolean not null default false,
+  badge text,
+  image_url text,
+  sort_order integer not null default 100,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.orders (
+  id bigint generated always as identity primary key,
+  order_number text not null unique,
+  user_id uuid not null references auth.users(id) on delete restrict,
+  first_name text not null,
+  last_name text not null,
+  email text not null,
+  phone text not null,
+  status text not null default 'pending_review' check (status in ('pending_review', 'awaiting_payment', 'payment_received', 'processing', 'shipped', 'completed', 'cancelled')),
+  payment_status text not null default 'unpaid' check (payment_status in ('unpaid', 'pending', 'paid', 'refunded', 'failed')),
+  payment_method text not null check (payment_method in ('wire', 'ach', 'check', 'card')),
+  subtotal numeric(14, 2) not null default 0 check (subtotal >= 0),
+  payment_surcharge numeric(14, 2) not null default 0 check (payment_surcharge >= 0),
+  shipping_amount numeric(14, 2) not null default 0 check (shipping_amount >= 0),
+  insurance_amount numeric(14, 2) not null default 0 check (insurance_amount >= 0),
+  total numeric(14, 2) not null default 0 check (total >= 0),
+  spot_snapshot jsonb not null default '{}'::jsonb,
+  price_locked_until timestamptz,
+  shipping_address jsonb not null,
+  customer_notes text,
+  internal_notes text,
+  tracking_number text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.order_items (
+  id bigint generated always as identity primary key,
+  order_id bigint not null references public.orders(id) on delete cascade,
+  product_id bigint references public.products(id) on delete set null,
+  sku text not null,
+  product_name text not null,
+  metal text not null,
+  metal_weight_oz numeric(12, 6) not null,
+  quantity integer not null check (quantity > 0),
+  unit_price numeric(14, 2) not null check (unit_price >= 0),
+  line_total numeric(14, 2) not null check (line_total >= 0),
+  pricing_snapshot jsonb not null,
+  created_at timestamptz not null default now()
+);
+
+create table public.price_snapshots (
+  id bigint generated always as identity primary key,
+  metal text not null check (metal in ('gold', 'silver', 'platinum', 'palladium')),
+  price numeric(14, 4) not null check (price > 0),
+  source text not null,
+  captured_at timestamptz not null default now()
+);
+
+create index products_active_sort_idx on public.products (sort_order, id) where is_active;
+create index products_metal_active_idx on public.products (metal, sort_order, id) where is_active;
+create index orders_user_created_idx on public.orders (user_id, created_at desc);
+create index orders_status_created_idx on public.orders (status, created_at desc);
+create index order_items_order_id_idx on public.order_items (order_id);
+create index order_items_product_id_idx on public.order_items (product_id);
+create index price_snapshots_metal_captured_idx on public.price_snapshots (metal, captured_at desc);
+
+create or replace function private.set_updated_at()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+create trigger profiles_set_updated_at before update on public.profiles for each row execute function private.set_updated_at();
+create trigger app_settings_set_updated_at before update on public.app_settings for each row execute function private.set_updated_at();
+create trigger products_set_updated_at before update on public.products for each row execute function private.set_updated_at();
+create trigger orders_set_updated_at before update on public.orders for each row execute function private.set_updated_at();
+
+create or replace function private.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  insert into public.profiles (id, first_name, last_name)
+  values (new.id, new.raw_user_meta_data ->> 'first_name', new.raw_user_meta_data ->> 'last_name')
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+create trigger on_auth_user_created after insert on auth.users for each row execute function private.handle_new_user();
+
+create or replace function private.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select (select auth.uid()) is not null
+    and exists (select 1 from public.admin_users where user_id = (select auth.uid()));
+$$;
+
+revoke all on function private.is_admin() from public, anon;
+grant execute on function private.is_admin() to authenticated;
+
+alter table public.profiles enable row level security;
+alter table public.admin_users enable row level security;
+alter table public.app_settings enable row level security;
+alter table public.products enable row level security;
+alter table public.orders enable row level security;
+alter table public.order_items enable row level security;
+alter table public.price_snapshots enable row level security;
+
+create policy "users or admins read profiles" on public.profiles for select to authenticated using ((select auth.uid()) = id or (select private.is_admin()));
+create policy "users or admins update profiles" on public.profiles for update to authenticated using ((select auth.uid()) = id or (select private.is_admin())) with check ((select auth.uid()) = id or (select private.is_admin()));
+
+create policy "users or admins read admin memberships" on public.admin_users for select to authenticated using ((select auth.uid()) = user_id or (select private.is_admin()));
+
+create policy "anon reads public settings" on public.app_settings for select to anon using (is_public);
+create policy "users read public settings or admins read all" on public.app_settings for select to authenticated using (is_public or (select private.is_admin()));
+create policy "admins insert settings" on public.app_settings for insert to authenticated with check ((select private.is_admin()));
+create policy "admins update settings" on public.app_settings for update to authenticated using ((select private.is_admin())) with check ((select private.is_admin()));
+create policy "admins delete settings" on public.app_settings for delete to authenticated using ((select private.is_admin()));
+
+create policy "anon reads active products" on public.products for select to anon using (is_active);
+create policy "users read active products or admins read all" on public.products for select to authenticated using (is_active or (select private.is_admin()));
+create policy "admins insert products" on public.products for insert to authenticated with check ((select private.is_admin()));
+create policy "admins update products" on public.products for update to authenticated using ((select private.is_admin())) with check ((select private.is_admin()));
+create policy "admins delete products" on public.products for delete to authenticated using ((select private.is_admin()));
+
+create policy "users or admins read orders" on public.orders for select to authenticated using ((select auth.uid()) = user_id or (select private.is_admin()));
+create policy "admins update orders" on public.orders for update to authenticated using ((select private.is_admin())) with check ((select private.is_admin()));
+
+create policy "users or admins read order items" on public.order_items for select to authenticated using (
+  (select private.is_admin()) or exists (select 1 from public.orders where orders.id = order_items.order_id and orders.user_id = (select auth.uid()))
+);
+
+create policy "admins read price snapshots" on public.price_snapshots for select to authenticated using ((select private.is_admin()));
+
+grant usage on schema public to anon, authenticated;
+grant select on public.products, public.app_settings to anon, authenticated;
+grant select, update on public.profiles to authenticated;
+grant select on public.admin_users to authenticated;
+grant insert, update, delete on public.products, public.app_settings to authenticated;
+grant select, update on public.orders to authenticated;
+grant select on public.order_items, public.price_snapshots to authenticated;
+grant usage, select on all sequences in schema public to authenticated;
+
+insert into public.app_settings (key, value, is_public) values
+  ('shipping_flat', '35'::jsonb, true),
+  ('free_shipping_threshold', '5000'::jsonb, true),
+  ('card_surcharge_percent', '4'::jsonb, true),
+  ('price_lock_minutes', '5'::jsonb, true)
+on conflict (key) do nothing;
+
+insert into public.products (slug, sku, name, short_description, description, metal, category, metal_weight_oz, premium_fixed, premium_percent, inventory_count, is_active, is_featured, badge, sort_order) values
+  ('2026-1-oz-american-gold-buffalo', 'GOLD-BUFFALO-1OZ-2026', '2026 1 oz American Gold Buffalo', 'America’s .9999 fine 24-karat sovereign gold coin.', 'The American Gold Buffalo contains one troy ounce of .9999 fine gold and is backed by the United States government for weight and purity.', 'gold', 'coin', 1, 125, 0, 12, true, true, 'FEATURED', 10),
+  ('1-oz-american-gold-eagle', 'GOLD-EAGLE-1OZ', '1 oz American Gold Eagle', 'The best-known American 22-karat bullion coin.', 'The one-ounce American Gold Eagle contains one full troy ounce of fine gold and is widely recognized in the United States bullion market.', 'gold', 'coin', 1, 115, 0, 18, true, true, 'BEST SELLER', 20),
+  ('1-oz-canadian-gold-maple-leaf', 'GOLD-MAPLE-1OZ', '1 oz Canadian Gold Maple Leaf', '.9999 fine gold from the Royal Canadian Mint.', 'A globally recognized sovereign bullion coin with advanced security features and one troy ounce of .9999 fine gold.', 'gold', 'coin', 1, 92, 0, 15, true, true, 'LOW PREMIUM', 30),
+  ('1-oz-gold-bar-assorted-mint', 'GOLD-BAR-1OZ', '1 oz Gold Bar — Assorted Mint', 'Investment-grade gold bar from an approved mint.', 'One troy ounce .9999 fine gold bar. Brand and assay packaging vary according to available inventory.', 'gold', 'bar', 1, 59, 0, 25, true, true, 'VALUE', 40),
+  ('10-gram-gold-bar', 'GOLD-BAR-10G', '10 gram Gold Bar', 'A compact .9999 fine gold bar in assay packaging.', 'Ten gram investment gold bar from an approved mint. Brand may vary with inventory.', 'gold', 'bar', 0.321507, 42, 0, 30, true, false, null, 50),
+  ('1-oz-american-silver-eagle', 'SILVER-EAGLE-1OZ', '1 oz American Silver Eagle', 'The official one-ounce silver bullion coin of the United States.', 'One troy ounce of fine silver in the United States Mint’s most recognized bullion format.', 'silver', 'coin', 1, 8.5, 0, 80, true, false, 'POPULAR', 60),
+  ('10-oz-silver-bar', 'SILVER-BAR-10OZ', '10 oz Silver Bar — Assorted Mint', 'A stacker-friendly ten-ounce .999 fine silver bar.', 'Ten troy ounces of .999 fine silver from an approved refiner. Brand and design vary.', 'silver', 'bar', 10, 34, 0, 45, true, false, 'STACKER PICK', 70),
+  ('1-oz-platinum-bar', 'PLATINUM-BAR-1OZ', '1 oz Platinum Bar', 'One troy ounce of investment-grade platinum.', 'One troy ounce platinum bar in assay packaging from an approved mint or refiner.', 'platinum', 'bar', 1, 105, 0, 8, true, false, 'LIMITED', 80)
+on conflict (sku) do nothing;
+
+create or replace function public.create_order(
+  p_user_id uuid,
+  p_contact jsonb,
+  p_shipping jsonb,
+  p_cart jsonb,
+  p_spot jsonb,
+  p_payment_method text,
+  p_notes text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_order_id bigint;
+  v_order_number text;
+  v_item jsonb;
+  v_product public.products%rowtype;
+  v_quantity integer;
+  v_spot numeric;
+  v_unit numeric(14, 2);
+  v_line numeric(14, 2);
+  v_subtotal numeric(14, 2) := 0;
+  v_shipping numeric(14, 2);
+  v_surcharge numeric(14, 2);
+  v_total numeric(14, 2);
+  v_shipping_flat numeric := 35;
+  v_free_shipping_threshold numeric := 5000;
+  v_card_surcharge_percent numeric := 4;
+  v_lock_minutes integer := 5;
+begin
+  if p_user_id is null or not exists (select 1 from auth.users where id = p_user_id) then
+    raise exception 'A valid customer account is required';
+  end if;
+  if jsonb_typeof(p_cart) <> 'array' or jsonb_array_length(p_cart) = 0 then
+    raise exception 'The cart is empty';
+  end if;
+  if p_payment_method not in ('wire', 'ach', 'check', 'card') then
+    raise exception 'Unsupported payment method';
+  end if;
+  if coalesce(p_contact ->> 'first_name', '') = '' or coalesce(p_contact ->> 'last_name', '') = ''
+     or coalesce(p_contact ->> 'email', '') = '' or coalesce(p_contact ->> 'phone', '') = '' then
+    raise exception 'Complete contact information is required';
+  end if;
+  if coalesce(p_shipping ->> 'address_line_1', '') = '' or coalesce(p_shipping ->> 'city', '') = ''
+     or coalesce(p_shipping ->> 'state', '') = '' or coalesce(p_shipping ->> 'postal_code', '') = '' then
+    raise exception 'A complete shipping address is required';
+  end if;
+
+  select coalesce((select (value #>> '{}')::numeric from public.app_settings where key = 'shipping_flat'), 35) into v_shipping_flat;
+  select coalesce((select (value #>> '{}')::numeric from public.app_settings where key = 'free_shipping_threshold'), 5000) into v_free_shipping_threshold;
+  select coalesce((select (value #>> '{}')::numeric from public.app_settings where key = 'card_surcharge_percent'), 4) into v_card_surcharge_percent;
+  select coalesce((select (value #>> '{}')::integer from public.app_settings where key = 'price_lock_minutes'), 5) into v_lock_minutes;
+
+  v_order_number := 'GOTS-' || to_char(now(), 'YYYY') || '-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8));
+  insert into public.orders (order_number, user_id, first_name, last_name, email, phone, payment_method, spot_snapshot, price_locked_until, shipping_address, customer_notes)
+  values (v_order_number, p_user_id, p_contact ->> 'first_name', p_contact ->> 'last_name', lower(p_contact ->> 'email'), p_contact ->> 'phone', p_payment_method, p_spot, now() + make_interval(mins => v_lock_minutes), p_shipping, nullif(trim(p_notes), ''))
+  returning id into v_order_id;
+
+  for v_item in select value from jsonb_array_elements(p_cart)
+  loop
+    begin
+      v_quantity := (v_item ->> 'quantity')::integer;
+    exception when others then
+      raise exception 'Invalid item quantity';
+    end;
+    if v_quantity < 1 or v_quantity > 100 then raise exception 'Invalid item quantity'; end if;
+
+    select * into v_product from public.products
+    where id = (v_item ->> 'product_id')::bigint and is_active
+    for update;
+    if not found then raise exception 'A product is unavailable'; end if;
+    if v_product.inventory_count < v_quantity then raise exception '% does not have enough inventory', v_product.name; end if;
+    if v_product.price_mode = 'quote' then raise exception '% requires a custom quote', v_product.name; end if;
+
+    if v_product.price_mode = 'fixed' then
+      v_unit := round(v_product.fixed_price, 2);
+    else
+      begin
+        v_spot := (p_spot ->> v_product.metal)::numeric;
+      exception when others then
+        raise exception 'Invalid spot price';
+      end;
+      if v_spot <= 0 then raise exception 'Invalid spot price'; end if;
+      v_unit := round((v_spot * v_product.metal_weight_oz) * (1 + v_product.premium_percent / 100) + v_product.premium_fixed, 2);
+    end if;
+    v_line := round(v_unit * v_quantity, 2);
+    v_subtotal := v_subtotal + v_line;
+
+    insert into public.order_items (order_id, product_id, sku, product_name, metal, metal_weight_oz, quantity, unit_price, line_total, pricing_snapshot)
+    values (v_order_id, v_product.id, v_product.sku, v_product.name, v_product.metal, v_product.metal_weight_oz, v_quantity, v_unit, v_line,
+      jsonb_build_object('spot', v_spot, 'premium_fixed', v_product.premium_fixed, 'premium_percent', v_product.premium_percent, 'price_mode', v_product.price_mode));
+    update public.products set inventory_count = inventory_count - v_quantity where id = v_product.id;
+  end loop;
+
+  v_shipping := case when v_subtotal >= v_free_shipping_threshold then 0 else v_shipping_flat end;
+  v_surcharge := case when p_payment_method = 'card' then round(v_subtotal * v_card_surcharge_percent / 100, 2) else 0 end;
+  v_total := round(v_subtotal + v_shipping + v_surcharge, 2);
+  update public.orders set subtotal = v_subtotal, shipping_amount = v_shipping, payment_surcharge = v_surcharge, total = v_total where id = v_order_id;
+
+  return jsonb_build_object('order_id', v_order_id, 'order_number', v_order_number, 'subtotal', v_subtotal, 'shipping', v_shipping, 'surcharge', v_surcharge, 'total', v_total, 'price_locked_until', now() + make_interval(mins => v_lock_minutes));
+end;
+$$;
+
+revoke all on function public.create_order(uuid, jsonb, jsonb, jsonb, jsonb, text, text) from public, anon, authenticated;
+grant execute on function public.create_order(uuid, jsonb, jsonb, jsonb, jsonb, text, text) to service_role;

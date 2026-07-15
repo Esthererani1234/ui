@@ -32,7 +32,7 @@ export default function HomePage() {
             <h1>Own something<br /><em>that lasts.</em></h1>
             <p>Shop investment-grade gold, silver, platinum, and palladium. Prices move with the market and every order is reviewed for secure fulfillment.</p>
             <div className="hero-actions"><Link className="button button-gold" to="/shop?metal=gold">Shop gold</Link><Link className="button button-light" to="/shop">Browse all bullion</Link></div>
-            <div className="hero-proof"><span><BadgeCheck size={18} /> Transparent premium</span><span><ShieldCheck size={18} /> Insured fulfillment</span></div>
+            <div className="hero-proof"><span><BadgeCheck size={18} /> Market-linked pricing</span><span><ShieldCheck size={18} /> Insured fulfillment</span></div>
           </div>
           <div className="hero-visual" aria-hidden="true">
             <div className="coin-shadow"></div>
@@ -65,7 +65,7 @@ export default function HomePage() {
 
       <section className="section featured-section">
         <div className="container">
-          <div className="section-heading"><div><span className="eyebrow dark">THE BULLION DESK</span><h2>Featured products</h2><p>Live prices calculated from spot plus the displayed product premium.</p></div><Link to="/shop?featured=true">See best sellers →</Link></div>
+          <div className="section-heading"><div><span className="eyebrow dark">THE BULLION DESK</span><h2>Featured products</h2><p>Selling prices refresh with the precious-metals market.</p></div><Link to="/shop?featured=true">See best sellers →</Link></div>
           {loadingProducts ? <div className="catalog-loading">Loading today’s bullion selection…</div> : products.length ? <div className="product-grid">{products.map((product) => <ProductCard key={product.id} product={product} spot={spot} />)}</div> : <div className="empty-state compact"><h3>Listings are being added</h3><p>Check back shortly for available bullion inventory.</p></div>}
         </div>
       </section>
@@ -73,7 +73,7 @@ export default function HomePage() {
       <section className="how-section">
         <div className="container how-grid">
           <div><span className="eyebrow">CLEAR FROM CART TO DELIVERY</span><h2>A better way to buy bullion.</h2><p>The market moves quickly. Our system recalculates pricing, locks the order total, verifies inventory, and gives you clear payment and fulfillment instructions.</p><Link className="button button-gold" to="/about">How GoldOnTheSpot works</Link></div>
-          <ol><li><b>1</b><span><strong>Choose your metal</strong><small>Compare weights, mints, and premiums.</small></span></li><li><b>2</b><span><strong>Lock your order</strong><small>Your total is recalculated securely at checkout.</small></span></li><li><b>3</b><span><strong>Complete payment</strong><small>Use the approved method shown on your order.</small></span></li><li><b>4</b><span><strong>Track fulfillment</strong><small>Follow status from payment through delivery.</small></span></li></ol>
+          <ol><li><b>1</b><span><strong>Choose your metal</strong><small>Compare products, weights, mints, and prices.</small></span></li><li><b>2</b><span><strong>Lock your order</strong><small>Your total is recalculated securely at checkout.</small></span></li><li><b>3</b><span><strong>Complete payment</strong><small>Use the approved method shown on your order.</small></span></li><li><b>4</b><span><strong>Track fulfillment</strong><small>Follow status from payment through delivery.</small></span></li></ol>
         </div>
       </section>
     </>

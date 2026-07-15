@@ -2,12 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Minus, Plus, ShieldCheck, ShoppingCart, Truck } from "lucide-react";
 import { supabase } from "../lib/supabase";
-import {
-  metalSymbol,
-  money,
-  productPrice,
-  spotAdjustmentLabel,
-} from "../lib/pricing";
+import { metalSymbol, money, productPrice } from "../lib/pricing";
 import { useCart } from "../state/CartContext";
 import MarketTicker from "../components/MarketTicker";
 
@@ -122,10 +117,8 @@ export default function ProductPage() {
                   {price == null ? "Request quote" : money(price)}
                 </strong>
                 <small>
-                  Based on current {product.metal} spot,{" "}
-                  {product.metal_weight_oz} pure troy oz, and{" "}
-                  {spotAdjustmentLabel(product.premium_percent).toLowerCase()}.
-                  Final total is recalculated at checkout.
+                  Price refreshes with the {product.metal} market. Final total
+                  is recalculated at checkout.
                 </small>
               </div>
               <div className="inventory-line">
@@ -189,10 +182,6 @@ export default function ProductPage() {
               <div>
                 <dt>Type</dt>
                 <dd>{product.category}</dd>
-              </div>
-              <div>
-                <dt>Pricing</dt>
-                <dd>{spotAdjustmentLabel(product.premium_percent)}</dd>
               </div>
             </dl>
           </div>

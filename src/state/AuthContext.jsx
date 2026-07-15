@@ -11,8 +11,10 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     let active = true;
+    let hydrateVersion = 0;
 
     const hydrate = async (nextSession) => {
+      const version = ++hydrateVersion;
       if (!active) return;
       setSession(nextSession);
       if (!nextSession?.user) {
@@ -27,7 +29,7 @@ export function AuthProvider({ children }) {
         supabase.from("admin_users").select("user_id").eq("user_id", nextSession.user.id).maybeSingle(),
       ]);
 
-      if (!active) return;
+      if (!active || version !== hydrateVersion) return;
       setProfile(profileData || null);
       setIsAdmin(Boolean(adminData));
       setLoading(false);

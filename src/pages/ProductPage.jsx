@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Minus, Plus, ShieldCheck, ShoppingCart, Truck } from "lucide-react";
 import { supabase } from "../lib/supabase";
-import { money, productPrice, spotAdjustmentLabel } from "../lib/pricing";
+import { metalSymbol, money, productPrice, spotAdjustmentLabel } from "../lib/pricing";
 import { useCart } from "../state/CartContext";
 import MarketTicker from "../components/MarketTicker";
 
@@ -29,7 +29,7 @@ export default function ProductPage() {
         <div className="container">
           <div className="breadcrumbs"><Link to="/shop">Shop</Link><span>/</span><Link to={`/shop?metal=${product.metal}`}>{product.metal}</Link><span>/</span><b>{product.name}</b></div>
           <div className="product-detail-grid">
-            <div className="detail-image">{product.image_url ? <img src={product.image_url} alt={product.name} /> : <div className={`bullion-art hero-product ${product.metal} ${product.category}`}><span>{product.metal === "gold" ? "Au" : product.metal === "silver" ? "Ag" : product.metal === "platinum" ? "Pt" : "Pd"}</span><b>{product.name}</b><small>{product.metal_weight_oz} TROY OZ</small></div>}</div>
+            <div className="detail-image">{product.image_url ? <img src={product.image_url} alt={product.name} /> : <div className={`bullion-art hero-product ${product.metal} ${product.category}`}><span>{metalSymbol(product.metal)}</span><b>{product.name}</b><small>{product.metal_weight_oz} TROY OZ</small></div>}</div>
             <div className="detail-copy">
               <span className="product-kicker">{product.metal} • {product.category} • SKU {product.sku}</span>
               <h1>{product.name}</h1><p className="detail-lead">{product.description}</p>

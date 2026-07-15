@@ -5,6 +5,11 @@ create table public.profiles (
   first_name text,
   last_name text,
   phone text,
+  address_line_1 text,
+  address_line_2 text,
+  city text,
+  state text,
+  postal_code text,
   marketing_opt_in boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -97,6 +102,20 @@ create table public.order_items (
   created_at timestamptz not null default now()
 );
 
+create table public.support_tickets (
+  id bigint generated always as identity primary key,
+  ticket_number text not null unique default ('SUP-' || to_char(now(), 'YYYY') || '-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8))),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  category text not null check (category in ('order', 'product', 'payment', 'shipping', 'account', 'other')),
+  order_number text check (order_number is null or char_length(order_number) <= 40),
+  subject text not null check (char_length(subject) between 4 and 120),
+  message text not null check (char_length(message) between 10 and 3000),
+  status text not null default 'open' check (status in ('open', 'in_progress', 'resolved', 'closed')),
+  admin_response text check (admin_response is null or char_length(admin_response) <= 5000),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table public.price_snapshots (
   id bigint generated always as identity primary key,
   metal text not null check (metal in ('gold', 'silver', 'platinum', 'palladium')),
@@ -111,6 +130,8 @@ create index orders_user_created_idx on public.orders (user_id, created_at desc)
 create index orders_status_created_idx on public.orders (status, created_at desc);
 create index order_items_order_id_idx on public.order_items (order_id);
 create index order_items_product_id_idx on public.order_items (product_id);
+create index support_tickets_user_created_idx on public.support_tickets (user_id, created_at desc);
+create index support_tickets_status_created_idx on public.support_tickets (status, created_at desc);
 create index price_snapshots_metal_captured_idx on public.price_snapshots (metal, captured_at desc);
 
 create or replace function private.set_updated_at()
@@ -128,6 +149,7 @@ create trigger profiles_set_updated_at before update on public.profiles for each
 create trigger app_settings_set_updated_at before update on public.app_settings for each row execute function private.set_updated_at();
 create trigger products_set_updated_at before update on public.products for each row execute function private.set_updated_at();
 create trigger orders_set_updated_at before update on public.orders for each row execute function private.set_updated_at();
+create trigger support_tickets_set_updated_at before update on public.support_tickets for each row execute function private.set_updated_at();
 
 create or replace function private.handle_new_user()
 returns trigger
@@ -188,12 +210,35 @@ create trigger orders_enforce_rate_limit
 before insert on public.orders
 for each row execute function private.enforce_order_rate_limit();
 
+create or replace function private.enforce_support_ticket_rate_limit()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(new.user_id::text, 1));
+  if (select count(*) from public.support_tickets where user_id = new.user_id and created_at > now() - interval '1 hour') >= 3 then
+    raise exception 'Support ticket rate limit reached. Please wait before sending another request.';
+  end if;
+  if (select count(*) from public.support_tickets where user_id = new.user_id and created_at > now() - interval '24 hours') >= 10 then
+    raise exception 'Daily support ticket rate limit reached. Please try again tomorrow.';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger support_tickets_enforce_rate_limit
+before insert on public.support_tickets
+for each row execute function private.enforce_support_ticket_rate_limit();
+
 alter table public.profiles enable row level security;
 alter table public.admin_users enable row level security;
 alter table public.app_settings enable row level security;
 alter table public.products enable row level security;
 alter table public.orders enable row level security;
 alter table public.order_items enable row level security;
+alter table public.support_tickets enable row level security;
 alter table public.price_snapshots enable row level security;
 
 create policy "users or admins read profiles" on public.profiles for select to authenticated using ((select auth.uid()) = id or (select private.is_admin()));
@@ -220,6 +265,13 @@ create policy "users or admins read order items" on public.order_items for selec
   (select private.is_admin()) or exists (select 1 from public.orders where orders.id = order_items.order_id and orders.user_id = (select auth.uid()))
 );
 
+create policy "users or admins read support tickets" on public.support_tickets for select to authenticated
+using ((select auth.uid()) = user_id or (select private.is_admin()));
+create policy "users create their own support tickets" on public.support_tickets for insert to authenticated
+with check ((select auth.uid()) = user_id and status = 'open' and admin_response is null);
+create policy "admins update support tickets" on public.support_tickets for update to authenticated
+using ((select private.is_admin())) with check ((select private.is_admin()));
+
 create policy "admins read price snapshots" on public.price_snapshots for select to authenticated using ((select private.is_admin()));
 
 grant usage on schema public to anon, authenticated;
@@ -235,6 +287,8 @@ grant select (
   created_at, updated_at
 ) on public.orders to authenticated;
 grant select on public.order_items, public.price_snapshots to authenticated;
+grant select, update on public.support_tickets to authenticated;
+grant insert (user_id, category, order_number, subject, message) on public.support_tickets to authenticated;
 grant usage, select on all sequences in schema public to authenticated;
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)

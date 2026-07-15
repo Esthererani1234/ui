@@ -6,6 +6,8 @@ export const money = (value) =>
     maximumFractionDigits: 2,
   }).format(Number(value) || 0);
 
+export const metalSymbol = (metal) => ({ gold: "Au", silver: "Ag", platinum: "Pt", palladium: "Pd" })[metal] || "PM";
+
 export const productPrice = (product, spot) => {
   if (!product) return null;
   if (product.price_mode === "fixed") return Number(product.fixed_price || 0);

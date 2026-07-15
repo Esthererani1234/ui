@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
 import { useAuth } from "./state/AuthContext";
 
@@ -12,11 +12,14 @@ const AuthPage = lazy(() => import("./pages/AuthPage"));
 const AccountPage = lazy(() => import("./pages/AccountPage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
 const InfoPage = lazy(() => import("./pages/InfoPage"));
+const SupportPage = lazy(() => import("./pages/SupportPage"));
+const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 
 function Guard({ admin = false, children }) {
   const { user, isAdmin, loading } = useAuth();
+  const location = useLocation();
   if (loading) return <div className="page-loader">Loading secure account…</div>;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to={`/login?return=${encodeURIComponent(`${location.pathname}${location.search}`)}`} replace />;
   if (admin && !isAdmin) return <Navigate to="/account" replace />;
   return children;
 }
@@ -38,7 +41,8 @@ export default function App() {
           <Route path="shipping" element={<InfoPage type="shipping" />} />
           <Route path="terms" element={<InfoPage type="terms" />} />
           <Route path="privacy" element={<InfoPage type="privacy" />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="support" element={<SupportPage />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
     </Suspense>

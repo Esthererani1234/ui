@@ -58,6 +58,7 @@ export default function HomePage() {
             <Link className="metal-category gold" to="/shop?metal=gold"><span>Au</span><div><small>WEALTH PRESERVATION</small><h3>Gold bullion</h3><p>Buffaloes, Eagles, sovereign coins, and bars.</p></div></Link>
             <Link className="metal-category silver" to="/shop?metal=silver"><span>Ag</span><div><small>ACCESSIBLE HARD ASSETS</small><h3>Silver bullion</h3><p>Sovereign coins, rounds, and stacker bars.</p></div></Link>
             <Link className="metal-category platinum" to="/shop?metal=platinum"><span>Pt</span><div><small>SCARCE INDUSTRIAL METAL</small><h3>Platinum</h3><p>Premium bars and investment coins.</p></div></Link>
+            <Link className="metal-category palladium" to="/shop?metal=palladium"><span>Pd</span><div><small>SPECIALTY PRECIOUS METAL</small><h3>Palladium</h3><p>Limited bars and investment products.</p></div></Link>
           </div>
         </div>
       </section>

@@ -189,6 +189,10 @@ img { max-width: 100%; display: block; }
 .product-image-editor p { width: 100%; margin: 3px 0 0; color: var(--muted); font-size: 10px; }
 .upload-button { cursor: pointer; }.upload-button input { display: none; }
 .field-help { display: block; margin-top: 5px; color: var(--muted); font-size: 9px; font-weight: 500; }
+.spot-pricing-section { padding: 16px; border: 1px solid #d8c58e; background: #fffaf0; }
+.spot-pricing-section h3 { margin: 0 0 5px; }
+.spot-pricing-section > p { margin: 0 0 10px; color: #6c6043; font-size: 11px; line-height: 1.5; }
+.spot-pricing-section label { max-width: 430px; }
 .mfa-shell { min-height: 720px; display: grid; place-items: center; padding: 40px 20px; background: radial-gradient(circle at 50% 0, var(--navy-700), var(--navy-950) 62%); }
 .mfa-card { width: min(680px, 100%); padding: 38px; background: #fff; border-top: 5px solid var(--gold-500); box-shadow: 0 28px 75px rgba(0,0,0,.35); text-align: center; }
 .mfa-shield { width: 48px; height: 48px; margin-bottom: 10px; color: var(--navy-700); }

@@ -16,6 +16,13 @@ export const productPrice = (product, spot) => {
   return base * (1 + Number(product.premium_percent || 0) / 100) + Number(product.premium_fixed || 0);
 };
 
+export const spotAdjustmentLabel = (value) => {
+  const percent = Number(value || 0);
+  if (percent === 0) return "At live spot";
+  const amount = Math.abs(percent).toLocaleString("en-US", { maximumFractionDigits: 4 });
+  return percent < 0 ? `${amount}% below live spot` : `${amount}% above live spot`;
+};
+
 export const orderStatusLabel = (status = "pending") =>
   status
     .split("_")

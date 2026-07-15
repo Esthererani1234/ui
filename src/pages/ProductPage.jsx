@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Minus, Plus, ShieldCheck, ShoppingCart, Truck } from "lucide-react";
 import { supabase } from "../lib/supabase";
-import { money, productPrice } from "../lib/pricing";
+import { money, productPrice, spotAdjustmentLabel } from "../lib/pricing";
 import { useCart } from "../state/CartContext";
 import MarketTicker from "../components/MarketTicker";
 
@@ -33,13 +33,13 @@ export default function ProductPage() {
             <div className="detail-copy">
               <span className="product-kicker">{product.metal} • {product.category} • SKU {product.sku}</span>
               <h1>{product.name}</h1><p className="detail-lead">{product.description}</p>
-              <div className="live-price-box"><span>Current live price</span><strong>{price == null ? "Request quote" : money(price)}</strong><small>Based on current {product.metal} spot plus product premium. Final total is recalculated at checkout.</small></div>
+              <div className="live-price-box"><span>Current live price</span><strong>{price == null ? "Request quote" : money(price)}</strong><small>Based on current {product.metal} spot, {product.metal_weight_oz} pure troy oz, and {spotAdjustmentLabel(product.premium_percent).toLowerCase()}. Final total is recalculated at checkout.</small></div>
               <div className="inventory-line"><b className={product.inventory_count > 0 ? "stock in" : "stock out"}>{product.inventory_count > 0 ? `In stock — ${product.inventory_count} available` : "Out of stock"}</b></div>
               <div className="buy-row"><div className="quantity"><button onClick={() => setQuantity(Math.max(1, quantity - 1))}><Minus size={16} /></button><span>{quantity}</span><button onClick={() => setQuantity(Math.min(product.inventory_count, quantity + 1))}><Plus size={16} /></button></div><button className="button button-gold grow" disabled={!product.inventory_count || price == null} onClick={() => add(product, quantity)}><ShoppingCart size={18} /> Add to cart</button></div>
               <div className="detail-assurances"><span><ShieldCheck /> Authenticity guaranteed</span><span><Truck /> Insured, signature-required shipping</span></div>
             </div>
           </div>
-          <div className="product-specs"><h2>Product specifications</h2><dl><div><dt>Metal</dt><dd>{product.metal}</dd></div><div><dt>Fine metal weight</dt><dd>{product.metal_weight_oz} troy oz</dd></div><div><dt>Type</dt><dd>{product.category}</dd></div><div><dt>Pricing</dt><dd>Live spot + premium</dd></div></dl></div>
+          <div className="product-specs"><h2>Product specifications</h2><dl><div><dt>Metal</dt><dd>{product.metal}</dd></div><div><dt>Pure metal weight</dt><dd>{product.metal_weight_oz} troy oz</dd></div><div><dt>Type</dt><dd>{product.category}</dd></div><div><dt>Pricing</dt><dd>{spotAdjustmentLabel(product.premium_percent)}</dd></div></dl></div>
         </div>
       </section>
     </>

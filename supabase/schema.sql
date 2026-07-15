@@ -35,7 +35,7 @@ create table public.products (
   price_mode text not null default 'dynamic' check (price_mode in ('dynamic', 'fixed', 'quote')),
   fixed_price numeric(14, 2) check (fixed_price is null or fixed_price >= 0),
   premium_fixed numeric(14, 2) not null default 0 check (premium_fixed >= 0),
-  premium_percent numeric(8, 4) not null default 0 check (premium_percent >= 0),
+  premium_percent numeric(8, 4) not null default 0 check (premium_percent between -99 and 99),
   inventory_count integer not null default 0 check (inventory_count >= 0),
   low_stock_threshold integer not null default 3 check (low_stock_threshold >= 0),
   is_active boolean not null default false,

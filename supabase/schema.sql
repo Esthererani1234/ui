@@ -47,6 +47,7 @@ create table public.products (
   is_featured boolean not null default false,
   badge text,
   image_url text,
+  image_urls text[] not null default '{}'::text[] check (cardinality(image_urls) <= 8),
   sort_order integer not null default 100,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

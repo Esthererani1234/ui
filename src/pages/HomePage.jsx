@@ -8,6 +8,7 @@ import ProductCard from "../components/ProductCard";
 export default function HomePage() {
   const [products, setProducts] = useState([]);
   const [spot, setSpot] = useState(null);
+  const [loadingProducts, setLoadingProducts] = useState(true);
   const receivePrices = useCallback((next) => setSpot(next), []);
 
   useEffect(() => {
@@ -18,7 +19,7 @@ export default function HomePage() {
       .eq("is_featured", true)
       .order("sort_order")
       .limit(4)
-      .then(({ data }) => setProducts(data || []));
+      .then(({ data }) => { setProducts(data || []); setLoadingProducts(false); });
   }, []);
 
   return (
@@ -64,7 +65,7 @@ export default function HomePage() {
       <section className="section featured-section">
         <div className="container">
           <div className="section-heading"><div><span className="eyebrow dark">THE BULLION DESK</span><h2>Featured products</h2><p>Live prices calculated from spot plus the displayed product premium.</p></div><Link to="/shop?featured=true">See best sellers →</Link></div>
-          {products.length ? <div className="product-grid">{products.map((product) => <ProductCard key={product.id} product={product} spot={spot} />)}</div> : <div className="catalog-loading">Loading today’s bullion selection…</div>}
+          {loadingProducts ? <div className="catalog-loading">Loading today’s bullion selection…</div> : products.length ? <div className="product-grid">{products.map((product) => <ProductCard key={product.id} product={product} spot={spot} />)}</div> : <div className="empty-state compact"><h3>Listings are being added</h3><p>Check back shortly for available bullion inventory.</p></div>}
         </div>
       </section>
 

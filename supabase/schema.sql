@@ -193,23 +193,24 @@ grant select, update on public.orders to authenticated;
 grant select on public.order_items, public.price_snapshots to authenticated;
 grant usage, select on all sequences in schema public to authenticated;
 
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('product-images', 'product-images', true, 5242880, array['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+on conflict (id) do update set public = excluded.public, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+
+create policy "admins upload product images" on storage.objects for insert to authenticated
+with check (bucket_id = 'product-images' and (select private.is_admin()));
+create policy "admins update product images" on storage.objects for update to authenticated
+using (bucket_id = 'product-images' and (select private.is_admin()))
+with check (bucket_id = 'product-images' and (select private.is_admin()));
+create policy "admins delete product images" on storage.objects for delete to authenticated
+using (bucket_id = 'product-images' and (select private.is_admin()));
+
 insert into public.app_settings (key, value, is_public) values
   ('shipping_flat', '35'::jsonb, true),
   ('free_shipping_threshold', '5000'::jsonb, true),
   ('card_surcharge_percent', '4'::jsonb, true),
   ('price_lock_minutes', '5'::jsonb, true)
 on conflict (key) do nothing;
-
-insert into public.products (slug, sku, name, short_description, description, metal, category, metal_weight_oz, premium_fixed, premium_percent, inventory_count, is_active, is_featured, badge, sort_order) values
-  ('2026-1-oz-american-gold-buffalo', 'GOLD-BUFFALO-1OZ-2026', '2026 1 oz American Gold Buffalo', 'America’s .9999 fine 24-karat sovereign gold coin.', 'The American Gold Buffalo contains one troy ounce of .9999 fine gold and is backed by the United States government for weight and purity.', 'gold', 'coin', 1, 125, 0, 12, true, true, 'FEATURED', 10),
-  ('1-oz-american-gold-eagle', 'GOLD-EAGLE-1OZ', '1 oz American Gold Eagle', 'The best-known American 22-karat bullion coin.', 'The one-ounce American Gold Eagle contains one full troy ounce of fine gold and is widely recognized in the United States bullion market.', 'gold', 'coin', 1, 115, 0, 18, true, true, 'BEST SELLER', 20),
-  ('1-oz-canadian-gold-maple-leaf', 'GOLD-MAPLE-1OZ', '1 oz Canadian Gold Maple Leaf', '.9999 fine gold from the Royal Canadian Mint.', 'A globally recognized sovereign bullion coin with advanced security features and one troy ounce of .9999 fine gold.', 'gold', 'coin', 1, 92, 0, 15, true, true, 'LOW PREMIUM', 30),
-  ('1-oz-gold-bar-assorted-mint', 'GOLD-BAR-1OZ', '1 oz Gold Bar — Assorted Mint', 'Investment-grade gold bar from an approved mint.', 'One troy ounce .9999 fine gold bar. Brand and assay packaging vary according to available inventory.', 'gold', 'bar', 1, 59, 0, 25, true, true, 'VALUE', 40),
-  ('10-gram-gold-bar', 'GOLD-BAR-10G', '10 gram Gold Bar', 'A compact .9999 fine gold bar in assay packaging.', 'Ten gram investment gold bar from an approved mint. Brand may vary with inventory.', 'gold', 'bar', 0.321507, 42, 0, 30, true, false, null, 50),
-  ('1-oz-american-silver-eagle', 'SILVER-EAGLE-1OZ', '1 oz American Silver Eagle', 'The official one-ounce silver bullion coin of the United States.', 'One troy ounce of fine silver in the United States Mint’s most recognized bullion format.', 'silver', 'coin', 1, 8.5, 0, 80, true, false, 'POPULAR', 60),
-  ('10-oz-silver-bar', 'SILVER-BAR-10OZ', '10 oz Silver Bar — Assorted Mint', 'A stacker-friendly ten-ounce .999 fine silver bar.', 'Ten troy ounces of .999 fine silver from an approved refiner. Brand and design vary.', 'silver', 'bar', 10, 34, 0, 45, true, false, 'STACKER PICK', 70),
-  ('1-oz-platinum-bar', 'PLATINUM-BAR-1OZ', '1 oz Platinum Bar', 'One troy ounce of investment-grade platinum.', 'One troy ounce platinum bar in assay packaging from an approved mint or refiner.', 'platinum', 'bar', 1, 105, 0, 8, true, false, 'LIMITED', 80)
-on conflict (sku) do nothing;
 
 create or replace function public.create_order(
   p_user_id uuid,

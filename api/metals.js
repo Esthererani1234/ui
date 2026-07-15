@@ -84,8 +84,7 @@ async function fetchMetal(symbol) {
       const payload = await fetchJson(url);
       return {
         price: readPrice(payload),
-        timestamp: readTimestamp(payload),
-        endpoint: url
+        timestamp: readTimestamp(payload)
       };
     } catch (error) {
       errors.push(`${url}: ${error?.message || String(error)}`);
@@ -116,12 +115,10 @@ export default async function handler(request) {
     );
 
     const metals = {};
-    const endpoints = {};
     const timestamps = [];
 
     for (const [name, result] of entries) {
       metals[name] = result.price;
-      endpoints[name] = result.endpoint;
       if (result.timestamp) timestamps.push(result.timestamp);
     }
 
@@ -132,14 +129,12 @@ export default async function handler(request) {
       unit: "troy_ounce",
       timestamp: timestamps[0] || new Date().toISOString(),
       source: "Gold-API.com via Vercel Edge",
-      refreshSeconds: 30,
-      endpoints
+      refreshSeconds: 30
     });
   } catch (error) {
     return json({
       ok: false,
-      error: "Unable to retrieve live precious-metal prices.",
-      detail: error?.message || String(error)
+      error: "Unable to retrieve live precious-metal prices."
     }, 502, { "cache-control": "no-store" });
   }
 }

@@ -11,13 +11,14 @@ export default function ProductPage() {
   const { add } = useCart();
   const [product, setProduct] = useState(null);
   const [spot, setSpot] = useState(null);
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState("1");
   const [selectedImage, setSelectedImage] = useState("");
   const receivePrices = useCallback((next) => setSpot(next), []);
 
   useEffect(() => {
     setProduct(null);
     setSelectedImage("");
+    setQuantity("1");
     supabase
       .from("products")
       .select("*")
@@ -55,6 +56,27 @@ export default function ProductPage() {
     ),
   ];
   const activeImage = selectedImage || gallery[0];
+  const inventoryCount = Math.max(0, Number(product.inventory_count) || 0);
+  const parsedQuantity = Number(quantity);
+  const quantityIsWholeNumber = Number.isInteger(parsedQuantity);
+  const quantityIsValid =
+    quantity !== "" &&
+    quantityIsWholeNumber &&
+    parsedQuantity >= 1 &&
+    parsedQuantity <= inventoryCount;
+  const quantityError =
+    inventoryCount > 0 &&
+    quantity !== "" &&
+    quantityIsWholeNumber &&
+    parsedQuantity > inventoryCount
+      ? `Only ${inventoryCount} available.`
+      : quantity !== "" && (!quantityIsWholeNumber || parsedQuantity < 1)
+        ? "Enter a quantity of at least 1."
+        : "";
+
+  const changeQuantity = (value) => {
+    if (value === "" || /^\d+$/.test(value)) setQuantity(value);
+  };
 
   return (
     <>
@@ -128,23 +150,42 @@ export default function ProductPage() {
                   }
                 >
                   {product.inventory_count > 0
-                    ? `In stock — ${product.inventory_count} available`
+                    ? "In stock"
                     : "Out of stock"}
                 </b>
               </div>
               <div className="buy-row">
                 <div className="quantity">
                   <button
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    type="button"
+                    aria-label="Decrease quantity"
+                    disabled={parsedQuantity <= 1}
+                    onClick={() =>
+                      setQuantity(String(Math.max(1, parsedQuantity - 1)))
+                    }
                   >
                     <Minus size={16} />
                   </button>
-                  <span>{quantity}</span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    inputMode="numeric"
+                    aria-label={`${product.name} quantity`}
+                    aria-invalid={Boolean(quantityError)}
+                    aria-describedby={quantityError ? "quantity-error" : undefined}
+                    value={quantity}
+                    onChange={(event) => changeQuantity(event.target.value)}
+                    onBlur={() => {
+                      if (quantity === "") setQuantity("1");
+                    }}
+                  />
                   <button
+                    type="button"
+                    aria-label="Increase quantity"
+                    disabled={parsedQuantity >= inventoryCount}
                     onClick={() =>
-                      setQuantity(
-                        Math.min(product.inventory_count, quantity + 1),
-                      )
+                      setQuantity(String(Math.min(inventoryCount, parsedQuantity + 1)))
                     }
                   >
                     <Plus size={16} />
@@ -152,12 +193,17 @@ export default function ProductPage() {
                 </div>
                 <button
                   className="button button-gold grow"
-                  disabled={!product.inventory_count || price == null}
-                  onClick={() => add(product, quantity)}
+                  disabled={!product.inventory_count || price == null || !quantityIsValid}
+                  onClick={() => add(product, parsedQuantity)}
                 >
                   <ShoppingCart size={18} /> Add to cart
                 </button>
               </div>
+              {quantityError && (
+                <p className="quantity-error" id="quantity-error" role="alert">
+                  {quantityError}
+                </p>
+              )}
               <div className="detail-assurances">
                 <span>
                   <ShieldCheck /> Authenticity guaranteed

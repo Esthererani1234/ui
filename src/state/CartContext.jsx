@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 const CartContext = createContext(null);
 const STORAGE_KEY = "gots-cart-v1";
-const cleanCart = (value) => Array.isArray(value) ? value.filter((item) => item && Number.isInteger(Number(item?.product?.id)) && Number(item?.quantity) > 0).map((item) => ({ product: item.product, quantity: Math.min(99, Math.max(1, Math.floor(Number(item.quantity)))) })) : [];
+const cleanCart = (value) => Array.isArray(value) ? value.filter((item) => item && Number.isInteger(Number(item?.product?.id)) && Number(item?.quantity) > 0).map((item) => ({ product: item.product, quantity: Math.min(Math.max(1, Math.floor(Number(item.product.inventory_count) || 1)), Math.max(1, Math.floor(Number(item.quantity)))) })) : [];
 
 export function CartProvider({ children }) {
   const [items, setItems] = useState(() => {

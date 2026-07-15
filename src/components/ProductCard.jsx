@@ -36,9 +36,7 @@ export default function ProductCard({ product, spot }) {
           <span
             className={product.inventory_count > 0 ? "stock in" : "stock out"}
           >
-            {product.inventory_count > 0
-              ? `${product.inventory_count} available`
-              : "Out of stock"}
+            {product.inventory_count > 0 ? "In stock" : "Out of stock"}
           </span>
         </div>
         <button

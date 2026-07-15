@@ -73,6 +73,15 @@ create table public.orders (
   updated_at timestamptz not null default now()
 );
 
+create table private.checkout_rate_limits (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  minute_started_at timestamptz not null default now(),
+  minute_count integer not null default 1,
+  day_started_at timestamptz not null default now(),
+  day_count integer not null default 1,
+  updated_at timestamptz not null default now()
+);
+
 create table public.order_items (
   id bigint generated always as identity primary key,
   order_id bigint not null references public.orders(id) on delete cascade,
@@ -144,11 +153,40 @@ security definer
 set search_path = ''
 as $$
   select (select auth.uid()) is not null
+    and (
+      not exists (
+        select 1 from auth.mfa_factors
+        where user_id = (select auth.uid()) and status = 'verified'
+      )
+      or coalesce((select auth.jwt() ->> 'aal'), '') = 'aal2'
+    )
     and exists (select 1 from public.admin_users where user_id = (select auth.uid()));
 $$;
 
 revoke all on function private.is_admin() from public, anon;
 grant execute on function private.is_admin() to authenticated;
+
+create or replace function private.enforce_order_rate_limit()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(new.user_id::text, 0));
+  if (select count(*) from public.orders where user_id = new.user_id and created_at > now() - interval '1 minute') >= 3 then
+    raise exception 'Too many checkout attempts. Please wait a minute and try again.';
+  end if;
+  if (select count(*) from public.orders where user_id = new.user_id and created_at > now() - interval '24 hours') >= 20 then
+    raise exception 'The daily checkout limit was reached. Please contact support if you need help.';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger orders_enforce_rate_limit
+before insert on public.orders
+for each row execute function private.enforce_order_rate_limit();
 
 alter table public.profiles enable row level security;
 alter table public.admin_users enable row level security;
@@ -189,7 +227,13 @@ grant select on public.products, public.app_settings to anon, authenticated;
 grant select, update on public.profiles to authenticated;
 grant select on public.admin_users to authenticated;
 grant insert, update, delete on public.products, public.app_settings to authenticated;
-grant select, update on public.orders to authenticated;
+grant update on public.orders to authenticated;
+grant select (
+  id, order_number, user_id, first_name, last_name, email, phone, status, payment_status,
+  payment_method, subtotal, payment_surcharge, shipping_amount, insurance_amount, total,
+  spot_snapshot, price_locked_until, shipping_address, customer_notes, tracking_number,
+  created_at, updated_at
+) on public.orders to authenticated;
 grant select on public.order_items, public.price_snapshots to authenticated;
 grant usage, select on all sequences in schema public to authenticated;
 
@@ -211,6 +255,49 @@ insert into public.app_settings (key, value, is_public) values
   ('card_surcharge_percent', '4'::jsonb, true),
   ('price_lock_minutes', '5'::jsonb, true)
 on conflict (key) do nothing;
+
+create or replace function public.check_checkout_rate_limit(p_user_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_minute_count integer;
+  v_day_count integer;
+begin
+  if p_user_id is null or not exists (select 1 from auth.users where id = p_user_id) then
+    return false;
+  end if;
+
+  insert into private.checkout_rate_limits (user_id)
+  values (p_user_id)
+  on conflict (user_id) do update set
+    minute_started_at = case
+      when private.checkout_rate_limits.minute_started_at <= now() - interval '1 minute' then now()
+      else private.checkout_rate_limits.minute_started_at
+    end,
+    minute_count = case
+      when private.checkout_rate_limits.minute_started_at <= now() - interval '1 minute' then 1
+      else private.checkout_rate_limits.minute_count + 1
+    end,
+    day_started_at = case
+      when private.checkout_rate_limits.day_started_at <= now() - interval '24 hours' then now()
+      else private.checkout_rate_limits.day_started_at
+    end,
+    day_count = case
+      when private.checkout_rate_limits.day_started_at <= now() - interval '24 hours' then 1
+      else private.checkout_rate_limits.day_count + 1
+    end,
+    updated_at = now()
+  returning minute_count, day_count into v_minute_count, v_day_count;
+
+  return v_minute_count <= 5 and v_day_count <= 50;
+end;
+$$;
+
+revoke all on function public.check_checkout_rate_limit(uuid) from public, anon, authenticated;
+grant execute on function public.check_checkout_rate_limit(uuid) to service_role;
 
 create or replace function public.create_order(
   p_user_id uuid,

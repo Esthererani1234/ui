@@ -5,14 +5,16 @@ const allowedOrigins = new Set([
   "https://goldonthespot.com",
   "https://www.goldonthespot.com",
   "https://ui-plum-alpha.vercel.app",
+  "https://ui-git-agent-goldonthespot-store-esther-eranis-projects.vercel.app",
   "http://localhost:5173",
 ]);
 
+const isAllowedOrigin = (request: Request) => allowedOrigins.has(request.headers.get("origin") || "");
+
 const corsHeaders = (request: Request) => {
   const origin = request.headers.get("origin") || "";
-  const allowed = allowedOrigins.has(origin) || origin.endsWith(".vercel.app");
   return {
-    "access-control-allow-origin": allowed ? origin : "https://goldonthespot.com",
+    ...(allowedOrigins.has(origin) ? { "access-control-allow-origin": origin } : {}),
     "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
     "access-control-allow-methods": "POST, OPTIONS",
     "vary": "Origin",
@@ -51,8 +53,18 @@ async function fetchSpot() {
 }
 
 Deno.serve(async (request: Request) => {
-  if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders(request) });
+  if (request.method === "OPTIONS") {
+    if (!isAllowedOrigin(request)) return new Response("Forbidden", { status: 403, headers: { "cache-control": "no-store" } });
+    return new Response("ok", { headers: corsHeaders(request) });
+  }
   if (request.method !== "POST") return json(request, { error: "Method not allowed" }, 405);
+  if (!isAllowedOrigin(request)) return json(request, { error: "Origin not allowed" }, 403);
+
+  const contentLength = Number(request.headers.get("content-length") || 0);
+  if (contentLength > 50_000) return json(request, { error: "Checkout request is too large." }, 413);
+  if (!(request.headers.get("content-type") || "").toLowerCase().startsWith("application/json")) {
+    return json(request, { error: "Content-Type must be application/json." }, 415);
+  }
 
   try {
     const authHeader = request.headers.get("authorization");
@@ -68,7 +80,24 @@ Deno.serve(async (request: Request) => {
     const { data: { user }, error: userError } = await userClient.auth.getUser(token);
     if (userError || !user) return json(request, { error: "Your session expired. Please sign in again." }, 401);
 
-    const body = await request.json();
+    const rawBody = await request.text();
+    if (new TextEncoder().encode(rawBody).byteLength > 50_000) return json(request, { error: "Checkout request is too large." }, 413);
+    let body: Record<string, unknown>;
+    try {
+      const parsed: unknown = JSON.parse(rawBody);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return json(request, { error: "Checkout request must be a JSON object." }, 400);
+      }
+      body = parsed as Record<string, unknown>;
+    } catch {
+      return json(request, { error: "Checkout request must be valid JSON." }, 400);
+    }
+
+    const admin = createClient(supabaseUrl, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data: withinLimit, error: limitError } = await admin.rpc("check_checkout_rate_limit", { p_user_id: user.id });
+    if (limitError) throw limitError;
+    if (!withinLimit) return json(request, { error: "Too many checkout attempts. Please wait and try again." }, 429);
+
     if (!Array.isArray(body.cart) || body.cart.length < 1 || body.cart.length > 25) return json(request, { error: "Your cart is invalid." }, 400);
     const cart = body.cart.map((item: { product_id?: unknown; quantity?: unknown }) => ({
       product_id: Number(item.product_id),
@@ -79,7 +108,6 @@ Deno.serve(async (request: Request) => {
     }
 
     const spot = await fetchSpot();
-    const admin = createClient(supabaseUrl, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data, error } = await admin.rpc("create_order", {
       p_user_id: user.id,
       p_contact: body.contact || {},
@@ -101,6 +129,6 @@ Deno.serve(async (request: Request) => {
     return json(request, data, 201);
   } catch (error) {
     console.error("checkout error", error);
-    return json(request, { error: error instanceof Error ? error.message : "Checkout is temporarily unavailable." }, 500);
+    return json(request, { error: "Checkout is temporarily unavailable. Please try again." }, 500);
   }
 });

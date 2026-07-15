@@ -5,6 +5,8 @@ import { supabase } from "../lib/supabase";
 import { money, orderStatusLabel } from "../lib/pricing";
 import { useAuth } from "../state/AuthContext";
 
+const orderFields = "id, order_number, user_id, first_name, last_name, email, phone, status, payment_status, payment_method, subtotal, payment_surcharge, shipping_amount, insurance_amount, total, spot_snapshot, price_locked_until, shipping_address, customer_notes, tracking_number, created_at, updated_at, order_items(*)";
+
 export default function AccountPage() {
   const { user, profile, isAdmin, signOut, refreshProfile } = useAuth();
   const [params] = useSearchParams();
@@ -16,7 +18,7 @@ export default function AccountPage() {
   const highlightedOrder = params.get("order");
 
   useEffect(() => {
-    supabase.from("orders").select("*, order_items(*)").order("created_at", { ascending: false }).then(({ data }) => setOrders(data || []));
+    supabase.from("orders").select(orderFields).order("created_at", { ascending: false }).then(({ data }) => setOrders(data || []));
   }, []);
 
   const saveProfile = async (event) => {

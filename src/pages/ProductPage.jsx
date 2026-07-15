@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Minus, Plus, ShieldCheck, ShoppingCart, Truck } from "lucide-react";
+import { Check, Minus, Plus, ShieldCheck, ShoppingCart, Truck } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { metalSymbol, money, productPrice } from "../lib/pricing";
 import { useCart } from "../state/CartContext";
@@ -8,7 +8,7 @@ import MarketTicker from "../components/MarketTicker";
 
 export default function ProductPage() {
   const { slug } = useParams();
-  const { add } = useCart();
+  const { add, items, lastAdded } = useCart();
   const [product, setProduct] = useState(null);
   const [spot, setSpot] = useState(null);
   const [quantity, setQuantity] = useState("1");
@@ -57,19 +57,27 @@ export default function ProductPage() {
   ];
   const activeImage = selectedImage || gallery[0];
   const inventoryCount = Math.max(0, Number(product.inventory_count) || 0);
+  const cartQuantity =
+    items.find((item) => item.product.id === product.id)?.quantity || 0;
+  const remainingInventory = Math.max(0, inventoryCount - cartQuantity);
+  const isAtLimit = inventoryCount > 0 && remainingInventory < 1;
+  const wasJustAdded = lastAdded?.productId === product.id;
   const parsedQuantity = Number(quantity);
   const quantityIsWholeNumber = Number.isInteger(parsedQuantity);
   const quantityIsValid =
     quantity !== "" &&
     quantityIsWholeNumber &&
     parsedQuantity >= 1 &&
-    parsedQuantity <= inventoryCount;
+    parsedQuantity <= remainingInventory;
   const quantityError =
     inventoryCount > 0 &&
+    remainingInventory > 0 &&
     quantity !== "" &&
     quantityIsWholeNumber &&
-    parsedQuantity > inventoryCount
-      ? `Only ${inventoryCount} available.`
+    parsedQuantity > remainingInventory
+      ? cartQuantity > 0
+        ? `${cartQuantity} already in your cart. Only ${inventoryCount} available total.`
+        : `Only ${inventoryCount} available.`
       : quantity !== "" && (!quantityIsWholeNumber || parsedQuantity < 1)
         ? "Enter a quantity of at least 1."
         : "";
@@ -183,22 +191,38 @@ export default function ProductPage() {
                   <button
                     type="button"
                     aria-label="Increase quantity"
-                    disabled={parsedQuantity >= inventoryCount}
+                    disabled={parsedQuantity >= remainingInventory}
                     onClick={() =>
-                      setQuantity(String(Math.min(inventoryCount, parsedQuantity + 1)))
+                      setQuantity(
+                        String(Math.min(remainingInventory, parsedQuantity + 1)),
+                      )
                     }
                   >
                     <Plus size={16} />
                   </button>
                 </div>
                 <button
-                  className="button button-gold grow"
-                  disabled={!product.inventory_count || price == null || !quantityIsValid}
+                  className={`button button-gold grow${wasJustAdded ? " added" : ""}`}
+                  disabled={
+                    !product.inventory_count ||
+                    price == null ||
+                    !quantityIsValid ||
+                    isAtLimit
+                  }
                   onClick={() => add(product, parsedQuantity)}
                 >
-                  <ShoppingCart size={18} /> Add to cart
+                  {wasJustAdded ? (
+                    <><Check size={18} /> Added to cart</>
+                  ) : isAtLimit ? (
+                    <><Check size={18} /> Maximum in cart</>
+                  ) : (
+                    <><ShoppingCart size={18} /> Add to cart</>
+                  )}
                 </button>
               </div>
+              {isAtLimit && inventoryCount > 0 && !wasJustAdded && (
+                <p className="quantity-note">All available units are already in your cart.</p>
+              )}
               {quantityError && (
                 <p className="quantity-error" id="quantity-error" role="alert">
                   {quantityError}

@@ -1,12 +1,17 @@
 import { Link } from "react-router-dom";
-import { ShoppingCart } from "lucide-react";
+import { Check, ShoppingCart } from "lucide-react";
 import { metalSymbol, money, productPrice } from "../lib/pricing";
 import { useCart } from "../state/CartContext";
 
 export default function ProductCard({ product, spot }) {
-  const { add } = useCart();
+  const { add, items, lastAdded } = useCart();
   const price = productPrice(product, spot);
   const mainImage = product.image_url || product.image_urls?.[0];
+  const cartQuantity =
+    items.find((item) => item.product.id === product.id)?.quantity || 0;
+  const inventoryCount = Math.max(0, Number(product.inventory_count) || 0);
+  const isAtLimit = inventoryCount > 0 && cartQuantity >= inventoryCount;
+  const wasJustAdded = lastAdded?.productId === product.id;
   return (
     <article className="product-card">
       {product.badge && <span className="product-badge">{product.badge}</span>}
@@ -40,11 +45,17 @@ export default function ProductCard({ product, spot }) {
           </span>
         </div>
         <button
-          className="add-button"
-          disabled={!product.inventory_count || price == null}
+          className={`add-button${wasJustAdded ? " added" : ""}`}
+          disabled={!product.inventory_count || price == null || isAtLimit}
           onClick={() => add(product)}
         >
-          <ShoppingCart size={17} /> Add to cart
+          {wasJustAdded ? (
+            <><Check size={17} /> Added to cart</>
+          ) : isAtLimit ? (
+            <><Check size={17} /> Maximum in cart</>
+          ) : (
+            <><ShoppingCart size={17} /> Add to cart</>
+          )}
         </button>
       </div>
     </article>

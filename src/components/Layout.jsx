@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Menu, Search, ShieldCheck, ShoppingCart, User, X } from "lucide-react";
+import { CheckCircle2, Menu, Search, ShieldCheck, ShoppingCart, User, X } from "lucide-react";
 import { useCart } from "../state/CartContext";
 import { useAuth } from "../state/AuthContext";
 import SupportAssistant from "./SupportAssistant";
@@ -15,7 +15,7 @@ function Logo() {
 }
 
 export default function Layout() {
-  const { count } = useCart();
+  const { count, lastAdded, clearLastAdded } = useCart();
   const { user, isAdmin } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -23,6 +23,11 @@ export default function Layout() {
   const navigate = useNavigate();
 
   useEffect(() => { setMenuOpen(false); window.scrollTo({ top: 0, behavior: "auto" }); }, [location.pathname]);
+  useEffect(() => {
+    if (!lastAdded) return undefined;
+    const timer = window.setTimeout(clearLastAdded, 2800);
+    return () => window.clearTimeout(timer);
+  }, [lastAdded]);
   useEffect(() => {
     const titles = { "/": "GoldOnTheSpot | Precious Metals, Right Now", "/shop": "Shop Live-Priced Bullion | GoldOnTheSpot", "/cart": "Shopping Cart | GoldOnTheSpot", "/checkout": "Secure Checkout | GoldOnTheSpot", "/login": "Customer Sign In | GoldOnTheSpot", "/account": "Your Account | GoldOnTheSpot", "/support": "Customer Support | GoldOnTheSpot", "/shipping": "Shipping & Insurance | GoldOnTheSpot", "/terms": "Terms of Purchase | GoldOnTheSpot", "/privacy": "Privacy Policy | GoldOnTheSpot", "/about": "About GoldOnTheSpot" };
     document.title = location.pathname.startsWith("/product/") ? "Bullion Product | GoldOnTheSpot" : titles[location.pathname] || "GoldOnTheSpot";
@@ -53,7 +58,7 @@ export default function Layout() {
           </form>
           <div className="header-actions">
             <Link className="header-action" to={user ? "/account" : "/login"}><User size={22} /><span>{user ? "Account" : "Sign in"}</span></Link>
-            <Link className="header-action cart-link" to="/cart"><ShoppingCart size={22} /><span>Cart</span>{count > 0 && <b>{count}</b>}</Link>
+            <Link className={`header-action cart-link${lastAdded ? " cart-bump" : ""}`} to="/cart"><ShoppingCart size={22} /><span>Cart</span>{count > 0 && <b>{count}</b>}</Link>
             <button type="button" className="menu-button" onClick={() => setMenuOpen((open) => !open)} aria-label="Toggle menu" aria-expanded={menuOpen}>{menuOpen ? <X /> : <Menu />}</button>
           </div>
         </div>
@@ -72,6 +77,19 @@ export default function Layout() {
           </div>
         </nav>
       </header>
+      {lastAdded && (
+        <div className="cart-toast" key={lastAdded.id} role="status" aria-live="polite">
+          <CheckCircle2 />
+          <span>
+            <b>Added to cart</b>
+            <small>
+              {lastAdded.quantity > 1 ? `${lastAdded.quantity} × ` : ""}
+              {lastAdded.productName}
+            </small>
+          </span>
+          <Link to="/cart" onClick={clearLastAdded}>View cart</Link>
+        </div>
+      )}
       <main id="main-content"><Outlet /></main>
       <footer className="site-footer">
         <div className="container footer-grid">

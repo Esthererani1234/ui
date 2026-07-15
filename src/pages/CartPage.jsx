@@ -7,6 +7,74 @@ import { supabase } from "../lib/supabase";
 import { useCart } from "../state/CartContext";
 import { useAuth } from "../state/AuthContext";
 
+function CartQuantityControl({ product, quantity, onUpdate }) {
+  const [draft, setDraft] = useState(String(quantity));
+  const inventory = Math.max(0, Number(product.inventory_count) || 0);
+  const parsed = Number(draft);
+  const isWholeNumber = Number.isInteger(parsed);
+  const isValid =
+    draft !== "" && isWholeNumber && parsed >= 1 && parsed <= inventory;
+  const error =
+    draft !== "" && isWholeNumber && parsed > inventory
+      ? `Only ${inventory} available.`
+      : draft !== "" && (!isWholeNumber || parsed < 1)
+        ? "Enter at least 1."
+        : "";
+  const errorId = `cart-quantity-error-${product.id}`;
+
+  useEffect(() => setDraft(String(quantity)), [quantity]);
+
+  const change = (value) => {
+    if (value !== "" && !/^\d+$/.test(value)) return;
+    setDraft(value);
+    const next = Number(value);
+    if (value !== "" && Number.isInteger(next) && next >= 1 && next <= inventory)
+      onUpdate(product.id, next);
+  };
+
+  return (
+    <div className="cart-quantity-control">
+      <div className="quantity">
+        <button
+          type="button"
+          disabled={quantity <= 1}
+          onClick={() => onUpdate(product.id, quantity - 1)}
+          aria-label={`Decrease ${product.name} quantity`}
+        >
+          <Minus />
+        </button>
+        <input
+          type="number"
+          min="1"
+          step="1"
+          inputMode="numeric"
+          value={draft}
+          aria-label={`${product.name} quantity`}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? errorId : undefined}
+          onChange={(event) => change(event.target.value)}
+          onBlur={() => {
+            if (!isValid) setDraft(String(quantity));
+          }}
+        />
+        <button
+          type="button"
+          disabled={quantity >= inventory}
+          onClick={() => onUpdate(product.id, quantity + 1)}
+          aria-label={`Increase ${product.name} quantity`}
+        >
+          <Plus />
+        </button>
+      </div>
+      {error && (
+        <small className="quantity-error" id={errorId} role="alert">
+          {error}
+        </small>
+      )}
+    </div>
+  );
+}
+
 export default function CartPage() {
   const { items, update, remove, reconcileProducts } = useCart();
   const { user } = useAuth();
@@ -41,7 +109,7 @@ export default function CartPage() {
         <div className="section-heading"><div><span className="eyebrow dark">YOUR ORDER</span><h1>Shopping cart</h1></div><Link to="/shop">Continue shopping →</Link></div>
         {cartNotice && <div className="form-message">{cartNotice}</div>}
         {!items.length ? <div className="empty-state"><h2>Your cart is empty</h2><p>Explore live-priced coins and bars to begin your order.</p><Link className="button button-dark" to="/shop">Shop bullion</Link></div> : <div className="cart-layout">
-          <div className="cart-items">{items.map(({ product, quantity }) => { const price = productPrice(product, spot); return <article className="cart-item" key={product.id}><div className={`cart-thumb ${product.metal}`}>{metalSymbol(product.metal)}</div><div className="cart-item-copy"><span className="product-kicker">{product.metal} • {product.category}</span><Link to={`/product/${product.slug}`}><h3>{product.name}</h3></Link><small>{price == null ? "Updating live price…" : `${money(price)} each`}</small></div><div className="quantity"><button type="button" onClick={() => update(product.id, quantity - 1)} aria-label={`Decrease ${product.name} quantity`}><Minus /></button><span>{quantity}</span><button type="button" disabled={quantity >= product.inventory_count} onClick={() => update(product.id, quantity + 1)} aria-label={`Increase ${product.name} quantity`}><Plus /></button></div><strong className="line-total">{price == null ? "—" : money(price * quantity)}</strong><button type="button" className="icon-button" onClick={() => remove(product.id)} aria-label={`Remove ${product.name}`}><Trash2 /></button></article>; })}</div>
+          <div className="cart-items">{items.map(({ product, quantity }) => { const price = productPrice(product, spot); return <article className="cart-item" key={product.id}><div className={`cart-thumb ${product.metal}`}>{metalSymbol(product.metal)}</div><div className="cart-item-copy"><span className="product-kicker">{product.metal} • {product.category}</span><Link to={`/product/${product.slug}`}><h3>{product.name}</h3></Link><small>{price == null ? "Updating live price…" : `${money(price)} each`}</small></div><CartQuantityControl product={product} quantity={quantity} onUpdate={update} /><strong className="line-total">{price == null ? "—" : money(price * quantity)}</strong><button type="button" className="icon-button" onClick={() => remove(product.id)} aria-label={`Remove ${product.name}`}><Trash2 /></button></article>; })}</div>
           <aside className="order-summary"><h2>Order summary</h2><div><span>Live-priced subtotal</span><b>{spot ? money(subtotal) : "Loading…"}</b></div><div><span>Insured shipping</span><b>{shipping ? money(shipping) : "Free"}</b></div><div className="summary-total"><span>Estimated total</span><strong>{spot ? money(subtotal + shipping) : "—"}</strong></div><p><ShieldCheck /> Prices and inventory are securely rechecked when you place the order.</p>{spot ? <Link className="button button-gold full" to={user ? "/checkout" : "/login?return=/checkout"}>{user ? "Secure checkout" : "Sign in to checkout"}</Link> : <button className="button button-gold full" disabled>Loading live prices…</button>}<small className="summary-note">Card invoice requests include a {settings.card_surcharge_percent}% processing surcharge. Wire, ACH, and check do not.</small></aside>
         </div>}
       </div></section>

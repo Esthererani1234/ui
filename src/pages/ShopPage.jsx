@@ -41,7 +41,7 @@ export default function ShopPage() {
   return (
     <>
       <div className="page-only-ticker"><MarketTicker onPrices={receivePrices} /></div>
-      <section className="shop-hero"><div className="container"><span className="eyebrow">LIVE-PRICED BULLION</span><h1>Shop precious metals</h1><p>Investment-grade products with inventory, premiums, and pricing shown clearly.</p></div></section>
+      <section className="shop-hero"><div className="container"><span className="eyebrow">LIVE-PRICED BULLION</span><h1>Shop precious metals</h1><p>Investment-grade products with current inventory and live market pricing.</p></div></section>
       <section className="section shop-section">
         <div className="container shop-layout">
           <aside className="filters">

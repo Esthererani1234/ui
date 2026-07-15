@@ -5,7 +5,7 @@ export const supportFaqs = [
     id: "live-pricing",
     category: "Pricing",
     question: "How are product prices calculated?",
-    answer: "Eligible products follow the selected metal's live USD spot price. The site multiplies spot by the product's pure troy-ounce weight, then applies the listed percentage above or below spot. Checkout independently recalculates the price before creating the order.",
+    answer: "Eligible product prices move with the selected metal's live USD market price and the listing's saved pricing settings. Checkout independently recalculates the price before creating the order.",
     keywords: ["price", "pricing", "spot", "premium", "percent", "live", "below", "above"],
     links: [{ label: "View live-priced products", to: "/shop" }],
   },
@@ -53,7 +53,7 @@ export const supportFaqs = [
     id: "authenticity",
     category: "Products",
     question: "How do I understand a product listing?",
-    answer: "Each listing shows its metal, product type, pure-metal weight, live spot adjustment, inventory, and description. The pure-metal weight—not total package weight—is used for live pricing.",
+    answer: "Each listing shows its metal, product type, pure-metal weight, current selling price, inventory, and description. The pure-metal weight is different from the total package weight.",
     keywords: ["authentic", "purity", "pure", "weight", "ounce", "oz", "coin", "bar", "listing"],
     links: [{ label: "Browse the catalog", to: "/shop" }],
   },
@@ -93,7 +93,7 @@ export function getLocalSupportAnswer(message, { products = [], spot = null, sig
   if ((tokens.has("price") || tokens.has("prices") || tokens.has("spot") || tokens.has("worth") || tokens.has("today") || tokens.has("current") || tokens.has("live")) && spot) {
     if (mentionedMetal && Number(spot[mentionedMetal]) > 0) {
       return {
-        text: `Current ${mentionedMetal} spot from the site's live feed is ${money(spot[mentionedMetal])} per troy ounce. Product prices then apply pure weight and the listing's percentage above or below spot.`,
+        text: `Current ${mentionedMetal} spot from the site's live feed is ${money(spot[mentionedMetal])} per troy ounce. Product selling prices use current market data and each listing's saved pricing settings.`,
         links: [{ label: `Shop ${mentionedMetal}`, to: `/shop?metal=${mentionedMetal}` }],
       };
     }

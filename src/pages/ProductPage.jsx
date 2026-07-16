@@ -1,10 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Check, Minus, Plus, ShieldCheck, ShoppingCart, Truck } from "lucide-react";
+import {
+  Check,
+  CheckCircle2,
+  Minus,
+  Plus,
+  ShieldCheck,
+  ShoppingCart,
+  Truck,
+} from "lucide-react";
 import { supabase } from "../lib/supabase";
-import { metalSymbol, money, productPrice } from "../lib/pricing";
+import { money, productPrice } from "../lib/pricing";
 import { useCart } from "../state/CartContext";
 import MarketTicker from "../components/MarketTicker";
+import ProductGallery from "../components/ProductGallery";
 
 export default function ProductPage() {
   const { slug } = useParams();
@@ -12,12 +21,10 @@ export default function ProductPage() {
   const [product, setProduct] = useState(null);
   const [spot, setSpot] = useState(null);
   const [quantity, setQuantity] = useState("1");
-  const [selectedImage, setSelectedImage] = useState("");
   const receivePrices = useCallback((next) => setSpot(next), []);
 
   useEffect(() => {
     setProduct(null);
-    setSelectedImage("");
     setQuantity("1");
     supabase
       .from("products")
@@ -25,17 +32,7 @@ export default function ProductPage() {
       .eq("slug", slug)
       .eq("is_active", true)
       .single()
-      .then(({ data }) => {
-        setProduct(data || false);
-        if (data) {
-          const gallery = [
-            ...new Set(
-              [data.image_url, ...(data.image_urls || [])].filter(Boolean),
-            ),
-          ];
-          setSelectedImage(gallery[0] || "");
-        }
-      });
+      .then(({ data }) => setProduct(data || false));
   }, [slug]);
 
   if (product === false)
@@ -55,7 +52,9 @@ export default function ProductPage() {
       [product.image_url, ...(product.image_urls || [])].filter(Boolean),
     ),
   ];
-  const activeImage = selectedImage || gallery[0];
+  const features = Array.isArray(product.features)
+    ? product.features.filter(Boolean).slice(0, 12)
+    : [];
   const inventoryCount = Math.max(0, Number(product.inventory_count) || 0);
   const cartQuantity =
     items.find((item) => item.product.id === product.id)?.quantity || 0;
@@ -101,40 +100,7 @@ export default function ProductPage() {
             <b>{product.name}</b>
           </div>
           <div className="product-detail-grid">
-            <div className="product-gallery">
-              <div className="detail-image">
-                {activeImage ? (
-                  <img src={activeImage} alt={product.name} />
-                ) : (
-                  <div
-                    className={`bullion-art hero-product ${product.metal} ${product.category}`}
-                  >
-                    <span>{metalSymbol(product.metal)}</span>
-                    <b>{product.name}</b>
-                    <small>{product.metal_weight_oz} TROY OZ</small>
-                  </div>
-                )}
-              </div>
-              {gallery.length > 1 && (
-                <div
-                  className="product-gallery-thumbnails"
-                  aria-label="Product pictures"
-                >
-                  {gallery.map((url, index) => (
-                    <button
-                      type="button"
-                      key={url}
-                      className={url === activeImage ? "active" : ""}
-                      onClick={() => setSelectedImage(url)}
-                      aria-label={`View product picture ${index + 1}`}
-                      aria-pressed={url === activeImage}
-                    >
-                      <img src={url} alt="" />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <ProductGallery product={product} images={gallery} />
             <div className="detail-copy">
               <span className="product-kicker">
                 {product.metal} • {product.category} • SKU {product.sku}
@@ -238,22 +204,42 @@ export default function ProductPage() {
               </div>
             </div>
           </div>
-          <div className="product-specs">
-            <h2>Product specifications</h2>
-            <dl>
-              <div>
-                <dt>Metal</dt>
-                <dd>{product.metal}</dd>
-              </div>
-              <div>
-                <dt>Pure metal weight</dt>
-                <dd>{product.metal_weight_oz} troy oz</dd>
-              </div>
-              <div>
-                <dt>Type</dt>
-                <dd>{product.category}</dd>
-              </div>
-            </dl>
+          <div className="product-information-grid">
+            {features.length > 0 && (
+              <section className="product-highlights">
+                <span className="eyebrow dark">PRODUCT DETAILS</span>
+                <h2>Highlights</h2>
+                <ul>
+                  {features.map((feature) => (
+                    <li key={feature}>
+                      <CheckCircle2 /> <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+            <section className="product-specs">
+              <span className="eyebrow dark">AT A GLANCE</span>
+              <h2>Product specifications</h2>
+              <dl>
+                <div>
+                  <dt>Metal</dt>
+                  <dd>{product.metal}</dd>
+                </div>
+                <div>
+                  <dt>Pure metal weight</dt>
+                  <dd>{product.metal_weight_oz} troy oz</dd>
+                </div>
+                <div>
+                  <dt>Type</dt>
+                  <dd>{product.category}</dd>
+                </div>
+                <div>
+                  <dt>SKU</dt>
+                  <dd>{product.sku}</dd>
+                </div>
+              </dl>
+            </section>
           </div>
         </div>
       </section>

@@ -41,6 +41,16 @@ const readPrice = (payload: Record<string, unknown>) => {
   throw new Error("The market feed returned an invalid value");
 };
 
+const jwtPayload = (token: string) => {
+  try {
+    const encoded = token.split(".")[1].replaceAll("-", "+").replaceAll("_", "/");
+    const padded = encoded.padEnd(Math.ceil(encoded.length / 4) * 4, "=");
+    return JSON.parse(atob(padded)) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+};
+
 async function fetchSpot() {
   const metals = { gold: "XAU", silver: "XAG", platinum: "XPT", palladium: "XPD" } as const;
   const entries = await Promise.all(Object.entries(metals).map(async ([name, symbol]) => {
@@ -94,6 +104,33 @@ Deno.serve(async (request: Request) => {
     }
 
     const admin = createClient(supabaseUrl, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    const [{ data: risk }, { data: securitySettings }, { data: mfaRows }] =
+      await Promise.all([
+        admin
+          .from("customer_risk_profiles")
+          .select("status, checkout_disabled")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        admin
+          .from("app_settings")
+          .select("key, value")
+          .in("key", ["sms_provider_ready", "customer_sms_mfa_required"]),
+        admin.rpc("admin_customer_security_summary"),
+      ]);
+    if (risk?.status === "blocked" || risk?.checkout_disabled)
+      return json(request, { error: "Checkout is disabled for this account. Contact support for review." }, 403);
+    const authSettings = Object.fromEntries(
+      (securitySettings || []).map((row) => [row.key, Boolean(row.value)]),
+    );
+    const smsRequired =
+      authSettings.sms_provider_ready && authSettings.customer_sms_mfa_required;
+    const customerMfa = (mfaRows || []).find((row) => row.user_id === user.id);
+    if (
+      smsRequired &&
+      (jwtPayload(token).aal !== "aal2" || !customerMfa?.has_phone_mfa)
+    )
+      return json(request, { error: "Verify the SMS code on your account before checkout." }, 403);
+
     const { data: withinLimit, error: limitError } = await admin.rpc("check_checkout_rate_limit", { p_user_id: user.id });
     if (limitError) throw limitError;
     if (!withinLimit) return json(request, { error: "Too many checkout attempts. Please wait and try again." }, 429);
@@ -108,9 +145,13 @@ Deno.serve(async (request: Request) => {
     }
 
     const spot = await fetchSpot();
+    const contact =
+      body.contact && typeof body.contact === "object"
+        ? { ...(body.contact as Record<string, unknown>), email: user.email }
+        : { email: user.email };
     const { data, error } = await admin.rpc("create_order", {
       p_user_id: user.id,
-      p_contact: body.contact || {},
+      p_contact: contact,
       p_shipping: body.shipping || {},
       p_cart: cart,
       p_spot: spot,

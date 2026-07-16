@@ -11,14 +11,24 @@ import {
   Pencil,
   Plus,
   Search,
+  ScrollText,
+  Settings,
+  ShieldAlert,
   ShieldCheck,
   ShoppingBag,
   Smartphone,
   Trash2,
+  Users,
   X,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { money, orderStatusLabel, spotAdjustmentLabel } from "../lib/pricing";
+import {
+  AuditAdminPanel,
+  CustomerAdminPanel,
+  RiskAdminPanel,
+  SecurityAdminPanel,
+} from "../components/admin/EnterprisePanels";
 
 const blankProduct = {
   name: "",
@@ -44,6 +54,16 @@ const blankProduct = {
   sort_order: 100,
 };
 const ADMIN_PAGE_SIZE = 25;
+const tabTitles = {
+  overview: "Dashboard",
+  products: "Products & pricing",
+  orders: "Order management",
+  support: "Customer support",
+  customers: "Customer operations",
+  risk: "Fraud & risk center",
+  security: "Security controls",
+  audit: "Admin audit trail",
+};
 const statuses = [
   "pending_review",
   "awaiting_payment",
@@ -54,7 +74,7 @@ const statuses = [
   "cancelled",
 ];
 const orderFields =
-  "id, order_number, user_id, first_name, last_name, email, phone, status, payment_status, payment_method, subtotal, payment_surcharge, shipping_amount, insurance_amount, total, spot_snapshot, price_locked_until, shipping_address, customer_notes, tracking_number, created_at, updated_at, order_items(*)";
+  "id, order_number, user_id, first_name, last_name, email, phone, status, payment_status, payment_method, subtotal, payment_surcharge, shipping_amount, insurance_amount, total, spot_snapshot, price_locked_until, shipping_address, customer_notes, internal_notes, tracking_number, created_at, updated_at, order_items(*)";
 const imagePath = (url) => {
   const marker = "/storage/v1/object/public/product-images/";
   return url?.includes(marker)
@@ -88,6 +108,7 @@ export default function AdminPage() {
   const [message, setMessage] = useState("");
   const [uploading, setUploading] = useState(false);
   const [temporaryImagePaths, setTemporaryImagePaths] = useState([]);
+  const [selectedOrder, setSelectedOrder] = useState(null);
   const [aal, setAal] = useState(null);
   const [catalogQuery, setCatalogQuery] = useState("");
   const [catalogMetal, setCatalogMetal] = useState("all");
@@ -254,17 +275,6 @@ export default function AdminPage() {
     await load();
   };
 
-  const updateOrder = async (id, status) => {
-    const updates = { status };
-    if (status === "payment_received") updates.payment_status = "paid";
-    const { error } = await supabase
-      .from("orders")
-      .update(updates)
-      .eq("id", id);
-    if (error) setMessage(error.message);
-    else load();
-  };
-
   const updateTicket = async (id, updates) => {
     setMessage("");
     const { error } = await supabase
@@ -273,6 +283,21 @@ export default function AdminPage() {
       .eq("id", id);
     if (error) setMessage("The support ticket could not be updated.");
     else await load();
+  };
+
+  const saveOrderDetails = async (updates) => {
+    setMessage("");
+    const { data, error } = await supabase.functions.invoke(
+      "admin-operations",
+      { body: { action: "update_order", ...updates } },
+    );
+    if (error || data?.error) {
+      setMessage(data?.error || error.message);
+      return false;
+    }
+    setSelectedOrder(null);
+    await load();
+    return true;
   };
 
   const uploadProductImages = async (event) => {
@@ -412,6 +437,30 @@ export default function AdminPage() {
           >
             <MessagesSquare /> Support
           </button>
+          <button
+            className={tab === "customers" ? "active" : ""}
+            onClick={() => setTab("customers")}
+          >
+            <Users /> Customers
+          </button>
+          <button
+            className={tab === "risk" ? "active" : ""}
+            onClick={() => setTab("risk")}
+          >
+            <ShieldAlert /> Risk center
+          </button>
+          <button
+            className={tab === "security" ? "active" : ""}
+            onClick={() => setTab("security")}
+          >
+            <Settings /> Security
+          </button>
+          <button
+            className={tab === "audit" ? "active" : ""}
+            onClick={() => setTab("audit")}
+          >
+            <ScrollText /> Audit log
+          </button>
         </nav>
         <a href="/">← Return to storefront</a>
       </aside>
@@ -419,15 +468,7 @@ export default function AdminPage() {
         <header>
           <div>
             <span>GOLDONTHESPOT OPERATIONS</span>
-            <h1>
-              {tab === "overview"
-                ? "Dashboard"
-                : tab === "products"
-                  ? "Products & pricing"
-                  : tab === "orders"
-                    ? "Order management"
-                    : "Customer support"}
-            </h1>
+            <h1>{tabTitles[tab] || "Operations"}</h1>
           </div>
           {tab === "products" && (
             <button
@@ -485,7 +526,10 @@ export default function AdminPage() {
                   View all
                 </button>
               </div>
-              <OrderTable orders={orders.slice(0, 8)} onUpdate={updateOrder} />
+              <OrderTable
+                orders={orders.slice(0, 8)}
+                onOpen={setSelectedOrder}
+              />
             </div>
           </>
         )}
@@ -671,7 +715,11 @@ export default function AdminPage() {
                 <p>Review payment and fulfillment before changing status.</p>
               </div>
             </div>
-            <OrderTable orders={orders} onUpdate={updateOrder} detailed />
+            <OrderTable
+              orders={orders}
+              onOpen={setSelectedOrder}
+              detailed
+            />
           </div>
         )}
         {tab === "support" && (
@@ -711,6 +759,10 @@ export default function AdminPage() {
             )}
           </div>
         )}
+        {tab === "customers" && <CustomerAdminPanel />}
+        {tab === "risk" && <RiskAdminPanel />}
+        {tab === "security" && <SecurityAdminPanel />}
+        {tab === "audit" && <AuditAdminPanel />}
       </div>
       {editor && (
         <div className="modal-backdrop" role="presentation">
@@ -1076,6 +1128,13 @@ export default function AdminPage() {
           </form>
         </div>
       )}
+      {selectedOrder && (
+        <OrderDetailModal
+          order={selectedOrder}
+          onClose={() => setSelectedOrder(null)}
+          onSave={saveOrderDetails}
+        />
+      )}
     </section>
   );
 }
@@ -1273,7 +1332,7 @@ function AdminTicket({ ticket, onSave }) {
   );
 }
 
-function OrderTable({ orders, onUpdate, detailed = false }) {
+function OrderTable({ orders, onOpen, detailed = false }) {
   return (
     <div className="admin-table-wrap">
       <table className="admin-table">
@@ -1284,6 +1343,7 @@ function OrderTable({ orders, onUpdate, detailed = false }) {
             <th>Total</th>
             {detailed && <th>Payment</th>}
             <th>Status</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -1310,17 +1370,17 @@ function OrderTable({ orders, onUpdate, detailed = false }) {
                 </td>
               )}
               <td>
-                <select
-                  className={`status-select ${order.status}`}
-                  value={order.status}
-                  onChange={(e) => onUpdate(order.id, e.target.value)}
+                <span className={`status-pill ${order.status}`}>
+                  {orderStatusLabel(order.status)}
+                </span>
+              </td>
+              <td>
+                <button
+                  className="button button-outline"
+                  onClick={() => onOpen(order)}
                 >
-                  {statuses.map((status) => (
-                    <option value={status} key={status}>
-                      {orderStatusLabel(status)}
-                    </option>
-                  ))}
-                </select>
+                  Details
+                </button>
               </td>
             </tr>
           ))}
@@ -1331,6 +1391,64 @@ function OrderTable({ orders, onUpdate, detailed = false }) {
           <h3>No orders yet</h3>
         </div>
       )}
+    </div>
+  );
+}
+
+function OrderDetailModal({ order, onClose, onSave }) {
+  const [form, setForm] = useState({
+    status: order.status,
+    paymentStatus: order.payment_status,
+    trackingNumber: order.tracking_number || "",
+    internalNotes: order.internal_notes || "",
+    reason: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const address = order.shipping_address || {};
+  const submit = async (event) => {
+    event.preventDefault();
+    if (form.reason.trim().length < 3) return;
+    setSaving(true);
+    const saved = await onSave({
+      order_id: order.id,
+      status: form.status,
+      payment_status: form.paymentStatus,
+      tracking_number: form.trackingNumber,
+      internal_notes: form.internalNotes,
+      reason: form.reason,
+    });
+    if (!saved) setSaving(false);
+  };
+  return (
+    <div className="modal-backdrop">
+      <form className="order-detail-modal" onSubmit={submit} role="dialog" aria-modal="true">
+        <header>
+          <div><small>ORDER OPERATIONS</small><h2>{order.order_number}</h2><span>{new Date(order.created_at).toLocaleString()}</span></div>
+          <button type="button" className="icon-button" onClick={onClose}><X /></button>
+        </header>
+        <div className="order-detail-scroll">
+          <div className="order-detail-facts">
+            <div><span>Customer</span><b>{order.first_name} {order.last_name}</b><small>{order.email}<br />{order.phone}</small></div>
+            <div><span>Shipping address</span><b>{address.address_line_1}</b><small>{[address.address_line_2, address.city, address.state, address.postal_code, address.country].filter(Boolean).join(", ")}</small></div>
+            <div><span>Order total</span><b>{money(order.total)}</b><small>{order.payment_method} • {order.payment_status}</small></div>
+            <div><span>Price lock</span><b>{order.price_locked_until ? new Date(order.price_locked_until).toLocaleString() : "Not recorded"}</b><small>Server-calculated snapshot</small></div>
+          </div>
+          <section className="order-detail-lines"><h3>Order items</h3>{(order.order_items || []).map((item) => <div key={item.id}><span><b>{item.quantity} × {item.product_name}</b><small>{item.sku} • {item.metal_weight_oz} oz {item.metal}</small></span><strong>{money(item.line_total)}</strong></div>)}</section>
+          {order.customer_notes && <section className="order-customer-note"><h3>Customer note</h3><p>{order.customer_notes}</p></section>}
+          <section className="order-admin-controls">
+            <h3>Fulfillment controls</h3>
+            <div className="form-row">
+              <label>Order status<select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}>{statuses.map((status) => <option key={status} value={status}>{orderStatusLabel(status)}</option>)}</select></label>
+              <label>Payment status<select value={form.paymentStatus} onChange={(event) => setForm({ ...form, paymentStatus: event.target.value })}>{["unpaid", "pending", "paid", "refunded", "failed"].map((status) => <option key={status} value={status}>{orderStatusLabel(status)}</option>)}</select></label>
+            </div>
+            <label>Tracking number<input maxLength="200" value={form.trackingNumber} onChange={(event) => setForm({ ...form, trackingNumber: event.target.value })} /></label>
+            <label>Private internal notes<textarea rows="5" maxLength="5000" value={form.internalNotes} onChange={(event) => setForm({ ...form, internalNotes: event.target.value })} /></label>
+            <label>Required audit reason<textarea required minLength="3" rows="3" maxLength="1000" value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} placeholder="Why are you changing this order?" /></label>
+            {form.status === "cancelled" && order.status !== "cancelled" && <div className="form-message error">Cancelling will safely return all order quantities to inventory. Cancelled orders cannot be reopened automatically.</div>}
+          </section>
+        </div>
+        <footer><button type="button" className="button button-outline" onClick={onClose}>Close</button><button className="button button-gold" disabled={saving || form.reason.trim().length < 3}>{saving ? "Saving securely…" : "Save audited changes"}</button></footer>
+      </form>
     </div>
   );
 }

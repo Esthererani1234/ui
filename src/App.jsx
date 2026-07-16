@@ -9,18 +9,38 @@ const ProductPage = lazy(() => import("./pages/ProductPage"));
 const CartPage = lazy(() => import("./pages/CartPage"));
 const CheckoutPage = lazy(() => import("./pages/CheckoutPage"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
+const CustomerMfaPage = lazy(() => import("./pages/CustomerMfaPage"));
 const AccountPage = lazy(() => import("./pages/AccountPage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
 const InfoPage = lazy(() => import("./pages/InfoPage"));
 const SupportPage = lazy(() => import("./pages/SupportPage"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 
-function Guard({ admin = false, children }) {
-  const { user, isAdmin, loading } = useAuth();
+function Guard({ admin = false, requireMfa = true, children }) {
+  const {
+    user,
+    isAdmin,
+    loading,
+    requiresCustomerMfa,
+    phoneMfaVerified,
+    aal,
+  } = useAuth();
   const location = useLocation();
   if (loading) return <div className="page-loader">Loading secure account…</div>;
   if (!user) return <Navigate to={`/login?return=${encodeURIComponent(`${location.pathname}${location.search}`)}`} replace />;
   if (admin && !isAdmin) return <Navigate to="/account" replace />;
+  if (
+    requireMfa &&
+    !isAdmin &&
+    requiresCustomerMfa &&
+    (!phoneMfaVerified || aal !== "aal2")
+  )
+    return (
+      <Navigate
+        to={`/verify-phone?return=${encodeURIComponent(`${location.pathname}${location.search}`)}`}
+        replace
+      />
+    );
   return children;
 }
 
@@ -35,6 +55,7 @@ export default function App() {
           <Route path="cart" element={<CartPage />} />
           <Route path="checkout" element={<Guard><CheckoutPage /></Guard>} />
           <Route path="login" element={<AuthPage />} />
+          <Route path="verify-phone" element={<Guard requireMfa={false}><CustomerMfaPage /></Guard>} />
           <Route path="account" element={<Guard><AccountPage /></Guard>} />
           <Route path="admin" element={<Guard admin><AdminPage /></Guard>} />
           <Route path="about" element={<InfoPage type="about" />} />

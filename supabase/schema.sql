@@ -160,8 +160,8 @@ security definer
 set search_path = ''
 as $$
 begin
-  insert into public.profiles (id, first_name, last_name)
-  values (new.id, new.raw_user_meta_data ->> 'first_name', new.raw_user_meta_data ->> 'last_name')
+  insert into public.profiles (id, first_name, last_name, phone)
+  values (new.id, new.raw_user_meta_data ->> 'first_name', new.raw_user_meta_data ->> 'last_name', new.raw_user_meta_data ->> 'phone')
   on conflict (id) do nothing;
   return new;
 end;
@@ -177,13 +177,7 @@ security definer
 set search_path = ''
 as $$
   select (select auth.uid()) is not null
-    and (
-      not exists (
-        select 1 from auth.mfa_factors
-        where user_id = (select auth.uid()) and status = 'verified'
-      )
-      or coalesce((select auth.jwt() ->> 'aal'), '') = 'aal2'
-    )
+    and coalesce((select auth.jwt() ->> 'aal'), '') = 'aal2'
     and exists (select 1 from public.admin_users where user_id = (select auth.uid()));
 $$;
 

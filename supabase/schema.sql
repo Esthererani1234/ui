@@ -34,6 +34,7 @@ create table public.products (
   name text not null,
   short_description text,
   description text,
+  features text[] not null default '{}'::text[] check (cardinality(features) <= 12),
   metal text not null check (metal in ('gold', 'silver', 'platinum', 'palladium')),
   category text not null check (category in ('coin', 'bar', 'round')),
   metal_weight_oz numeric(12, 6) not null check (metal_weight_oz > 0),

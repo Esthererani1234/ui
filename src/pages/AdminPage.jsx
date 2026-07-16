@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Boxes,
+  Copy,
   DollarSign,
   ImagePlus,
   LayoutDashboard,
@@ -9,6 +10,7 @@ import {
   PackageCheck,
   Pencil,
   Plus,
+  Search,
   ShieldCheck,
   ShoppingBag,
   Smartphone,
@@ -24,6 +26,7 @@ const blankProduct = {
   sku: "",
   short_description: "",
   description: "",
+  features: [],
   metal: "gold",
   category: "coin",
   metal_weight_oz: 1,
@@ -40,6 +43,7 @@ const blankProduct = {
   image_urls: [],
   sort_order: 100,
 };
+const ADMIN_PAGE_SIZE = 25;
 const statuses = [
   "pending_review",
   "awaiting_payment",
@@ -68,6 +72,7 @@ const prepareProductEditor = (product) => {
   const gallery = productGallery(product);
   return {
     ...product,
+    features: Array.isArray(product?.features) ? product.features : [],
     image_url: gallery[0] || "",
     image_urls: gallery,
     _original_image_urls: gallery,
@@ -84,6 +89,10 @@ export default function AdminPage() {
   const [uploading, setUploading] = useState(false);
   const [temporaryImagePaths, setTemporaryImagePaths] = useState([]);
   const [aal, setAal] = useState(null);
+  const [catalogQuery, setCatalogQuery] = useState("");
+  const [catalogMetal, setCatalogMetal] = useState("all");
+  const [catalogStatus, setCatalogStatus] = useState("all");
+  const [catalogPage, setCatalogPage] = useState(1);
 
   const load = async () => {
     const [
@@ -162,6 +171,37 @@ export default function AdminPage() {
     [orders, products],
   );
 
+  const filteredCatalog = useMemo(() => {
+    const query = catalogQuery.trim().toLowerCase();
+    return products.filter((product) => {
+      if (catalogMetal !== "all" && product.metal !== catalogMetal) return false;
+      if (query && !`${product.name} ${product.sku}`.toLowerCase().includes(query))
+        return false;
+      if (catalogStatus === "live" && !product.is_active) return false;
+      if (catalogStatus === "draft" && product.is_active) return false;
+      if (catalogStatus === "featured" && !product.is_featured) return false;
+      if (
+        catalogStatus === "low" &&
+        product.inventory_count > product.low_stock_threshold
+      )
+        return false;
+      return true;
+    });
+  }, [products, catalogQuery, catalogMetal, catalogStatus]);
+  const catalogPageCount = Math.max(
+    1,
+    Math.ceil(filteredCatalog.length / ADMIN_PAGE_SIZE),
+  );
+  const pagedCatalog = filteredCatalog.slice(
+    (catalogPage - 1) * ADMIN_PAGE_SIZE,
+    catalogPage * ADMIN_PAGE_SIZE,
+  );
+
+  useEffect(() => setCatalogPage(1), [catalogQuery, catalogMetal, catalogStatus]);
+  useEffect(() => {
+    if (catalogPage > catalogPageCount) setCatalogPage(catalogPageCount);
+  }, [catalogPage, catalogPageCount]);
+
   const saveProduct = async (event) => {
     event.preventDefault();
     setMessage("");
@@ -174,6 +214,10 @@ export default function AdminPage() {
     const originalImageUrls = editor._original_image_urls || [];
     const payload = {
       ...editor,
+      features: (editor.features || [])
+        .map((feature) => feature.trim())
+        .filter(Boolean)
+        .slice(0, 12),
       image_url: gallery[0] || null,
       image_urls: gallery,
       price_mode: "dynamic",
@@ -315,6 +359,23 @@ export default function AdminPage() {
     });
   };
 
+  const duplicateProduct = (product) => {
+    setEditor(
+      prepareProductEditor({
+        ...product,
+        id: undefined,
+        name: `${product.name} Copy`,
+        slug: "",
+        sku: "",
+        is_active: false,
+        is_featured: false,
+        badge: "",
+        image_url: "",
+        image_urls: [],
+      }),
+    );
+  };
+
   if (aal === null)
     return <div className="page-loader">Checking administrator security…</div>;
   if (aal !== "aal2") return <AdminMfaGate onVerified={() => setAal("aal2")} />;
@@ -439,8 +500,64 @@ export default function AdminPage() {
                 </p>
               </div>
             </div>
+            <div className="admin-catalog-summary">
+              <div>
+                <b>{products.length}</b>
+                <span>Total products</span>
+              </div>
+              <div>
+                <b>{products.filter((product) => product.is_active).length}</b>
+                <span>Live</span>
+              </div>
+              <div>
+                <b>{products.filter((product) => !product.is_active).length}</b>
+                <span>Drafts</span>
+              </div>
+              <div>
+                <b>{metrics.lowStock}</b>
+                <span>Low stock</span>
+              </div>
+            </div>
+            <div className="admin-catalog-toolbar">
+              <label className="admin-catalog-search">
+                <Search size={17} />
+                <span className="sr-only">Search products</span>
+                <input
+                  type="search"
+                  placeholder="Search name or SKU…"
+                  value={catalogQuery}
+                  onChange={(event) => setCatalogQuery(event.target.value)}
+                />
+              </label>
+              <label>
+                <span className="sr-only">Filter by metal</span>
+                <select
+                  value={catalogMetal}
+                  onChange={(event) => setCatalogMetal(event.target.value)}
+                >
+                  <option value="all">All metals</option>
+                  <option value="gold">Gold</option>
+                  <option value="silver">Silver</option>
+                  <option value="platinum">Platinum</option>
+                  <option value="palladium">Palladium</option>
+                </select>
+              </label>
+              <label>
+                <span className="sr-only">Filter by catalog status</span>
+                <select
+                  value={catalogStatus}
+                  onChange={(event) => setCatalogStatus(event.target.value)}
+                >
+                  <option value="all">All statuses</option>
+                  <option value="live">Live</option>
+                  <option value="draft">Draft</option>
+                  <option value="featured">Homepage featured</option>
+                  <option value="low">Low stock</option>
+                </select>
+              </label>
+            </div>
             <div className="admin-table-wrap">
-              <table className="admin-table">
+              <table className="admin-table catalog-table">
                 <thead>
                   <tr>
                     <th>Product</th>
@@ -451,7 +568,7 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {products.map((product) => (
+                  {pagedCatalog.map((product) => (
                     <tr key={product.id}>
                       <td>
                         <b>{product.name}</b>
@@ -460,10 +577,10 @@ export default function AdminPage() {
                           {product.metal}
                         </small>
                       </td>
-                      <td>
+                      <td data-label="Pricing rule">
                         <b>{spotAdjustmentLabel(product.premium_percent)}</b>
                       </td>
-                      <td>
+                      <td data-label="Stock">
                         <b
                           className={
                             product.inventory_count <=
@@ -475,7 +592,7 @@ export default function AdminPage() {
                           {product.inventory_count}
                         </b>
                       </td>
-                      <td>
+                      <td data-label="Status">
                         <span
                           className={
                             product.is_active
@@ -486,20 +603,63 @@ export default function AdminPage() {
                           {product.is_active ? "Live" : "Draft"}
                         </span>
                       </td>
-                      <td>
+                      <td className="admin-product-actions">
+                        <button
+                          className="icon-button"
+                          onClick={() => duplicateProduct(product)}
+                          aria-label={`Duplicate ${product.name}`}
+                          title="Duplicate as a draft"
+                        >
+                          <Copy size={17} />
+                        </button>
                         <button
                           className="icon-button"
                           onClick={() =>
                             setEditor(prepareProductEditor(product))
                           }
+                          aria-label={`Edit ${product.name}`}
+                          title="Edit product"
                         >
                           <Pencil size={17} />
                         </button>
                       </td>
                     </tr>
                   ))}
+                  {!pagedCatalog.length && (
+                    <tr>
+                      <td colSpan="5">
+                        <div className="empty-state compact">
+                          <h3>No matching products</h3>
+                          <p>Try another search or clear the catalog filters.</p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
+            </div>
+            <div className="admin-catalog-pagination">
+              <span>
+                {filteredCatalog.length} match
+                {filteredCatalog.length === 1 ? "" : "es"} • Page {catalogPage} of{" "}
+                {catalogPageCount}
+              </span>
+              <div>
+                <button
+                  className="button button-outline"
+                  disabled={catalogPage <= 1}
+                  onClick={() => setCatalogPage((page) => page - 1)}
+                >
+                  Previous
+                </button>
+                <button
+                  className="button button-outline"
+                  disabled={catalogPage >= catalogPageCount}
+                  onClick={() => setCatalogPage((page) => page + 1)}
+                >
+                  Next
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -575,7 +735,15 @@ export default function AdminPage() {
               </button>
             </header>
             <div className="editor-scroll">
-              <div className="product-image-editor">
+              <div className="editor-section editor-section-card">
+                <div className="editor-section-heading">
+                  <span>1</span>
+                  <div>
+                    <h3>Product pictures</h3>
+                    <p>Upload several angles so buyers can swipe and magnify.</p>
+                  </div>
+                </div>
+                <div className="product-image-editor">
                 <div className="image-preview">
                   {editor.image_url ? (
                     <img src={editor.image_url} alt="Product preview" />
@@ -604,34 +772,45 @@ export default function AdminPage() {
                     image. Select any thumbnail below to make it the main image.
                   </p>
                 </div>
-              </div>
-              {productGallery(editor).length > 0 && (
-                <div className="product-image-gallery-editor">
-                  {productGallery(editor).map((url, index) => (
-                    <div className="gallery-editor-item" key={url}>
-                      <button
-                        type="button"
-                        className={index === 0 ? "primary" : ""}
-                        onClick={() => makePrimaryImage(url)}
-                        aria-label={`Make picture ${index + 1} the main image`}
-                      >
-                        <img src={url} alt={`Product picture ${index + 1}`} />
-                        <span>
-                          {index === 0 ? "Main image" : `Picture ${index + 1}`}
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        className="gallery-remove"
-                        onClick={() => removeProductImage(url)}
-                        aria-label={`Remove product picture ${index + 1}`}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  ))}
                 </div>
-              )}
+                {productGallery(editor).length > 0 && (
+                  <div className="product-image-gallery-editor">
+                    {productGallery(editor).map((url, index) => (
+                      <div className="gallery-editor-item" key={url}>
+                        <button
+                          type="button"
+                          className={index === 0 ? "primary" : ""}
+                          onClick={() => makePrimaryImage(url)}
+                          aria-label={`Make picture ${index + 1} the main image`}
+                        >
+                          <img src={url} alt={`Product picture ${index + 1}`} />
+                          <span>
+                            {index === 0
+                              ? "Main image"
+                              : `Picture ${index + 1}`}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          className="gallery-remove"
+                          onClick={() => removeProductImage(url)}
+                          aria-label={`Remove product picture ${index + 1}`}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="editor-section editor-section-card">
+                <div className="editor-section-heading">
+                  <span>2</span>
+                  <div>
+                    <h3>Product information</h3>
+                    <p>The details customers use to understand and find this item.</p>
+                  </div>
+                </div>
               <div className="form-row">
                 <label>
                   Product name
@@ -734,8 +913,44 @@ export default function AdminPage() {
                   />
                 </label>
               </div>
-              <div className="editor-section spot-pricing-section">
-                <h3>Live spot pricing</h3>
+              </div>
+              <div className="editor-section editor-section-card">
+                <div className="editor-section-heading">
+                  <span>3</span>
+                  <div>
+                    <h3>Customer-facing highlights</h3>
+                    <p>One benefit or product fact per line, up to 12.</p>
+                  </div>
+                </div>
+                <label>
+                  Key features
+                  <textarea
+                    rows="6"
+                    placeholder={
+                      "Contains 1 troy oz of .9999 fine gold\nEligible for precious metals IRAs\nShips in protective packaging"
+                    }
+                    value={(editor.features || []).join("\n")}
+                    onChange={(event) =>
+                      setEditor({
+                        ...editor,
+                        features: event.target.value.split("\n").slice(0, 12),
+                      })
+                    }
+                  />
+                  <small className="field-help">
+                    {(editor.features || []).filter((feature) => feature.trim()).length}
+                    /12 highlights
+                  </small>
+                </label>
+              </div>
+              <div className="editor-section editor-section-card spot-pricing-section">
+                <div className="editor-section-heading">
+                  <span>4</span>
+                  <div>
+                    <h3>Live spot pricing</h3>
+                    <p>Set the automatic price rule for this product.</p>
+                  </div>
+                </div>
                 <p>
                   Price = live {editor.metal} spot × pure weight × spot
                   adjustment.
@@ -760,8 +975,14 @@ export default function AdminPage() {
                   </small>
                 </label>
               </div>
-              <div className="editor-section">
-                <h3>Inventory & display</h3>
+              <div className="editor-section editor-section-card">
+                <div className="editor-section-heading">
+                  <span>5</span>
+                  <div>
+                    <h3>Inventory & display</h3>
+                    <p>Control availability and where the product appears.</p>
+                  </div>
+                </div>
                 <div className="form-row three">
                   <label>
                     Available units

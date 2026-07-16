@@ -128,6 +128,90 @@ Deno.serve(async (request: Request) => {
       if (error) throw error;
     };
 
+    if (action === "get_order_details") {
+      const orderId = Number(body?.order_id);
+      if (!Number.isInteger(orderId) || orderId < 1)
+        return json(request, { error: "Invalid order" }, 400);
+      const { data: order, error } = await admin
+        .from("orders")
+        .select("id, order_number, user_id, first_name, last_name, email, phone, status, payment_status, payment_method, subtotal, payment_surcharge, shipping_amount, insurance_amount, total, spot_snapshot, price_locked_until, shipping_address, customer_notes, internal_notes, tracking_number, created_at, updated_at, order_items(*)")
+        .eq("id", orderId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!order) return json(request, { error: "Order not found" }, 404);
+      return json(request, { order });
+    }
+
+    if (action === "sales_report") {
+      const days = Number(body?.days);
+      if (![0, 7, 30, 90, 365].includes(days))
+        return json(request, { error: "Invalid sales report period" }, 400);
+      let salesQuery = admin
+        .from("orders")
+        .select("id, status, payment_method, total, created_at, order_items(product_name, metal, quantity, line_total)")
+        .neq("status", "cancelled")
+        .order("created_at", { ascending: false })
+        .limit(5000);
+      if (days)
+        salesQuery = salesQuery.gte(
+          "created_at",
+          new Date(Date.now() - days * 86_400_000).toISOString(),
+        );
+      const { data: orders, error } = await salesQuery;
+      if (error) throw error;
+      const productTotals = new Map<string, { name: string; units: number; sales: number }>();
+      const metalTotals = new Map<string, { metal: string; units: number; sales: number }>();
+      const statuses: Record<string, number> = {};
+      const payments: Record<string, number> = {};
+      let grossSales = 0;
+      let units = 0;
+      for (const order of orders || []) {
+        grossSales += Number(order.total || 0);
+        statuses[order.status] = (statuses[order.status] || 0) + 1;
+        payments[order.payment_method] = (payments[order.payment_method] || 0) + 1;
+        for (const item of order.order_items || []) {
+          const quantity = Number(item.quantity || 0);
+          const lineSales = Number(item.line_total || 0);
+          units += quantity;
+          const product = productTotals.get(item.product_name) || {
+            name: item.product_name,
+            units: 0,
+            sales: 0,
+          };
+          product.units += quantity;
+          product.sales += lineSales;
+          productTotals.set(item.product_name, product);
+          const metalName = item.metal || "other";
+          const metal = metalTotals.get(metalName) || {
+            metal: metalName,
+            units: 0,
+            sales: 0,
+          };
+          metal.units += quantity;
+          metal.sales += lineSales;
+          metalTotals.set(metalName, metal);
+        }
+      }
+      const orderCount = orders?.length || 0;
+      return json(request, {
+        report: {
+          days,
+          order_count: orderCount,
+          gross_sales: Math.round(grossSales * 100) / 100,
+          average_order: orderCount
+            ? Math.round((grossSales / orderCount) * 100) / 100
+            : 0,
+          units,
+          statuses,
+          payments,
+          top_products: [...productTotals.values()]
+            .sort((a, b) => b.sales - a.sales)
+            .slice(0, 10),
+          metals: [...metalTotals.values()].sort((a, b) => b.sales - a.sales),
+        },
+      });
+    }
+
     if (action === "list_customers") {
       const { data: userPage, error: listError } =
         await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
@@ -342,25 +426,76 @@ Deno.serve(async (request: Request) => {
     }
 
     if (action === "update_security_settings") {
+      const providerName = cleanText(body?.sms_provider_name, 30).toLowerCase();
+      const smsSender = cleanText(body?.sms_sender, 30);
       const providerReady = Boolean(body?.sms_provider_ready);
       const smsRequired = Boolean(body?.customer_sms_mfa_required);
       const emailReady = Boolean(body?.branded_email_ready);
       const reason = cleanText(body?.reason, 1000);
+      if (!["twilio", "vonage", "messagebird"].includes(providerName))
+        return json(request, { error: "Choose a supported SMS provider" }, 400);
+      if (smsSender && !/^\+?[0-9 ()-]{7,30}$/.test(smsSender))
+        return json(request, { error: "Enter a valid SMS sender number" }, 400);
       if (smsRequired && !providerReady)
         return json(request, { error: "Connect and test the SMS provider first" }, 400);
       if (reason.length < 3)
         return json(request, { error: "Enter a reason for this security change" }, 400);
       const rows = [
-        ["sms_provider_ready", providerReady],
-        ["customer_sms_mfa_required", smsRequired],
-        ["branded_email_ready", emailReady],
-      ].map(([key, value]) => ({ key, value, is_public: true }));
+        { key: "sms_provider_name", value: providerName, is_public: true },
+        { key: "sms_sender", value: smsSender, is_public: true },
+        { key: "sms_provider_ready", value: providerReady, is_public: true },
+        { key: "customer_sms_mfa_required", value: smsRequired, is_public: true },
+        { key: "branded_email_ready", value: emailReady, is_public: true },
+      ];
       const { error } = await admin.from("app_settings").upsert(rows);
       if (error) throw error;
       await audit("security.settings_updated", "security", "auth", reason, {
         sms_provider_ready: providerReady,
         customer_sms_mfa_required: smsRequired,
         branded_email_ready: emailReady,
+        sms_provider_name: providerName,
+      });
+      return json(request, { success: true });
+    }
+
+    if (action === "update_store_settings") {
+      const settings =
+        body?.settings && typeof body.settings === "object"
+          ? body.settings as Record<string, unknown>
+          : {};
+      const reason = cleanText(body?.reason, 1000);
+      const shippingFlat = Number(settings.shipping_flat);
+      const freeShipping = Number(settings.free_shipping_threshold);
+      const cardSurcharge = Number(settings.card_surcharge_percent);
+      const priceLock = Number(settings.price_lock_minutes);
+      const announcement = cleanText(settings.store_announcement, 160);
+      if (reason.length < 3)
+        return json(request, { error: "Enter a reason for this store change" }, 400);
+      if (!Number.isFinite(shippingFlat) || shippingFlat < 0 || shippingFlat > 10_000)
+        return json(request, { error: "Shipping fee must be from $0 to $10,000" }, 400);
+      if (!Number.isFinite(freeShipping) || freeShipping < 0 || freeShipping > 1_000_000)
+        return json(request, { error: "Free-shipping threshold is invalid" }, 400);
+      if (!Number.isFinite(cardSurcharge) || cardSurcharge < 0 || cardSurcharge > 10)
+        return json(request, { error: "Card surcharge must be from 0% to 10%" }, 400);
+      if (!Number.isInteger(priceLock) || priceLock < 1 || priceLock > 30)
+        return json(request, { error: "Price lock must be from 1 to 30 minutes" }, 400);
+      const rows = [
+        { key: "shipping_flat", value: shippingFlat, is_public: true },
+        { key: "free_shipping_threshold", value: freeShipping, is_public: true },
+        { key: "card_surcharge_percent", value: cardSurcharge, is_public: true },
+        { key: "price_lock_minutes", value: priceLock, is_public: true },
+        { key: "store_announcement", value: announcement, is_public: true },
+        { key: "accepting_orders", value: Boolean(settings.accepting_orders), is_public: true },
+      ];
+      const { error } = await admin.from("app_settings").upsert(rows);
+      if (error) throw error;
+      await audit("store.settings_updated", "store", "storefront", reason, {
+        shipping_flat: shippingFlat,
+        free_shipping_threshold: freeShipping,
+        card_surcharge_percent: cardSurcharge,
+        price_lock_minutes: priceLock,
+        accepting_orders: Boolean(settings.accepting_orders),
+        announcement_active: Boolean(announcement),
       });
       return json(request, { success: true });
     }

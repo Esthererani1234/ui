@@ -746,3 +746,57 @@ img { max-width: 100%; display: block; }
   .order-detail-modal > footer .button { padding: 0 10px; }
   .audit-timeline header { display: grid; gap: 4px; }
 }
+
+/* Interactive operations dashboard and store controls */
+.metric-grid .metric-card { width: 100%; min-height: 126px; display: flex; align-items: flex-start; gap: 13px; padding: 20px; color: inherit; background: #fff; border: 1px solid var(--line); font: inherit; text-align: left; cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .15s; }
+.metric-grid .metric-card > svg { flex: 0 0 auto; width: 39px; height: 39px; padding: 9px; color: var(--navy-700); background: #e9f0f4; border-radius: 4px; }
+.metric-grid .metric-card:hover, .metric-grid .metric-card:focus-visible { border-color: var(--gold-500); box-shadow: 0 7px 20px rgba(3,24,39,.08); transform: translateY(-1px); outline: none; }
+.admin-order-filter { min-width: 180px; height: 40px; padding: 0 9px; color: var(--ink); background: #fff; border: 1px solid #c5d0d7; }
+.admin-catalog-summary > button { padding: 14px 16px; color: inherit; background: #f7f9fa; border: 1px solid var(--line); border-top: 3px solid var(--gold-500); font: inherit; text-align: left; cursor: pointer; }
+.admin-catalog-summary > button:hover, .admin-catalog-summary > button:focus-visible { background: #fff; border-color: var(--gold-500); outline: none; }
+.enterprise-metrics > button { padding: 17px; color: inherit; background: #fff; border: 1px solid var(--line); border-top: 3px solid var(--gold-500); font: inherit; text-align: left; cursor: pointer; }
+.enterprise-metrics > button:hover, .enterprise-metrics > button:focus-visible { border-color: var(--gold-500); box-shadow: 0 5px 16px rgba(3,24,39,.07); outline: none; }
+.enterprise-metrics > button b, .enterprise-metrics > button span { display: block; }
+.enterprise-metrics > button b { color: var(--navy-900); font-size: 25px; }
+.enterprise-metrics > button span { margin-top: 4px; color: var(--muted); font-size: 9px; font-weight: 800; }
+.sales-metrics { margin: 18px 0; }
+.sales-report-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
+.sales-report-grid > section { padding: 17px; background: #f8fafb; border: 1px solid var(--line); }
+.sales-report-grid h3 { margin: 0 0 10px; color: var(--navy-900); font: 700 18px Georgia, serif; }
+.sales-report-grid > section > p { color: var(--muted); font-size: 11px; }
+.sales-list-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 9px 0; border-top: 1px solid var(--line); }
+.sales-list-row b, .sales-list-row small { display: block; }
+.sales-list-row b { color: var(--navy-900); font-size: 10px; text-transform: capitalize; }
+.sales-list-row small { margin-top: 3px; color: var(--muted); font-size: 8px; }
+.sales-list-row strong { color: var(--navy-900); font-size: 11px; white-space: nowrap; }
+.store-state-card { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 15px; padding: 20px; color: #fff; background: var(--navy-900); border-left: 5px solid var(--gold-500); }
+.store-state-card > svg { width: 43px; height: 43px; padding: 10px; color: var(--gold-300); background: rgba(255,255,255,.08); border-radius: 50%; }
+.store-state-card small, .store-state-card h2, .store-state-card p { display: block; margin: 0; }
+.store-state-card small { color: var(--gold-300); font-size: 8px; font-weight: 900; letter-spacing: .1em; }
+.store-state-card h2 { margin-top: 4px; font: 700 22px Georgia, serif; }
+.store-state-card p { margin-top: 4px; color: #b8c8d2; font-size: 10px; }
+.store-switch { display: flex; align-items: center; gap: 7px; font-size: 10px; font-weight: 900; }
+.store-switch input { width: 18px; height: 18px; accent-color: var(--gold-400); }
+.store-settings-panel { max-width: 920px; }
+.store-settings-panel .panel-title > svg { width: 34px; height: 34px; padding: 7px; color: var(--navy-700); background: #e8f0f4; border-radius: 50%; }
+.store-settings-panel label, .security-activation-panel label { display: block; margin: 13px 0; color: #50616d; font-size: 10px; font-weight: 800; }
+.store-settings-panel input, .store-settings-panel textarea, .security-activation-panel input, .security-activation-panel select { width: 100%; min-height: 43px; margin-top: 6px; padding: 9px 10px; color: var(--ink); background: #fff; border: 1px solid #c5d0d7; outline: 0; }
+.store-settings-panel textarea { resize: vertical; }
+.store-announcement { min-height: 34px; display: grid; place-items: center; padding: 7px 18px; color: #2c2109; background: linear-gradient(90deg, #f6df9f, var(--gold-300), #f6df9f); border-bottom: 1px solid #c89735; text-align: center; font-size: 11px; font-weight: 900; }
+
+@media (max-width: 800px) {
+  .admin-sidebar { padding: 8px 9px; }
+  .admin-wordmark { padding: 1px 4px 7px; }
+  .admin-sidebar nav { display: flex; grid-template-columns: none; gap: 5px; overflow-x: auto; scrollbar-width: none; }
+  .admin-sidebar nav::-webkit-scrollbar { display: none; }
+  .admin-sidebar nav button { flex: 0 0 94px; min-height: 53px; flex-direction: column; justify-content: center; gap: 2px; padding: 4px; font-size: 8px; text-align: center; }
+  .sales-report-grid { grid-template-columns: 1fr; }
+  .admin-order-filter { width: 100%; }
+}
+
+@media (max-width: 560px) {
+  .enterprise-metrics > button { padding: 12px; }
+  .store-state-card { grid-template-columns: auto 1fr; padding: 15px; }
+  .store-switch { grid-column: 1 / -1; justify-content: flex-end; }
+  .admin-main > header h1 { font-size: 30px; }
+}

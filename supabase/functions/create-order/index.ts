@@ -114,16 +114,19 @@ Deno.serve(async (request: Request) => {
         admin
           .from("app_settings")
           .select("key, value")
-          .in("key", ["sms_provider_ready", "customer_sms_mfa_required"]),
+          .in("key", ["sms_provider_ready", "customer_sms_mfa_required", "accepting_orders"]),
         admin.rpc("admin_customer_security_summary"),
       ]);
     if (risk?.status === "blocked" || risk?.checkout_disabled)
       return json(request, { error: "Checkout is disabled for this account. Contact support for review." }, 403);
     const authSettings = Object.fromEntries(
-      (securitySettings || []).map((row) => [row.key, Boolean(row.value)]),
+      (securitySettings || []).map((row) => [row.key, row.value]),
     );
+    if (authSettings.accepting_orders === false)
+      return json(request, { error: "Checkout is temporarily paused. Your cart is saved; please try again later." }, 503);
     const smsRequired =
-      authSettings.sms_provider_ready && authSettings.customer_sms_mfa_required;
+      Boolean(authSettings.sms_provider_ready) &&
+      Boolean(authSettings.customer_sms_mfa_required);
     const customerMfa = (mfaRows || []).find((row) => row.user_id === user.id);
     if (
       smsRequired &&

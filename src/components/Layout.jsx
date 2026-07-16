@@ -4,6 +4,7 @@ import { CheckCircle2, Menu, Search, ShieldCheck, ShoppingCart, User, X } from "
 import { useCart } from "../state/CartContext";
 import { useAuth } from "../state/AuthContext";
 import SupportAssistant from "./SupportAssistant";
+import { supabase } from "../lib/supabase";
 
 function Logo() {
   return (
@@ -19,6 +20,7 @@ export default function Layout() {
   const { user, isAdmin } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [announcement, setAnnouncement] = useState("");
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -32,6 +34,14 @@ export default function Layout() {
     const titles = { "/": "GoldOnTheSpot | Precious Metals, Right Now", "/shop": "Shop Live-Priced Bullion | GoldOnTheSpot", "/cart": "Shopping Cart | GoldOnTheSpot", "/checkout": "Secure Checkout | GoldOnTheSpot", "/login": "Customer Sign In | GoldOnTheSpot", "/account": "Your Account | GoldOnTheSpot", "/support": "Customer Support | GoldOnTheSpot", "/shipping": "Shipping & Insurance | GoldOnTheSpot", "/terms": "Terms of Purchase | GoldOnTheSpot", "/privacy": "Privacy Policy | GoldOnTheSpot", "/about": "About GoldOnTheSpot" };
     document.title = location.pathname.startsWith("/product/") ? "Bullion Product | GoldOnTheSpot" : titles[location.pathname] || "GoldOnTheSpot";
   }, [location.pathname]);
+  useEffect(() => {
+    supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "store_announcement")
+      .maybeSingle()
+      .then(({ data }) => setAnnouncement(typeof data?.value === "string" ? data.value : ""));
+  }, []);
 
   const submitSearch = (event) => {
     event.preventDefault();
@@ -77,6 +87,7 @@ export default function Layout() {
           </div>
         </nav>
       </header>
+      {announcement && <div className="store-announcement" role="status"><span>{announcement}</span></div>}
       {lastAdded && (
         <div className="cart-toast" key={lastAdded.id} role="status" aria-live="polite">
           <CheckCircle2 />

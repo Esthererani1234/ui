@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Ban,
+  BarChart3,
   CheckCircle2,
   Clock3,
   KeyRound,
@@ -12,6 +13,7 @@ import {
   Search,
   ShieldAlert,
   ShieldCheck,
+  Store,
   UserCheck,
   X,
 } from "lucide-react";
@@ -70,6 +72,11 @@ export function CustomerAdminPanel() {
       const risk = customer.risk?.status || "normal";
       if (status === "suspended" && !isSuspended(customer)) return false;
       if (status === "sms" && !customer.has_phone_mfa) return false;
+      if (
+        status === "flagged" &&
+        !["watch", "review", "blocked"].includes(risk)
+      )
+        return false;
       if (["watch", "review", "blocked"].includes(status) && risk !== status)
         return false;
       return normalized
@@ -95,10 +102,10 @@ export function CustomerAdminPanel() {
   return (
     <div className="enterprise-admin-stack">
       <div className="enterprise-metrics">
-        <div><b>{metrics.total}</b><span>Customer accounts</span></div>
-        <div><b>{metrics.sms}</b><span>SMS protected</span></div>
-        <div><b>{metrics.review}</b><span>Flagged for review</span></div>
-        <div><b>{metrics.suspended}</b><span>Suspended</span></div>
+        <button type="button" onClick={() => setStatus("all")}><b>{metrics.total}</b><span>Customer accounts</span></button>
+        <button type="button" onClick={() => setStatus("sms")}><b>{metrics.sms}</b><span>SMS protected</span></button>
+        <button type="button" onClick={() => setStatus("flagged")}><b>{metrics.review}</b><span>Flagged for review</span></button>
+        <button type="button" onClick={() => setStatus("suspended")}><b>{metrics.suspended}</b><span>Suspended</span></button>
       </div>
       <section className="admin-panel">
         <div className="panel-title enterprise-panel-title">
@@ -115,6 +122,7 @@ export function CustomerAdminPanel() {
           <select value={status} onChange={(event) => setStatus(event.target.value)}>
             <option value="all">All customers</option>
             <option value="sms">SMS protected</option>
+            <option value="flagged">Any flagged risk</option>
             <option value="watch">Watch list</option>
             <option value="review">Manual review</option>
             <option value="blocked">Blocked</option>
@@ -287,19 +295,19 @@ export function RiskAdminPanel() {
 }
 
 export function SecurityAdminPanel() {
-  const [form, setForm] = useState({ smsProviderReady: false, smsRequired: false, brandedEmailReady: false, reason: "" });
+  const [form, setForm] = useState({ smsProvider: "twilio", smsSender: "", smsProviderReady: false, smsRequired: false, brandedEmailReady: false, reason: "" });
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const load = async () => {
-    const { data } = await supabase.from("app_settings").select("key, value").in("key", ["sms_provider_ready", "customer_sms_mfa_required", "branded_email_ready"]);
-    const settings = Object.fromEntries((data || []).map((row) => [row.key, Boolean(row.value)]));
-    setForm((current) => ({ ...current, smsProviderReady: Boolean(settings.sms_provider_ready), smsRequired: Boolean(settings.customer_sms_mfa_required), brandedEmailReady: Boolean(settings.branded_email_ready) }));
+    const { data } = await supabase.from("app_settings").select("key, value").in("key", ["sms_provider_name", "sms_sender", "sms_provider_ready", "customer_sms_mfa_required", "branded_email_ready"]);
+    const settings = Object.fromEntries((data || []).map((row) => [row.key, row.value]));
+    setForm((current) => ({ ...current, smsProvider: settings.sms_provider_name || "twilio", smsSender: settings.sms_sender || "", smsProviderReady: Boolean(settings.sms_provider_ready), smsRequired: Boolean(settings.customer_sms_mfa_required), brandedEmailReady: Boolean(settings.branded_email_ready) }));
   };
   useEffect(() => { load(); }, []);
   const save = async () => {
     setBusy(true); setMessage("");
     try {
-      await invokeAdmin({ action: "update_security_settings", sms_provider_ready: form.smsProviderReady, customer_sms_mfa_required: form.smsRequired, branded_email_ready: form.brandedEmailReady, reason: form.reason });
+      await invokeAdmin({ action: "update_security_settings", sms_provider_name: form.smsProvider, sms_sender: form.smsSender, sms_provider_ready: form.smsProviderReady, customer_sms_mfa_required: form.smsRequired, branded_email_ready: form.brandedEmailReady, reason: form.reason });
       setMessage("Security policy saved and audited."); await load();
     } catch (error) { setMessage(error.message); } finally { setBusy(false); }
   };
@@ -310,12 +318,123 @@ export function SecurityAdminPanel() {
       <article><MailCheck /><span><small>AUTH EMAIL DELIVERY</small><h2>GoldOnTheSpot branded mail</h2><p>Custom HTML templates are ready. Custom SMTP must be connected so messages come from your domain.</p><b className={form.brandedEmailReady ? "control-ready" : "control-pending"}>{form.brandedEmailReady ? <CheckCircle2 /> : <Clock3 />}{form.brandedEmailReady ? "Configured" : "SMTP needed"}</b></span></article>
     </div>
     <section className="admin-panel security-activation-panel"><div className="panel-title"><div><h2>Authentication rollout controls</h2><p>These switches prevent an unfinished provider setup from locking customers out.</p></div></div>
+      <div className="form-row">
+        <label>SMS provider<select value={form.smsProvider} onChange={(event) => setForm({ ...form, smsProvider: event.target.value })}><option value="twilio">Twilio</option><option value="vonage">Vonage</option><option value="messagebird">MessageBird</option></select></label>
+        <label>Sender phone number<input type="tel" maxLength="30" placeholder="+1 212 555 0100" value={form.smsSender} onChange={(event) => setForm({ ...form, smsSender: event.target.value })} /></label>
+      </div>
+      <div className="security-warning"><b>Provider credentials stay off this web page</b><span>You can choose and manage the rollout here, but API secrets need a one-time encrypted server connection. They are never returned to the browser or displayed to staff.</span></div>
       <label className="security-rollout-check"><input type="checkbox" checked={form.smsProviderReady} onChange={(event) => setForm({ ...form, smsProviderReady: event.target.checked, smsRequired: event.target.checked ? form.smsRequired : false })} /><span><b>SMS provider is connected and tested</b><small>Confirm only after Twilio, Vonage, or MessageBird successfully delivers a test code.</small></span></label>
       <label className="security-rollout-check"><input type="checkbox" disabled={!form.smsProviderReady} checked={form.smsRequired} onChange={(event) => setForm({ ...form, smsRequired: event.target.checked })} /><span><b>Require SMS MFA for every customer</b><small>Existing customers will enroll their phone at the next sign-in.</small></span></label>
       <label className="security-rollout-check"><input type="checkbox" checked={form.brandedEmailReady} onChange={(event) => setForm({ ...form, brandedEmailReady: event.target.checked })} /><span><b>Custom GoldOnTheSpot SMTP and templates are active</b><small>Confirmation and recovery emails should show your name and domain—not Supabase.</small></span></label>
       <label>Required rollout reason<textarea rows="3" maxLength="1000" value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} placeholder="Example: Twilio delivery tested on July 16" /></label>
       {message && <div className="form-message">{message}</div>}
       <button className="button button-dark" onClick={save} disabled={busy}><Save /> {busy ? "Saving…" : "Save security policy"}</button>
+    </section>
+  </div>;
+}
+
+export function SalesAdminPanel() {
+  const [days, setDays] = useState("30");
+  const [report, setReport] = useState(null);
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    setLoading(true);
+    setMessage("");
+    try {
+      const data = await invokeAdmin({ action: "sales_report", days: Number(days) });
+      setReport(data.report);
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { load(); }, [days]);
+
+  return <div className="enterprise-admin-stack">
+    <section className="admin-panel">
+      <div className="panel-title enterprise-panel-title"><div><h2>Sales performance</h2><p>Booked, non-cancelled orders. Pending payments remain visible in the status breakdown.</p></div><select value={days} onChange={(event) => setDays(event.target.value)}><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="365">Last 12 months</option><option value="0">All time</option></select></div>
+      {message && <div className="form-message error">{message}</div>}
+      {loading ? <div className="catalog-loading">Building secure sales report…</div> : <>
+        <div className="enterprise-metrics sales-metrics">
+          <div><b>{money(report?.gross_sales || 0)}</b><span>Booked order value</span></div>
+          <div><b>{report?.order_count || 0}</b><span>Orders</span></div>
+          <div><b>{money(report?.average_order || 0)}</b><span>Average order</span></div>
+          <div><b>{report?.units || 0}</b><span>Units ordered</span></div>
+        </div>
+        <div className="sales-report-grid">
+          <section><h3>Top products</h3>{(report?.top_products || []).map((item) => <div className="sales-list-row" key={item.name}><span><b>{item.name}</b><small>{item.units} units</small></span><strong>{money(item.sales)}</strong></div>)}{!report?.top_products?.length && <p>No sales in this period.</p>}</section>
+          <section><h3>Sales by metal</h3>{(report?.metals || []).map((item) => <div className="sales-list-row" key={item.metal}><span><b>{item.metal}</b><small>{item.units} units</small></span><strong>{money(item.sales)}</strong></div>)}{!report?.metals?.length && <p>No metal sales in this period.</p>}</section>
+          <section><h3>Order status</h3>{Object.entries(report?.statuses || {}).map(([status, count]) => <div className="sales-list-row" key={status}><span><b>{orderStatusLabel(status)}</b></span><strong>{count}</strong></div>)}</section>
+          <section><h3>Payment method</h3>{Object.entries(report?.payments || {}).map(([method, count]) => <div className="sales-list-row" key={method}><span><b>{orderStatusLabel(method)}</b></span><strong>{count}</strong></div>)}</section>
+        </div>
+      </>}
+    </section>
+  </div>;
+}
+
+const storeDefaults = {
+  shipping_flat: 35,
+  free_shipping_threshold: 5000,
+  card_surcharge_percent: 4,
+  price_lock_minutes: 5,
+  store_announcement: "",
+  accepting_orders: true,
+};
+
+export function StoreAdminPanel() {
+  const [form, setForm] = useState({ ...storeDefaults, reason: "" });
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => {
+    const { data, error } = await supabase.from("app_settings").select("key, value").in("key", Object.keys(storeDefaults));
+    if (error) return setMessage(error.message);
+    const values = Object.fromEntries((data || []).map((row) => [row.key, row.value]));
+    setForm((current) => ({ ...current, ...storeDefaults, ...values, reason: "" }));
+  };
+  useEffect(() => { load(); }, []);
+
+  const save = async () => {
+    setBusy(true);
+    setMessage("");
+    try {
+      await invokeAdmin({ action: "update_store_settings", settings: {
+        shipping_flat: Number(form.shipping_flat),
+        free_shipping_threshold: Number(form.free_shipping_threshold),
+        card_surcharge_percent: Number(form.card_surcharge_percent),
+        price_lock_minutes: Number(form.price_lock_minutes),
+        store_announcement: form.store_announcement,
+        accepting_orders: Boolean(form.accepting_orders),
+      }, reason: form.reason });
+      setMessage("Store settings saved, published, and added to the audit log.");
+      await load();
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const numberField = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+
+  return <div className="enterprise-admin-stack">
+    <div className="store-state-card"><Store /><span><small>STOREFRONT STATUS</small><h2>{form.accepting_orders ? "Accepting customer orders" : "Checkout paused"}</h2><p>Catalog browsing stays available if checkout is paused.</p></span><label className="store-switch"><input type="checkbox" checked={Boolean(form.accepting_orders)} onChange={(event) => setForm({ ...form, accepting_orders: event.target.checked })} /><span>{form.accepting_orders ? "Open" : "Paused"}</span></label></div>
+    <section className="admin-panel store-settings-panel">
+      <div className="panel-title"><div><h2>Website and checkout settings</h2><p>Routine store controls are managed here; no database dashboard is needed.</p></div><BarChart3 /></div>
+      <div className="form-row">
+        <label>Insured shipping fee ($)<input type="number" min="0" max="10000" step="0.01" value={form.shipping_flat} onChange={(event) => numberField("shipping_flat", event.target.value)} /></label>
+        <label>Free shipping threshold ($)<input type="number" min="0" max="1000000" step="0.01" value={form.free_shipping_threshold} onChange={(event) => numberField("free_shipping_threshold", event.target.value)} /></label>
+      </div>
+      <div className="form-row">
+        <label>Card surcharge (%)<input type="number" min="0" max="10" step="0.1" value={form.card_surcharge_percent} onChange={(event) => numberField("card_surcharge_percent", event.target.value)} /></label>
+        <label>Price lock (minutes)<input type="number" min="1" max="30" step="1" value={form.price_lock_minutes} onChange={(event) => numberField("price_lock_minutes", event.target.value)} /></label>
+      </div>
+      <label>Store announcement<input maxLength="160" placeholder="Example: Free insured shipping on orders over $5,000" value={form.store_announcement || ""} onChange={(event) => setForm({ ...form, store_announcement: event.target.value })} /><small className="field-help">Leave blank to hide the announcement bar. Maximum 160 characters.</small></label>
+      <label>Required change reason<textarea rows="3" maxLength="1000" placeholder="Why are these settings changing?" value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} /></label>
+      {message && <div className="form-message">{message}</div>}
+      <button className="button button-dark" onClick={save} disabled={busy}><Save /> {busy ? "Publishing…" : "Save and publish settings"}</button>
     </section>
   </div>;
 }

@@ -6,7 +6,7 @@ import { metalSymbol, money, productPrice } from "../lib/pricing";
 import { useCart } from "../state/CartContext";
 import { useAuth } from "../state/AuthContext";
 
-const defaults = { shipping_flat: 35, free_shipping_threshold: 5000, card_surcharge_percent: 4 };
+const defaults = { shipping_flat: 35, free_shipping_threshold: 5000, card_surcharge_percent: 4, accepting_orders: true };
 
 export default function CheckoutPage() {
   const { items, clear, reconcileProducts } = useCart();
@@ -23,12 +23,13 @@ export default function CheckoutPage() {
     let active = true;
     Promise.all([
       fetch(`/api/metals?t=${Date.now()}`, { cache: "no-store" }).then((response) => response.ok ? response.json() : null).catch(() => null),
-      supabase.from("app_settings").select("key, value").in("key", ["shipping_flat", "free_shipping_threshold", "card_surcharge_percent"]),
+      supabase.from("app_settings").select("key, value").in("key", ["shipping_flat", "free_shipping_threshold", "card_surcharge_percent", "accepting_orders"]),
     ]).then(([market, settingResult]) => {
       if (!active) return;
       setSpot(market?.metals || null);
       const next = { ...defaults };
-      for (const row of settingResult.data || []) next[row.key] = Number(row.value);
+      for (const row of settingResult.data || [])
+        next[row.key] = row.key === "accepting_orders" ? Boolean(row.value) : Number(row.value);
       setSettings(next);
     });
     return () => { active = false; };
@@ -56,6 +57,7 @@ export default function CheckoutPage() {
 
   const submit = async (event) => {
     event.preventDefault();
+    if (!settings.accepting_orders) return setError("Checkout is temporarily paused. Your cart is saved; please try again later.");
     if (!/^[A-Za-z]{2}$/.test(form.state.trim())) return setError("Enter a two-letter US state code.");
     if (!/^\d{5}(?:-\d{4})?$/.test(form.postalCode.trim())) return setError("Enter a valid US ZIP code.");
     if (!form.agree) return setError("Agree to the Terms of Purchase before placing the order.");
@@ -81,7 +83,7 @@ export default function CheckoutPage() {
       <fieldset><legend>Contact</legend><div className="form-row"><label>First name<input required maxLength="60" autoComplete="given-name" value={form.firstName} onChange={(event) => setForm({ ...form, firstName: event.target.value })} /></label><label>Last name<input required maxLength="60" autoComplete="family-name" value={form.lastName} onChange={(event) => setForm({ ...form, lastName: event.target.value })} /></label></div><div className="form-row"><label>Verified email<input disabled value={user.email} /></label><label>Phone<input required type="tel" maxLength="30" autoComplete="tel" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label></div></fieldset>
       <fieldset><legend>Insured shipping address</legend><label>Street address<input required maxLength="160" autoComplete="address-line1" value={form.address1} onChange={(event) => setForm({ ...form, address1: event.target.value })} /></label><label>Apartment, suite, etc. <span>(optional)</span><input maxLength="100" autoComplete="address-line2" value={form.address2} onChange={(event) => setForm({ ...form, address2: event.target.value })} /></label><div className="form-row three"><label>City<input required maxLength="80" autoComplete="address-level2" value={form.city} onChange={(event) => setForm({ ...form, city: event.target.value })} /></label><label>State<input required maxLength="2" autoComplete="address-level1" placeholder="NY" value={form.state} onChange={(event) => setForm({ ...form, state: event.target.value.toUpperCase() })} /></label><label>ZIP code<input required maxLength="10" inputMode="numeric" autoComplete="postal-code" value={form.postalCode} onChange={(event) => setForm({ ...form, postalCode: event.target.value })} /></label></div><label className="checkout-check"><input type="checkbox" checked={form.saveAddress} onChange={(event) => setForm({ ...form, saveAddress: event.target.checked })} /> Save this as my default delivery address</label></fieldset>
       <fieldset><legend>Payment method</legend><div className="payment-options"><PaymentOption value="wire" form={form} setForm={setForm} title="Bank wire" detail="Instructions provided after review • no surcharge" /><PaymentOption value="ach" form={form} setForm={setForm} title="ACH transfer" detail="Instructions provided after review • no surcharge" /><PaymentOption value="check" form={form} setForm={setForm} title="Certified check" detail="Ships after cleared funds • no surcharge" /><PaymentOption value="card" form={form} setForm={setForm} title="Credit card invoice" detail={`Secure invoice follows review • ${settings.card_surcharge_percent}% processing surcharge`} /></div></fieldset>
-      <label>Order notes <span>(optional)</span><textarea rows="3" maxLength="1000" value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Delivery or product notes" /></label><label className="checkout-check terms-check"><input type="checkbox" checked={form.agree} onChange={(event) => setForm({ ...form, agree: event.target.checked })} /> I agree to the <Link to="/terms">Terms of Purchase</Link> and understand that bullion prices fluctuate.</label>{error && <div className="form-message error">{error}</div>}<button className="button button-gold full large" disabled={busy || !spot || !cartReady}>{busy ? "Locking price and inventory…" : !cartReady ? "Refreshing inventory…" : !spot ? "Loading live prices…" : "Place secure order"}</button><p className="secure-submit"><LockKeyhole /> Checkout recalculates prices and inventory on the server. No card information is collected here.</p>
+      <label>Order notes <span>(optional)</span><textarea rows="3" maxLength="1000" value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Delivery or product notes" /></label><label className="checkout-check terms-check"><input type="checkbox" checked={form.agree} onChange={(event) => setForm({ ...form, agree: event.target.checked })} /> I agree to the <Link to="/terms">Terms of Purchase</Link> and understand that bullion prices fluctuate.</label>{!settings.accepting_orders && <div className="form-message error">Checkout is temporarily paused. Your cart will stay saved.</div>}{error && <div className="form-message error">{error}</div>}<button className="button button-gold full large" disabled={busy || !spot || !cartReady || !settings.accepting_orders}>{busy ? "Locking price and inventory…" : !settings.accepting_orders ? "Checkout temporarily paused" : !cartReady ? "Refreshing inventory…" : !spot ? "Loading live prices…" : "Place secure order"}</button><p className="secure-submit"><LockKeyhole /> Checkout recalculates prices and inventory on the server. No card information is collected here.</p>
     </form>
     <aside className="checkout-summary"><h2>Order review</h2><span>{estimatedUnits} item{estimatedUnits === 1 ? "" : "s"}</span>{items.map((item) => { const price = productPrice(item.product, spot); return <div className="checkout-item" key={item.product.id}><div className={`cart-thumb small ${item.product.metal}`}>{metalSymbol(item.product.metal)}</div><span><b>{item.product.name}</b><small>{item.quantity} × {price == null ? "Loading live price…" : money(price)}</small></span><strong>{price == null ? "—" : money(price * item.quantity)}</strong></div>; })}<div className="checkout-totals"><div><span>Live-priced items</span><b>{spot ? money(estimate.subtotal) : "Loading…"}</b></div><div><span>Insured shipping</span><b>{estimate.shipping ? money(estimate.shipping) : "Free"}</b></div>{estimate.surcharge > 0 && <div><span>Card surcharge</span><b>{money(estimate.surcharge)}</b></div>}<div><span>Estimated total</span><strong>{spot ? money(estimate.total) : "—"}</strong></div></div><div className="checkout-notice"><CheckCircle2 /><span><b>Final price protection</b><small>The server—not your browser—recalculates every line at submission. The confirmation shows the exact locked total.</small></span></div></aside>
   </div></section>;

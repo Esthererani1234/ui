@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Boxes,
+  BarChart3,
   Copy,
   DollarSign,
   ImagePlus,
@@ -17,6 +18,7 @@ import {
   ShieldCheck,
   ShoppingBag,
   Smartphone,
+  Store,
   Trash2,
   Users,
   X,
@@ -28,6 +30,8 @@ import {
   CustomerAdminPanel,
   RiskAdminPanel,
   SecurityAdminPanel,
+  SalesAdminPanel,
+  StoreAdminPanel,
 } from "../components/admin/EnterprisePanels";
 
 const blankProduct = {
@@ -58,10 +62,12 @@ const tabTitles = {
   overview: "Dashboard",
   products: "Products & pricing",
   orders: "Order management",
+  sales: "Sales reporting",
   support: "Customer support",
   customers: "Customer operations",
   risk: "Fraud & risk center",
   security: "Security controls",
+  store: "Store settings",
   audit: "Admin audit trail",
 };
 const statuses = [
@@ -74,7 +80,7 @@ const statuses = [
   "cancelled",
 ];
 const orderFields =
-  "id, order_number, user_id, first_name, last_name, email, phone, status, payment_status, payment_method, subtotal, payment_surcharge, shipping_amount, insurance_amount, total, spot_snapshot, price_locked_until, shipping_address, customer_notes, internal_notes, tracking_number, created_at, updated_at, order_items(*)";
+  "id, order_number, user_id, first_name, last_name, email, phone, status, payment_status, payment_method, subtotal, payment_surcharge, shipping_amount, insurance_amount, total, spot_snapshot, price_locked_until, shipping_address, customer_notes, tracking_number, created_at, updated_at, order_items(*)";
 const imagePath = (url) => {
   const marker = "/storage/v1/object/public/product-images/";
   return url?.includes(marker)
@@ -114,6 +120,7 @@ export default function AdminPage() {
   const [catalogMetal, setCatalogMetal] = useState("all");
   const [catalogStatus, setCatalogStatus] = useState("all");
   const [catalogPage, setCatalogPage] = useState(1);
+  const [orderFilter, setOrderFilter] = useState("all");
 
   const load = async () => {
     const [
@@ -138,8 +145,16 @@ export default function AdminPage() {
     setProducts(productData || []);
     setOrders(orderData || []);
     setTickets(ticketData || []);
-    if (productError || orderError || ticketError)
-      setMessage("Some admin data could not be loaded. Refresh and try again.");
+    const failures = [
+      productError && "products",
+      orderError && "orders",
+      ticketError && "support tickets",
+    ].filter(Boolean);
+    setMessage(
+      failures.length
+        ? `${failures.join(", ")} could not be loaded. Refresh and try again.`
+        : "",
+    );
   };
   useEffect(() => {
     supabase.auth.mfa
@@ -191,6 +206,15 @@ export default function AdminPage() {
     }),
     [orders, products],
   );
+
+  const filteredOrders = useMemo(() => {
+    if (orderFilter === "all") return orders;
+    if (orderFilter === "open")
+      return orders.filter(
+        (order) => !["completed", "cancelled"].includes(order.status),
+      );
+    return orders.filter((order) => order.status === orderFilter);
+  }, [orders, orderFilter]);
 
   const filteredCatalog = useMemo(() => {
     const query = catalogQuery.trim().toLowerCase();
@@ -298,6 +322,21 @@ export default function AdminPage() {
     setSelectedOrder(null);
     await load();
     return true;
+  };
+
+  const openOrderDetails = async (order) => {
+    setMessage("");
+    const { data, error } = await supabase.functions.invoke(
+      "admin-operations",
+      { body: { action: "get_order_details", order_id: order.id } },
+    );
+    if (error || data?.error || !data?.order) {
+      setMessage(
+        data?.error || error?.message || "The order details could not be loaded.",
+      );
+      return;
+    }
+    setSelectedOrder(data.order);
   };
 
   const uploadProductImages = async (event) => {
@@ -432,6 +471,12 @@ export default function AdminPage() {
             <ShoppingBag /> Orders
           </button>
           <button
+            className={tab === "sales" ? "active" : ""}
+            onClick={() => setTab("sales")}
+          >
+            <BarChart3 /> Sales
+          </button>
+          <button
             className={tab === "support" ? "active" : ""}
             onClick={() => setTab("support")}
           >
@@ -454,6 +499,12 @@ export default function AdminPage() {
             onClick={() => setTab("security")}
           >
             <Settings /> Security
+          </button>
+          <button
+            className={tab === "store" ? "active" : ""}
+            onClick={() => setTab("store")}
+          >
+            <Store /> Store settings
           </button>
           <button
             className={tab === "audit" ? "active" : ""}
@@ -483,38 +534,63 @@ export default function AdminPage() {
         {tab === "overview" && (
           <>
             <div className="metric-grid">
-              <article>
+              <button
+                type="button"
+                className="metric-card"
+                onClick={() => setTab("sales")}
+              >
                 <DollarSign />
                 <span>
                   <small>ORDER VALUE</small>
                   <b>{money(metrics.revenue)}</b>
                   <em>non-cancelled reviewed orders</em>
                 </span>
-              </article>
-              <article>
+              </button>
+              <button
+                type="button"
+                className="metric-card"
+                onClick={() => {
+                  setOrderFilter("open");
+                  setTab("orders");
+                }}
+              >
                 <PackageCheck />
                 <span>
                   <small>OPEN ORDERS</small>
                   <b>{metrics.open}</b>
                   <em>requiring fulfillment activity</em>
                 </span>
-              </article>
-              <article>
+              </button>
+              <button
+                type="button"
+                className="metric-card"
+                onClick={() => {
+                  setCatalogStatus("low");
+                  setTab("products");
+                }}
+              >
                 <Boxes />
                 <span>
                   <small>LOW STOCK</small>
                   <b>{metrics.lowStock}</b>
                   <em>at or below alert threshold</em>
                 </span>
-              </article>
-              <article>
+              </button>
+              <button
+                type="button"
+                className="metric-card"
+                onClick={() => {
+                  setOrderFilter("all");
+                  setTab("orders");
+                }}
+              >
                 <ShoppingBag />
                 <span>
                   <small>TOTAL ORDERS</small>
                   <b>{orders.length}</b>
                   <em>latest 100 loaded</em>
                 </span>
-              </article>
+              </button>
             </div>
             <div className="admin-panel">
               <div className="panel-title">
@@ -528,7 +604,7 @@ export default function AdminPage() {
               </div>
               <OrderTable
                 orders={orders.slice(0, 8)}
-                onOpen={setSelectedOrder}
+                onOpen={openOrderDetails}
               />
             </div>
           </>
@@ -545,22 +621,22 @@ export default function AdminPage() {
               </div>
             </div>
             <div className="admin-catalog-summary">
-              <div>
+              <button type="button" onClick={() => setCatalogStatus("all")}>
                 <b>{products.length}</b>
                 <span>Total products</span>
-              </div>
-              <div>
+              </button>
+              <button type="button" onClick={() => setCatalogStatus("live")}>
                 <b>{products.filter((product) => product.is_active).length}</b>
                 <span>Live</span>
-              </div>
-              <div>
+              </button>
+              <button type="button" onClick={() => setCatalogStatus("draft")}>
                 <b>{products.filter((product) => !product.is_active).length}</b>
                 <span>Drafts</span>
-              </div>
-              <div>
+              </button>
+              <button type="button" onClick={() => setCatalogStatus("low")}>
                 <b>{metrics.lowStock}</b>
                 <span>Low stock</span>
-              </div>
+              </button>
             </div>
             <div className="admin-catalog-toolbar">
               <label className="admin-catalog-search">
@@ -714,14 +790,28 @@ export default function AdminPage() {
                 <h2>All orders</h2>
                 <p>Review payment and fulfillment before changing status.</p>
               </div>
+              <select
+                className="admin-order-filter"
+                value={orderFilter}
+                onChange={(event) => setOrderFilter(event.target.value)}
+              >
+                <option value="all">All orders</option>
+                <option value="open">All open orders</option>
+                {statuses.map((status) => (
+                  <option key={status} value={status}>
+                    {orderStatusLabel(status)}
+                  </option>
+                ))}
+              </select>
             </div>
             <OrderTable
-              orders={orders}
-              onOpen={setSelectedOrder}
+              orders={filteredOrders}
+              onOpen={openOrderDetails}
               detailed
             />
           </div>
         )}
+        {tab === "sales" && <SalesAdminPanel />}
         {tab === "support" && (
           <div className="admin-panel">
             <div className="panel-title">
@@ -762,6 +852,7 @@ export default function AdminPage() {
         {tab === "customers" && <CustomerAdminPanel />}
         {tab === "risk" && <RiskAdminPanel />}
         {tab === "security" && <SecurityAdminPanel />}
+        {tab === "store" && <StoreAdminPanel />}
         {tab === "audit" && <AuditAdminPanel />}
       </div>
       {editor && (

@@ -41,6 +41,13 @@ const readPrice = (payload: Record<string, unknown>) => {
   throw new Error("The market feed returned an invalid value");
 };
 
+// Must match api/metals.js. This is applied again on the trusted checkout
+// service so a customer cannot bypass the retail spot basis in the browser.
+const DEALER_SPOT_ADJUSTMENT = 0.0041;
+
+const applyDealerSpotAdjustment = (price: number) =>
+  Math.round(price * (1 + DEALER_SPOT_ADJUSTMENT) * 1_000_000) / 1_000_000;
+
 const jwtPayload = (token: string) => {
   try {
     const encoded = token.split(".")[1].replaceAll("-", "+").replaceAll("_", "/");
@@ -57,7 +64,7 @@ async function fetchSpot() {
     const response = await fetch(`https://api.gold-api.com/price/${symbol}`, { headers: { accept: "application/json" } });
     if (!response.ok) throw new Error("The live market feed is temporarily unavailable");
     const payload = await response.json();
-    return [name, readPrice(payload)] as const;
+    return [name, applyDealerSpotAdjustment(readPrice(payload))] as const;
   }));
   return Object.fromEntries(entries) as Record<string, number>;
 }
@@ -169,7 +176,7 @@ Deno.serve(async (request: Request) => {
       return json(request, { error: customerSafe }, 400);
     }
 
-    await admin.from("price_snapshots").insert(Object.entries(spot).map(([metal, price]) => ({ metal, price, source: "Gold-API.com" })));
+    await admin.from("price_snapshots").insert(Object.entries(spot).map(([metal, price]) => ({ metal, price, source: "GoldOnTheSpot retail spot" })));
     return json(request, data, 201);
   } catch (error) {
     console.error("checkout error", error);

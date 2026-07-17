@@ -7,6 +7,14 @@ const METALS = {
   palladium: "XPD"
 };
 
+// GoldOnTheSpot's retail spot basis. Keep this in sync with the secure
+// checkout function so displayed prices and locked order totals agree.
+const DEALER_SPOT_ADJUSTMENT = 0.0041;
+
+function applyDealerSpotAdjustment(price) {
+  return Math.round(price * (1 + DEALER_SPOT_ADJUSTMENT) * 1_000_000) / 1_000_000;
+}
+
 function json(body, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(body), {
     status,
@@ -83,7 +91,7 @@ async function fetchMetal(symbol) {
     try {
       const payload = await fetchJson(url);
       return {
-        price: readPrice(payload),
+        price: applyDealerSpotAdjustment(readPrice(payload)),
         timestamp: readTimestamp(payload)
       };
     } catch (error) {
@@ -128,7 +136,7 @@ export default async function handler(request) {
       currency: "USD",
       unit: "troy_ounce",
       timestamp: timestamps[0] || new Date().toISOString(),
-      source: "Gold-API.com via Vercel Edge",
+      source: "GoldOnTheSpot live market",
       refreshSeconds: 30
     });
   } catch (error) {

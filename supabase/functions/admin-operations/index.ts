@@ -5,14 +5,22 @@ const allowedOrigins = new Set([
   "https://goldonthespot.com",
   "https://www.goldonthespot.com",
   "https://ui-plum-alpha.vercel.app",
+  "https://ui-esther-eranis-projects.vercel.app",
+  "https://ui-git-main-esther-eranis-projects.vercel.app",
   "https://ui-git-agent-goldonthespot-store-esther-eranis-projects.vercel.app",
   "http://localhost:5173",
 ]);
 
+const vercelProjectOrigin =
+  /^https:\/\/ui-[a-z0-9-]+-esther-eranis-projects\.vercel\.app$/;
+
+const isAllowedOrigin = (origin: string) =>
+  allowedOrigins.has(origin) || vercelProjectOrigin.test(origin);
+
 const corsHeaders = (request: Request) => {
   const origin = request.headers.get("origin") || "";
   return {
-    ...(allowedOrigins.has(origin)
+    ...(isAllowedOrigin(origin)
       ? { "access-control-allow-origin": origin }
       : {}),
     "access-control-allow-headers":
@@ -54,13 +62,13 @@ const cleanText = (value: unknown, limit: number) =>
 Deno.serve(async (request: Request) => {
   if (request.method === "OPTIONS") {
     const origin = request.headers.get("origin") || "";
-    if (!allowedOrigins.has(origin))
+    if (!isAllowedOrigin(origin))
       return new Response("Forbidden", { status: 403 });
     return new Response("ok", { headers: corsHeaders(request) });
   }
   if (request.method !== "POST")
     return json(request, { error: "Method not allowed" }, 405);
-  if (!allowedOrigins.has(request.headers.get("origin") || ""))
+  if (!isAllowedOrigin(request.headers.get("origin") || ""))
     return json(request, { error: "Origin not allowed" }, 403);
   if (Number(request.headers.get("content-length") || 0) > 30_000)
     return json(request, { error: "Request is too large" }, 413);
@@ -146,41 +154,183 @@ Deno.serve(async (request: Request) => {
       const days = Number(body?.days);
       if (![0, 7, 30, 90, 365].includes(days))
         return json(request, { error: "Invalid sales report period" }, 400);
+
+      const dayMs = 86_400_000;
+      const now = new Date();
+      const today = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+      );
+      const currentStart = days
+        ? new Date(today.getTime() - (days - 1) * dayMs)
+        : null;
+      const previousStart = currentStart
+        ? new Date(currentStart.getTime() - days * dayMs)
+        : null;
+
       let salesQuery = admin
         .from("orders")
         .select("id, status, payment_method, total, created_at, order_items(product_name, metal, quantity, line_total)")
         .neq("status", "cancelled")
         .order("created_at", { ascending: false })
         .limit(5000);
-      if (days)
+      if (previousStart)
         salesQuery = salesQuery.gte(
           "created_at",
-          new Date(Date.now() - days * 86_400_000).toISOString(),
+          previousStart.toISOString(),
         );
       const { data: orders, error } = await salesQuery;
       if (error) throw error;
+
+      type SalesItem = {
+        product_name: string | null;
+        metal: string | null;
+        quantity: number | string | null;
+        line_total: number | string | null;
+      };
+      type SalesOrder = {
+        id: number;
+        status: string;
+        payment_method: string | null;
+        total: number | string | null;
+        created_at: string;
+        order_items: SalesItem[] | null;
+      };
+
+      const allOrders = (orders || []) as SalesOrder[];
+      const currentOrders = currentStart
+        ? allOrders.filter(
+            (order) => new Date(order.created_at).getTime() >= currentStart.getTime(),
+          )
+        : allOrders;
+      const previousOrders = previousStart && currentStart
+        ? allOrders.filter((order) => {
+            const created = new Date(order.created_at).getTime();
+            return created >= previousStart.getTime() && created < currentStart.getTime();
+          })
+        : [];
+
+      const summarize = (source: SalesOrder[]) => {
+        let grossSales = 0;
+        let units = 0;
+        for (const order of source) {
+          grossSales += Number(order.total || 0);
+          for (const item of order.order_items || [])
+            units += Number(item.quantity || 0);
+        }
+        const orderCount = source.length;
+        return {
+          order_count: orderCount,
+          gross_sales: Math.round(grossSales * 100) / 100,
+          average_order: orderCount
+            ? Math.round((grossSales / orderCount) * 100) / 100
+            : 0,
+          units,
+        };
+      };
+
+      const pad = (value: number) => String(value).padStart(2, "0");
+      const dayKey = (date: Date) =>
+        `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+      const bucketDate = (date: Date, unit: "day" | "week" | "month") => {
+        const bucket = new Date(
+          Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+        );
+        if (unit === "week") {
+          const daysFromMonday = (bucket.getUTCDay() + 6) % 7;
+          bucket.setUTCDate(bucket.getUTCDate() - daysFromMonday);
+        }
+        if (unit === "month") bucket.setUTCDate(1);
+        return bucket;
+      };
+      const advanceBucket = (date: Date, unit: "day" | "week" | "month") => {
+        const next = new Date(date);
+        if (unit === "month") next.setUTCMonth(next.getUTCMonth() + 1);
+        else next.setUTCDate(next.getUTCDate() + (unit === "week" ? 7 : 1));
+        return next;
+      };
+      const granularity: "day" | "week" | "month" =
+        days === 0 || days >= 365 ? "month" : days > 31 ? "week" : "day";
+      const oldestCurrent = currentOrders.length
+        ? new Date(currentOrders[currentOrders.length - 1].created_at)
+        : null;
+      const allTimeFallback = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 11, 1),
+      );
+      const seriesStart = currentStart || oldestCurrent || allTimeFallback;
+
+      const buildSeries = (
+        source: SalesOrder[],
+        start: Date,
+        end: Date,
+      ) => {
+        const buckets = new Map<
+          string,
+          { date: string; gross_sales: number; orders: number; units: number; average_order: number }
+        >();
+        let cursor = bucketDate(start, granularity);
+        const last = bucketDate(end, granularity);
+        let safety = 0;
+        while (cursor.getTime() <= last.getTime() && safety < 500) {
+          const key = dayKey(cursor);
+          buckets.set(key, {
+            date: key,
+            gross_sales: 0,
+            orders: 0,
+            units: 0,
+            average_order: 0,
+          });
+          cursor = advanceBucket(cursor, granularity);
+          safety += 1;
+        }
+        for (const order of source) {
+          const key = dayKey(bucketDate(new Date(order.created_at), granularity));
+          const bucket = buckets.get(key);
+          if (!bucket) continue;
+          bucket.gross_sales += Number(order.total || 0);
+          bucket.orders += 1;
+          for (const item of order.order_items || [])
+            bucket.units += Number(item.quantity || 0);
+        }
+        return [...buckets.values()].map((bucket) => ({
+          ...bucket,
+          gross_sales: Math.round(bucket.gross_sales * 100) / 100,
+          average_order: bucket.orders
+            ? Math.round((bucket.gross_sales / bucket.orders) * 100) / 100
+            : 0,
+        }));
+      };
+
+      const currentSummary = summarize(currentOrders);
+      const previousSummary = summarize(previousOrders);
+      const timeSeries = buildSeries(currentOrders, seriesStart, now);
+      const comparisonSeries = previousStart && currentStart
+        ? buildSeries(
+            previousOrders,
+            previousStart,
+            new Date(currentStart.getTime() - 1),
+          )
+        : [];
+
       const productTotals = new Map<string, { name: string; units: number; sales: number }>();
       const metalTotals = new Map<string, { metal: string; units: number; sales: number }>();
       const statuses: Record<string, number> = {};
       const payments: Record<string, number> = {};
-      let grossSales = 0;
-      let units = 0;
-      for (const order of orders || []) {
-        grossSales += Number(order.total || 0);
+      for (const order of currentOrders) {
         statuses[order.status] = (statuses[order.status] || 0) + 1;
-        payments[order.payment_method] = (payments[order.payment_method] || 0) + 1;
+        const paymentMethod = order.payment_method || "not selected";
+        payments[paymentMethod] = (payments[paymentMethod] || 0) + 1;
         for (const item of order.order_items || []) {
           const quantity = Number(item.quantity || 0);
           const lineSales = Number(item.line_total || 0);
-          units += quantity;
-          const product = productTotals.get(item.product_name) || {
-            name: item.product_name,
+          const productName = item.product_name || "Unknown product";
+          const product = productTotals.get(productName) || {
+            name: productName,
             units: 0,
             sales: 0,
           };
           product.units += quantity;
           product.sales += lineSales;
-          productTotals.set(item.product_name, product);
+          productTotals.set(productName, product);
           const metalName = item.metal || "other";
           const metal = metalTotals.get(metalName) || {
             metal: metalName,
@@ -192,16 +342,19 @@ Deno.serve(async (request: Request) => {
           metalTotals.set(metalName, metal);
         }
       }
-      const orderCount = orders?.length || 0;
       return json(request, {
         report: {
           days,
-          order_count: orderCount,
-          gross_sales: Math.round(grossSales * 100) / 100,
-          average_order: orderCount
-            ? Math.round((grossSales / orderCount) * 100) / 100
-            : 0,
-          units,
+          ...currentSummary,
+          previous: previousSummary,
+          comparison_available: Boolean(days),
+          period: {
+            start: seriesStart.toISOString(),
+            end: now.toISOString(),
+            granularity,
+          },
+          time_series: timeSeries,
+          comparison_series: comparisonSeries,
           statuses,
           payments,
           top_products: [...productTotals.values()]

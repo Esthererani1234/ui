@@ -1,9 +1,110 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { BadgeCheck, Headphones, LockKeyhole, PackageCheck, ShieldCheck, Truck } from "lucide-react";
+import {
+  ArrowRight,
+  BadgeCheck,
+  CheckCircle2,
+  Clock3,
+  Headphones,
+  LockKeyhole,
+  PackageCheck,
+  ShieldCheck,
+  Sparkles,
+  Truck,
+} from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { metalSymbol, money, productPrice } from "../lib/pricing";
 import MarketTicker from "../components/MarketTicker";
 import ProductCard from "../components/ProductCard";
+
+const metals = [
+  { key: "gold", name: "Gold", symbol: "Au", note: "Store of value" },
+  { key: "silver", name: "Silver", symbol: "Ag", note: "Accessible bullion" },
+  { key: "platinum", name: "Platinum", symbol: "Pt", note: "Rare & industrial" },
+  { key: "palladium", name: "Palladium", symbol: "Pd", note: "Specialty metal" },
+];
+
+const shopPaths = [
+  { label: "Popular gold", detail: "Buffaloes, Eagles and sovereign coins", to: "/shop?metal=gold&category=coin", metal: "gold", symbol: "Au", art: "coin" },
+  { label: "Gold bars", detail: "Refinery bars in practical weights", to: "/shop?metal=gold&category=bar", metal: "gold", symbol: "Au", art: "bar" },
+  { label: "Silver coins", detail: "Government-minted silver bullion", to: "/shop?metal=silver&category=coin", metal: "silver", symbol: "Ag", art: "coin" },
+  { label: "Silver bars", detail: "Stackable ounces and kilo formats", to: "/shop?metal=silver&category=bar", metal: "silver", symbol: "Ag", art: "bar" },
+  { label: "Platinum", detail: "Scarce bars and investment coins", to: "/shop?metal=platinum", metal: "platinum", symbol: "Pt", art: "coin" },
+  { label: "All bullion", detail: "Compare every available listing", to: "/shop", metal: "all", symbol: "G", art: "all" },
+];
+
+function FeaturedHeroProduct({ product, spot }) {
+  const price = productPrice(product, spot);
+  const image = product?.image_url || product?.image_urls?.[0];
+
+  if (!product) {
+    return (
+      <div className="home-hero-product placeholder" aria-hidden="true">
+        <div className="home-hero-bullion"><span>G</span><b>FINE BULLION</b><small>GOLDONTHESPOT</small></div>
+      </div>
+    );
+  }
+
+  return (
+    <Link className="home-hero-product" to={`/product/${product.slug}`}>
+      <div className="home-hero-product-topline">
+        <span><Sparkles /> Featured at the bullion desk</span>
+        {product.badge && <b>{product.badge}</b>}
+      </div>
+      <div className="home-hero-product-image">
+        {image ? <img src={image} alt={product.name} /> : (
+          <div className={`home-hero-bullion ${product.metal}`}>
+            <span>{metalSymbol(product.metal)}</span>
+            <b>{product.metal_weight_oz} TROY OZ</b>
+            <small>FINE {product.metal}</small>
+          </div>
+        )}
+      </div>
+      <div className="home-hero-product-info">
+        <span>{product.metal} · {product.category}</span>
+        <h2>{product.name}</h2>
+        <div>
+          <p><small>Current price</small><strong>{price == null ? "Request quote" : money(price)}</strong></p>
+          <em>{product.inventory_count > 0 ? "Available now" : "Currently unavailable"}</em>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function MarketDesk({ spot }) {
+  return (
+    <section className="home-market-desk">
+      <div className="container">
+        <div className="home-market-heading">
+          <div>
+            <span className="eyebrow dark">LIVE MARKET DESK</span>
+            <h2>Know the market before you buy.</h2>
+            <p>GoldOnTheSpot prices refresh automatically. Compare the current ounce and gram basis at a glance.</p>
+          </div>
+          <span className="home-market-status"><i /> Refreshes every 30 seconds</span>
+        </div>
+        <div className="home-market-grid">
+          {metals.map((metal) => {
+            const ounce = Number(spot?.[metal.key]);
+            return (
+              <Link key={metal.key} className={`home-market-card ${metal.key}`} to={`/shop?metal=${metal.key}`}>
+                <span className="home-market-symbol">{metal.symbol}</span>
+                <span className="home-market-name"><b>{metal.name}</b><small>{metal.note}</small></span>
+                <span className="home-market-price">
+                  <small>Per troy ounce</small>
+                  <strong>{ounce > 0 ? money(ounce) : "Loading…"}</strong>
+                  <em>{ounce > 0 ? `${money(ounce / 31.1034768)} / gram` : "Live feed"}</em>
+                </span>
+                <ArrowRight />
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
 
 export default function HomePage() {
   const [products, setProducts] = useState([]);
@@ -12,68 +113,130 @@ export default function HomePage() {
   const receivePrices = useCallback((next) => setSpot(next), []);
 
   useEffect(() => {
+    let mounted = true;
     supabase
       .from("products")
       .select("*")
       .eq("is_active", true)
-      .eq("is_featured", true)
+      .order("is_featured", { ascending: false })
       .order("sort_order")
-      .limit(4)
-      .then(({ data }) => { setProducts(data || []); setLoadingProducts(false); });
+      .limit(8)
+      .then(({ data }) => {
+        if (!mounted) return;
+        setProducts(data || []);
+        setLoadingProducts(false);
+      });
+    return () => { mounted = false; };
   }, []);
+
+  const heroProduct = useMemo(
+    () => products.find((product) => product.is_featured) || products[0] || null,
+    [products],
+  );
 
   return (
     <>
       <div className="page-only-ticker"><MarketTicker onPrices={receivePrices} /></div>
-      <section className="hero-section">
-        <div className="container hero-grid">
-          <div className="hero-copy">
-            <span className="eyebrow">REAL METAL • TRANSPARENT PRICING</span>
-            <h1>Own something<br /><em>that lasts.</em></h1>
-            <p>Shop investment-grade gold, silver, platinum, and palladium. Prices move with the market and every order is reviewed for secure fulfillment.</p>
-            <div className="hero-actions"><Link className="button button-gold" to="/shop?metal=gold">Shop gold</Link><Link className="button button-light" to="/shop">Browse all bullion</Link></div>
-            <div className="hero-proof"><span><BadgeCheck size={18} /> Market-linked pricing</span><span><ShieldCheck size={18} /> Insured fulfillment</span></div>
+
+      <section className="home-hero">
+        <div className="home-hero-glow one" />
+        <div className="home-hero-glow two" />
+        <div className="container home-hero-grid">
+          <div className="home-hero-copy">
+            <span className="eyebrow">PRECIOUS METALS · PRICED RIGHT NOW</span>
+            <h1>A clearer way to<br /><em>own real value.</em></h1>
+            <p>Shop physical gold, silver, platinum and palladium with live market-linked pricing, tracked inventory and secure order review.</p>
+            <div className="home-hero-actions">
+              <Link className="button button-gold large" to="/shop">Shop all bullion <ArrowRight /></Link>
+              <Link className="button home-hero-secondary large" to="/shop?metal=gold">Explore gold</Link>
+            </div>
+            <div className="home-hero-confidence">
+              <span><BadgeCheck /> Authenticity focused</span>
+              <span><ShieldCheck /> Insured fulfillment</span>
+              <span><Clock3 /> Server-locked pricing</span>
+            </div>
           </div>
-          <div className="hero-visual" aria-hidden="true">
-            <div className="coin-shadow"></div>
-            <div className="hero-coin"><small>UNITED STATES OF AMERICA</small><strong>$50</strong><b>1 OZ .9999 FINE GOLD</b><span>AMERICAN BUFFALO</span></div>
-            <div className="hero-bar"><b>GOTS</b><span>FINE GOLD 999.9</span><small>1 TROY OUNCE</small></div>
-          </div>
+          <FeaturedHeroProduct product={heroProduct} spot={spot} />
         </div>
       </section>
 
-      <section className="trust-strip">
-        <div className="container trust-grid">
-          <div><LockKeyhole /><span><b>Secure ordering</b><small>Protected account checkout</small></span></div>
-          <div><Truck /><span><b>Insured delivery</b><small>Signature required</small></span></div>
-          <div><PackageCheck /><span><b>Inventory tracked</b><small>Availability confirmed</small></span></div>
-          <div><Headphones /><span><b>Personal support</b><small>Help for every order size</small></span></div>
+      <section className="home-service-strip" aria-label="Store benefits">
+        <div className="container home-service-grid">
+          <div><LockKeyhole /><span><b>Secure ordering</b><small>Protected customer accounts</small></span></div>
+          <div><PackageCheck /><span><b>Real inventory</b><small>Availability checked at checkout</small></span></div>
+          <div><Truck /><span><b>Insured shipping</b><small>Signature-required delivery</small></span></div>
+          <div><Headphones /><span><b>Human support</b><small>Help before and after ordering</small></span></div>
         </div>
       </section>
 
-      <section className="section">
+      <section className="section home-shop-section">
         <div className="container">
-          <div className="section-heading"><div><span className="eyebrow dark">SHOP BY METAL</span><h2>Build your holdings</h2><p>Choose the metal and format that fits your strategy.</p></div><Link to="/shop">View every product →</Link></div>
-          <div className="metal-category-grid">
-            <Link className="metal-category gold" to="/shop?metal=gold"><span>Au</span><div><small>WEALTH PRESERVATION</small><h3>Gold bullion</h3><p>Buffaloes, Eagles, sovereign coins, and bars.</p></div></Link>
-            <Link className="metal-category silver" to="/shop?metal=silver"><span>Ag</span><div><small>ACCESSIBLE HARD ASSETS</small><h3>Silver bullion</h3><p>Sovereign coins, rounds, and stacker bars.</p></div></Link>
-            <Link className="metal-category platinum" to="/shop?metal=platinum"><span>Pt</span><div><small>SCARCE INDUSTRIAL METAL</small><h3>Platinum</h3><p>Premium bars and investment coins.</p></div></Link>
-            <Link className="metal-category palladium" to="/shop?metal=palladium"><span>Pd</span><div><small>SPECIALTY PRECIOUS METAL</small><h3>Palladium</h3><p>Limited bars and investment products.</p></div></Link>
+          <div className="home-section-heading">
+            <div><span className="eyebrow dark">START SHOPPING</span><h2>Find your bullion faster.</h2><p>Go directly to the metal and format you want—without digging through a crowded catalog.</p></div>
+            <Link to="/shop">View full catalog <ArrowRight /></Link>
+          </div>
+          <div className="home-shop-grid">
+            {shopPaths.map((path) => (
+              <Link key={path.label} className={`home-shop-tile ${path.metal}`} to={path.to}>
+                <span className={`home-tile-art ${path.art}`}>{path.symbol}</span>
+                <span><b>{path.label}</b><small>{path.detail}</small></span>
+                <ArrowRight />
+              </Link>
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="section featured-section">
+      <MarketDesk spot={spot} />
+
+      <section className="section home-products-section">
         <div className="container">
-          <div className="section-heading"><div><span className="eyebrow dark">THE BULLION DESK</span><h2>Featured products</h2><p>Selling prices refresh with the precious-metals market.</p></div><Link to="/shop?featured=true">See best sellers →</Link></div>
-          {loadingProducts ? <div className="catalog-loading">Loading today’s bullion selection…</div> : products.length ? <div className="product-grid">{products.map((product) => <ProductCard key={product.id} product={product} spot={spot} />)}</div> : <div className="empty-state compact"><h3>Listings are being added</h3><p>Check back shortly for available bullion inventory.</p></div>}
+          <div className="home-section-heading">
+            <div><span className="eyebrow dark">AVAILABLE NOW</span><h2>Featured from the bullion desk.</h2><p>Real listings from your active catalog, priced against the current market.</p></div>
+            <Link to="/shop?featured=true">Shop featured <ArrowRight /></Link>
+          </div>
+          {loadingProducts ? (
+            <div className="catalog-loading">Loading today’s bullion selection…</div>
+          ) : products.length ? (
+            <div className="product-grid home-product-grid">{products.slice(0, 4).map((product) => <ProductCard key={product.id} product={product} spot={spot} />)}</div>
+          ) : (
+            <div className="empty-state compact"><h3>Listings are being added</h3><p>There are no active products to display yet.</p></div>
+          )}
         </div>
       </section>
 
-      <section className="how-section">
-        <div className="container how-grid">
-          <div><span className="eyebrow">CLEAR FROM CART TO DELIVERY</span><h2>A better way to buy bullion.</h2><p>The market moves quickly. Our system recalculates pricing, locks the order total, verifies inventory, and gives you clear payment and fulfillment instructions.</p><Link className="button button-gold" to="/about">How GoldOnTheSpot works</Link></div>
-          <ol><li><b>1</b><span><strong>Choose your metal</strong><small>Compare products, weights, mints, and prices.</small></span></li><li><b>2</b><span><strong>Lock your order</strong><small>Your total is recalculated securely at checkout.</small></span></li><li><b>3</b><span><strong>Complete payment</strong><small>Use the approved method shown on your order.</small></span></li><li><b>4</b><span><strong>Track fulfillment</strong><small>Follow status from payment through delivery.</small></span></li></ol>
+      <section className="section home-confidence-section">
+        <div className="container home-confidence-grid">
+          <div className="home-confidence-intro">
+            <span className="eyebrow">BUILT FOR SERIOUS PURCHASES</span>
+            <h2>Confidence at every step.</h2>
+            <p>Bullion buying should feel precise, not confusing. GoldOnTheSpot keeps pricing, inventory and order status clear from product page to delivery.</p>
+            <Link className="button button-gold" to="/about">Why GoldOnTheSpot <ArrowRight /></Link>
+          </div>
+          <div className="home-confidence-cards">
+            <article><span>01</span><CheckCircle2 /><h3>Market-linked pricing</h3><p>Eligible products update with the metals market and your saved listing rules.</p></article>
+            <article><span>02</span><LockKeyhole /><h3>Protected price lock</h3><p>The trusted checkout service recalculates the exact order total before submission.</p></article>
+            <article><span>03</span><PackageCheck /><h3>Tracked fulfillment</h3><p>Follow the order from payment review through insured, signature-required delivery.</p></article>
+          </div>
+        </div>
+      </section>
+
+      <section className="home-process-section">
+        <div className="container">
+          <div className="home-process-heading"><span className="eyebrow dark">FROM MARKET TO YOUR DOOR</span><h2>Four clear steps. No mystery.</h2></div>
+          <ol className="home-process-grid">
+            <li><b>1</b><span><strong>Choose</strong><small>Compare metal, mint, weight and live selling price.</small></span></li>
+            <li><b>2</b><span><strong>Lock</strong><small>Checkout rechecks inventory and confirms your exact total.</small></span></li>
+            <li><b>3</b><span><strong>Pay</strong><small>Complete the approved payment method shown on the order.</small></span></li>
+            <li><b>4</b><span><strong>Receive</strong><small>Track careful fulfillment and signature-required delivery.</small></span></li>
+          </ol>
+        </div>
+      </section>
+
+      <section className="home-help-section">
+        <div className="container home-help-card">
+          <div><Headphones /><span><small>PERSONAL BULLION SUPPORT</small><h2>Questions before a larger order?</h2><p>Ask about products, payment timing or insured fulfillment before you lock the price.</p></span></div>
+          <div><Link className="button button-gold" to="/support">Visit support center</Link><a href="mailto:support@goldonthespot.com">support@goldonthespot.com</a></div>
         </div>
       </section>
     </>

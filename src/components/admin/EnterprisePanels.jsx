@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { money, orderStatusLabel } from "../../lib/pricing";
+import SalesAnalyticsPanel from "./SalesAnalyticsPanel";
 
 const invokeAdmin = async (body) => {
   const { data, error } = await supabase.functions.invoke("admin-operations", {
@@ -334,45 +335,7 @@ export function SecurityAdminPanel() {
 }
 
 export function SalesAdminPanel() {
-  const [days, setDays] = useState("30");
-  const [report, setReport] = useState(null);
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(true);
-
-  const load = async () => {
-    setLoading(true);
-    setMessage("");
-    try {
-      const data = await invokeAdmin({ action: "sales_report", days: Number(days) });
-      setReport(data.report);
-    } catch (error) {
-      setMessage(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-  useEffect(() => { load(); }, [days]);
-
-  return <div className="enterprise-admin-stack">
-    <section className="admin-panel">
-      <div className="panel-title enterprise-panel-title"><div><h2>Sales performance</h2><p>Booked, non-cancelled orders. Pending payments remain visible in the status breakdown.</p></div><select value={days} onChange={(event) => setDays(event.target.value)}><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="365">Last 12 months</option><option value="0">All time</option></select></div>
-      {message && <div className="form-message error">{message}</div>}
-      {loading ? <div className="catalog-loading">Building secure sales report…</div> : <>
-        <div className="enterprise-metrics sales-metrics">
-          <div><b>{money(report?.gross_sales || 0)}</b><span>Booked order value</span></div>
-          <div><b>{report?.order_count || 0}</b><span>Orders</span></div>
-          <div><b>{money(report?.average_order || 0)}</b><span>Average order</span></div>
-          <div><b>{report?.units || 0}</b><span>Units ordered</span></div>
-        </div>
-        <div className="sales-report-grid">
-          <section><h3>Top products</h3>{(report?.top_products || []).map((item) => <div className="sales-list-row" key={item.name}><span><b>{item.name}</b><small>{item.units} units</small></span><strong>{money(item.sales)}</strong></div>)}{!report?.top_products?.length && <p>No sales in this period.</p>}</section>
-          <section><h3>Sales by metal</h3>{(report?.metals || []).map((item) => <div className="sales-list-row" key={item.metal}><span><b>{item.metal}</b><small>{item.units} units</small></span><strong>{money(item.sales)}</strong></div>)}{!report?.metals?.length && <p>No metal sales in this period.</p>}</section>
-          <section><h3>Order status</h3>{Object.entries(report?.statuses || {}).map(([status, count]) => <div className="sales-list-row" key={status}><span><b>{orderStatusLabel(status)}</b></span><strong>{count}</strong></div>)}</section>
-          <section><h3>Payment method</h3>{Object.entries(report?.payments || {}).map(([method, count]) => <div className="sales-list-row" key={method}><span><b>{orderStatusLabel(method)}</b></span><strong>{count}</strong></div>)}</section>
-        </div>
-      </>}
-    </section>
-  </div>;
+  return <SalesAnalyticsPanel />;
 }
 
 const storeDefaults = {

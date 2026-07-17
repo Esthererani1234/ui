@@ -9,7 +9,7 @@ const METALS = {
 
 // GoldOnTheSpot's retail spot basis. Keep this in sync with the secure
 // checkout function so displayed prices and locked order totals agree.
-const DEALER_SPOT_ADJUSTMENT = 0.0041;
+const DEALER_SPOT_ADJUSTMENT = 0.004;
 
 function applyDealerSpotAdjustment(price) {
   return Math.round(price * (1 + DEALER_SPOT_ADJUSTMENT) * 1_000_000) / 1_000_000;

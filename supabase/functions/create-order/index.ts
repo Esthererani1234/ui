@@ -43,7 +43,7 @@ const readPrice = (payload: Record<string, unknown>) => {
 
 // Must match api/metals.js. This is applied again on the trusted checkout
 // service so a customer cannot bypass the retail spot basis in the browser.
-const DEALER_SPOT_ADJUSTMENT = 0.0041;
+const DEALER_SPOT_ADJUSTMENT = 0.004;
 
 const applyDealerSpotAdjustment = (price: number) =>
   Math.round(price * (1 + DEALER_SPOT_ADJUSTMENT) * 1_000_000) / 1_000_000;

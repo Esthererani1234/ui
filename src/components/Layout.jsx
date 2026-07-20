@@ -90,7 +90,7 @@ export default function Layout() {
       {announcement && <div className="store-announcement" role="status"><span>{announcement}</span></div>}
       {lastAdded && (
         <div className="cart-toast" key={lastAdded.id} role="status" aria-live="polite">
-          <CheckCircle2 />
+          {lastAdded.productImage ? <img className="cart-toast-image" src={lastAdded.productImage} alt="" /> : <CheckCircle2 />}
           <span>
             <b>Added to cart</b>
             <small>

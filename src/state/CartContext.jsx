@@ -76,6 +76,7 @@ export function CartProvider({ children }) {
           id: crypto.randomUUID(),
           productId: product.id,
           productName: product.name,
+          productImage: product.image_url || product.image_urls?.[0] || "",
           quantity: amountToAdd,
         });
         return true;

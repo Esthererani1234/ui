@@ -234,7 +234,7 @@ function CustomerDrawer({ customer, onClose, onChanged }) {
             <div className="enterprise-action-grid">
               <button className="button button-outline" disabled={Boolean(busy)} onClick={() => run("recovery", { action: "send_auth_email", email_type: "recovery", email: customer.email, reason: form.reason })}><KeyRound /> Send password reset</button>
               {!customer.email_confirmed_at && <button className="button button-outline" disabled={Boolean(busy)} onClick={() => run("confirmation", { action: "send_auth_email", email_type: "confirmation", email: customer.email, reason: form.reason })}><MailCheck /> Resend confirmation</button>}
-              <button className={`button ${isSuspended(customer) ? "button-dark" : "button-danger"}`} disabled={Boolean(busy) || form.reason.trim().length < 3} onClick={() => run("access", { action: "set_customer_access", user_id: customer.id, suspended: !isSuspended(customer), reason: form.reason })}>{isSuspended(customer) ? <UserCheck /> : <Ban />}{isSuspended(customer) ? "Restore account access" : "Suspend account access"}</button>
+              <button className={`button ${isSuspended(customer) ? "button-dark" : "button-danger"}`} disabled={Boolean(busy)} onClick={() => form.reason.trim().length < 3 ? setMessage("Enter a reason above before changing customer access.") : run("access", { action: "set_customer_access", user_id: customer.id, suspended: !isSuspended(customer), reason: form.reason })}>{isSuspended(customer) ? <UserCheck /> : <Ban />}{busy === "access" ? "Saving access…" : isSuspended(customer) ? "Restore account access" : "Suspend account access"}</button>
             </div>
           </section>
           <section className="enterprise-detail-section">

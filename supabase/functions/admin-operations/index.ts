@@ -496,18 +496,24 @@ Deno.serve(async (request: Request) => {
         .maybeSingle();
       if (targetAdmin)
         return json(request, { error: "Admin accounts cannot be changed here" }, 400);
-      const { error: authError } = await admin.auth.admin.updateUserById(userId, {
+      const { data: updatedAuth, error: authError } = await admin.auth.admin.updateUserById(userId, {
         ban_duration: suspended ? "876000h" : "none",
       });
       if (authError) throw authError;
+      const authSuspended = Boolean(
+        updatedAuth.user?.banned_until &&
+        new Date(updatedAuth.user.banned_until).getTime() > Date.now(),
+      );
+      if (authSuspended !== suspended)
+        throw new Error("Supabase did not confirm the requested access change");
       const { error: riskError } = await admin
         .from("customer_risk_profiles")
-        .update({
+        .upsert({
+          user_id: userId,
           status: suspended ? "blocked" : "normal",
           checkout_disabled: suspended,
           updated_by: actor.id,
-        })
-        .eq("user_id", userId);
+        }, { onConflict: "user_id" });
       if (riskError) throw riskError;
       await audit(
         suspended ? "customer.suspended" : "customer.restored",
@@ -515,7 +521,11 @@ Deno.serve(async (request: Request) => {
         userId,
         reason,
       );
-      return json(request, { success: true });
+      return json(request, {
+        success: true,
+        suspended: authSuspended,
+        banned_until: updatedAuth.user?.banned_until || null,
+      });
     }
 
     if (action === "send_auth_email") {

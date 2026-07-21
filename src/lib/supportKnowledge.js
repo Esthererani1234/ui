@@ -145,5 +145,6 @@ export function getLocalSupportAnswer(message, { products = [], spot = null, sig
   return {
     text: "I’m not certain enough to give you a reliable answer to that. Try asking about live prices, a metal, payment, shipping, an order, or your account—or open a private support ticket for a person.",
     links: [{ label: "Open support", to: signedIn ? "/support" : "/login?return=/support" }],
+    uncertain: true,
   };
 }

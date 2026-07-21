@@ -222,6 +222,11 @@ img { max-width: 100%; display: block; }
 
 .admin-ticket-list { display: grid; gap: 14px; }.admin-ticket { padding: 18px; background: #fff; border: 1px solid var(--line); }.admin-ticket > header { display: flex; justify-content: space-between; gap: 14px; }.admin-ticket header small, .admin-ticket header b, .admin-ticket header span { display: block; }.admin-ticket header small { color: var(--muted); font-size: 8px; }.admin-ticket header b { margin: 4px 0; color: var(--navy-900); }.admin-ticket header span { color: var(--muted); font-size: 10px; }.admin-ticket > p { color: #536672; font-size: 12px; line-height: 1.6; }.admin-ticket > small { color: var(--muted); font-size: 9px; }.admin-ticket label { display: block; margin: 12px 0; color: #50616d; font-size: 10px; font-weight: 800; }.admin-ticket-actions { display: flex; justify-content: flex-end; gap: 9px; }
 
+.assistant-message.assistant.pending { color: var(--muted); border-style: dashed; }
+.assistant-message.assistant > small { display: block; margin-top: 7px; color: var(--muted); font-size: 8px; font-weight: 800; text-transform: uppercase; }
+.assistant-panel > form input:disabled { background: #f4f6f7; }
+.assistant-panel > form button:disabled { opacity: .55; cursor: wait; }
+
 .detail-image img { width: 100%; }
 .product-gallery-thumbnails { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 9px; margin-top: 10px; }
 .product-gallery-thumbnails button { height: 72px; padding: 5px; overflow: hidden; background: #fff; border: 1px solid var(--line); border-radius: 3px; }

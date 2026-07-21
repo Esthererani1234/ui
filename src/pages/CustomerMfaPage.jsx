@@ -2,9 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { LockKeyhole, LogOut, MessageSquareText, ShieldCheck } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { formatUsPhone, toUsE164 } from "../lib/phone";
 import { useAuth } from "../state/AuthContext";
-
-const e164 = /^\+[1-9]\d{7,14}$/;
 
 const friendlyMfaError = (error) => {
   const message = error?.message || "SMS verification could not be completed.";
@@ -28,7 +27,7 @@ export default function CustomerMfaPage() {
       ? requested
       : "/account";
   }, [params]);
-  const [phone, setPhone] = useState(profile?.phone || "");
+  const [phone, setPhone] = useState(formatUsPhone(profile?.phone || ""));
   const [factorId, setFactorId] = useState("");
   const [challengeId, setChallengeId] = useState("");
   const [code, setCode] = useState("");
@@ -54,7 +53,7 @@ export default function CustomerMfaPage() {
       );
       if (existing) {
         setFactorId(existing.id);
-        setPhone(existing.phone || profile?.phone || "");
+        setPhone(formatUsPhone(existing.phone || profile?.phone || ""));
         setStage("send");
       } else {
         setStage("setup");
@@ -79,9 +78,9 @@ export default function CustomerMfaPage() {
     let nextFactorId = factorId;
     try {
       if (!nextFactorId) {
-        const normalizedPhone = phone.replace(/[\s()-]/g, "");
-        if (!e164.test(normalizedPhone))
-          throw new Error("Enter a mobile number with country code, such as +12125550123.");
+        const normalizedPhone = toUsE164(phone);
+        if (!normalizedPhone)
+          throw new Error("Enter a valid 10-digit U.S. mobile number.");
         const { data, error } = await supabase.auth.mfa.enroll({
           factorType: "phone",
           friendlyName: "GoldOnTheSpot SMS",
@@ -90,7 +89,7 @@ export default function CustomerMfaPage() {
         if (error) throw error;
         nextFactorId = data.id;
         setFactorId(data.id);
-        setPhone(normalizedPhone);
+        setPhone(formatUsPhone(normalizedPhone));
       }
       const { data: challenge, error: challengeError } =
         await supabase.auth.mfa.challenge({ factorId: nextFactorId });
@@ -127,7 +126,7 @@ export default function CustomerMfaPage() {
     }
     await supabase
       .from("profiles")
-      .update({ phone })
+      .update({ phone: toUsE164(phone) || phone })
       .eq("id", user.id);
     await refreshSecurity();
     setBusy(false);
@@ -150,14 +149,19 @@ export default function CustomerMfaPage() {
           <div className="customer-mfa-form">
             <label>
               Mobile number
-              <input
-                type="tel"
-                autoComplete="tel"
-                placeholder="+12125550123"
-                value={phone}
-                onChange={(event) => setPhone(event.target.value)}
-              />
-              <small>Include the country code. Standard carrier messaging rates may apply.</small>
+              <span className="phone-input">
+                <span aria-hidden="true">+1</span>
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel-national"
+                  placeholder="(212) 555-0123"
+                  maxLength="14"
+                  value={phone}
+                  onChange={(event) => setPhone(formatUsPhone(event.target.value))}
+                />
+              </span>
+              <small>U.S. mobile number. Standard carrier messaging rates may apply.</small>
             </label>
             <button className="button button-gold full" onClick={sendCode} disabled={busy}>
               <MessageSquareText /> {busy ? "Sending securely…" : "Send security code"}

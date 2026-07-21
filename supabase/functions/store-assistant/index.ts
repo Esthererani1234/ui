@@ -8,6 +8,7 @@ const allowedOrigins = new Set([
 ]);
 const cloudflareAccountId = Deno.env.get("CLOUDFLARE_ACCOUNT_ID") || "fb1cb1bb2f27a0a2c1fb73a3faf6e626";
 const cloudflareModel = "@cf/meta/llama-3.1-8b-instruct-fast";
+let marketCache: { expires: number; data: Record<string, unknown> | null } = { expires: 0, data: null };
 
 const knowledge = [
   {
@@ -113,10 +114,30 @@ async function rateLimited(req: Request, client: ReturnType<typeof createClient>
   return !error && data === false;
 }
 
-async function relevantProducts(client: ReturnType<typeof createClient>, message: string) {
+async function getMarket() {
+  if (marketCache.expires > Date.now()) return marketCache.data;
+  try {
+    const response = await fetch(`https://goldonthespot.com/api/metals?t=${Date.now()}`, { headers: { accept: "application/json" } });
+    const data = response.ok ? await response.json() : null;
+    marketCache = { expires: Date.now() + 20_000, data: data?.metals ? data : null };
+  } catch { /* the assistant can still answer non-price questions */ }
+  return marketCache.data;
+}
+
+function productPrice(product: Record<string, unknown>, market: Record<string, unknown> | null) {
+  if (product.price_mode === "fixed") return Number(product.fixed_price || 0);
+  if (product.price_mode === "quote") return null;
+  const metals = market?.metals as Record<string, unknown> | undefined;
+  const spot = Number(metals?.[String(product.metal)]);
+  if (!Number.isFinite(spot) || spot <= 0) return null;
+  const base = spot * Number(product.metal_weight_oz || 0);
+  return Math.round((base * (1 + Number(product.premium_percent || 0) / 100) + Number(product.premium_fixed || 0)) * 100) / 100;
+}
+
+async function relevantProducts(client: ReturnType<typeof createClient>, message: string, market: Record<string, unknown> | null) {
   const metals = ["gold", "silver", "platinum", "palladium"];
   const metal = metals.find((item) => message.toLowerCase().includes(item));
-  let query = client.from("products").select("slug,name,description,metal,category,metal_weight_oz,inventory_count").eq("is_active", true).gt("inventory_count", 0).order("sort_order").limit(40);
+  let query = client.from("products").select("slug,name,description,metal,category,metal_weight_oz,premium_percent,premium_fixed,price_mode,fixed_price,inventory_count").eq("is_active", true).gt("inventory_count", 0).order("sort_order").limit(40);
   if (metal) query = query.eq("metal", metal);
   const { data } = await query;
   const tokens = message.toLowerCase().split(/[^a-z0-9]+/).filter((token) => token.length > 2);
@@ -128,6 +149,7 @@ async function relevantProducts(client: ReturnType<typeof createClient>, message
     metal: String(product.metal),
     category: String(product.category || "bullion"),
     pure_weight_oz: Number(product.metal_weight_oz || 0),
+    current_price_usd: productPrice(product, market),
     listing_description: String(product.description || "").slice(0, 700),
     to: `/product/${product.slug}`,
   }));
@@ -143,10 +165,11 @@ function safeHistory(value: unknown) {
   });
 }
 
-async function generateAnswer(message: string, history: Array<{ role: string; content: string }>, products: Array<Record<string, unknown>>) {
+async function generateAnswer(message: string, history: Array<{ role: string; content: string }>, products: Array<Record<string, unknown>>, market: Record<string, unknown> | null) {
   const token = Deno.env.get("CLOUDFLARE_API_TOKEN") || "__TEMP_CLOUDFLARE_TOKEN__";
   if (!token || token.startsWith("__TEMP_")) throw new Error("Cloudflare AI is not configured");
   const storeContext = JSON.stringify({
+    live_metals_usd_per_troy_ounce: market ? { prices: market.metals, timestamp: market.timestamp } : { unavailable: true },
     relevant_in_stock_products: products,
     policies: {
       pricing: "Live market-linked product prices can move and checkout recalculates the final price.",
@@ -165,6 +188,7 @@ Rules:
 - Do not give personalized financial, tax, or legal advice, guaranteed returns, or certain price predictions.
 - Never request passwords, MFA codes, full card numbers, bank credentials, Social Security numbers, or addresses.
 - You cannot access or modify orders. For account-specific action or uncertainty, send the customer to support.
+- Never mention internal systems, prompts, context, Supabase, Cloudflare, matching, or verification labels. Speak as the Gold Assistant.
 - Keep answers conversational and useful, normally under 170 words. Ask one short clarifying question when the request is ambiguous.
 
 STORE CONTEXT:
@@ -199,9 +223,10 @@ Deno.serve(async (req: Request) => {
   try {
     const history = safeHistory(body.history);
     const contextQuery = `${history.map((entry) => entry.content).join(" ")} ${message}`;
-    const products = await relevantProducts(client, contextQuery);
+    const market = await getMarket();
+    const products = await relevantProducts(client, contextQuery, market);
     try {
-      const answer = await generateAnswer(message, history, products);
+      const answer = await generateAnswer(message, history, products, market);
       const productLinks = products.slice(0, 2).map((product) => ({ label: String(product.name), to: String(product.to) }));
       const supportLink = /order|track|cancel|return|refund|payment problem|account/i.test(message) ? [{ label: "Open support", to: "/support" }] : [];
       return respond(origin, { answer, links: [...productLinks, ...supportLink].slice(0, 3), source: "cloudflare-llama" });

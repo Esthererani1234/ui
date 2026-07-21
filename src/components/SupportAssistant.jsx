@@ -50,7 +50,8 @@ export default function SupportAssistant() {
     setInput("");
     setBusy(true);
     try {
-      const { data: result, error } = await supabase.functions.invoke("store-assistant", { body: { message: question } });
+      const history = messages.slice(-8).map((message) => ({ role: message.role, content: message.text }));
+      const { data: result, error } = await supabase.functions.invoke("store-assistant", { body: { message: question, history } });
       if (error || !result?.answer) throw error || new Error("Assistant unavailable");
       const links = Array.isArray(result.links) ? result.links.filter((link) => typeof link?.to === "string" && link.to.startsWith("/")).slice(0, 3) : [];
       setMessages((current) => [...current.filter((message) => message.id !== pendingId), { role: "assistant", text: result.answer, links, semantic: true }].slice(-20));

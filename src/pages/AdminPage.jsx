@@ -299,15 +299,7 @@ export default function AdminPage() {
     await load();
   };
 
-  const updateTicket = async (id, updates) => {
-    setMessage("");
-    const { error } = await supabase
-      .from("support_tickets")
-      .update(updates)
-      .eq("id", id);
-    if (error) setMessage("The support ticket could not be updated.");
-    else await load();
-  };
+  const updateTicket = async () => { await load(); };
 
   const saveOrderDetails = async (updates) => {
     setMessage("");
@@ -1373,15 +1365,27 @@ function AdminMfaGate({ onVerified }) {
 }
 
 function AdminTicket({ ticket, onSave }) {
-  const [response, setResponse] = useState(ticket.admin_response || "");
+  const [response, setResponse] = useState("");
   const [status, setStatus] = useState(ticket.status);
+  const [messages, setMessages] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState("");
+  const loadMessages = async () => {
+    const { data } = await supabase.from("support_ticket_messages").select("id,author_role,message,created_at").eq("ticket_id", ticket.id).order("created_at");
+    setMessages(data || []);
+  };
+  useEffect(() => { loadMessages(); }, [ticket.id]);
   const save = async () => {
+    if (!response.trim()) { setNotice("Write a reply before sending."); return; }
     setSaving(true);
-    await onSave(ticket.id, {
-      status,
-      admin_response: response.trim() || null,
-    });
+    setNotice("");
+    const { data, error } = await supabase.functions.invoke("support-operations", { body: { action: "reply", ticket_id: ticket.id, message: response.trim(), status } });
+    if (error || data?.error) setNotice(data?.error || "The reply could not be sent.");
+    else {
+      setResponse("");
+      setNotice(data?.email?.sent ? "Reply sent and customer emailed." : "Reply saved. Email provider is not configured yet.");
+      await Promise.all([loadMessages(), onSave()]);
+    }
     setSaving(false);
   };
   return (
@@ -1392,7 +1396,7 @@ function AdminTicket({ ticket, onSave }) {
             {ticket.ticket_number} • {ticket.category}
           </small>
           <h3>{ticket.subject}</h3>
-          <span>{new Date(ticket.created_at).toLocaleString()}</span>
+          <span>{new Date(ticket.created_at).toLocaleString()} · Customer ID {ticket.user_id.slice(0, 8).toUpperCase()}</span>
         </div>
         <select
           value={status}
@@ -1405,7 +1409,7 @@ function AdminTicket({ ticket, onSave }) {
         </select>
       </header>
       {ticket.order_number && <b>Order: {ticket.order_number}</b>}
-      <p>{ticket.message}</p>
+      <div className="admin-support-thread">{messages.map((entry) => <div className={`support-message ${entry.author_role}`} key={entry.id}><b>{entry.author_role === "admin" ? "You / GoldOnTheSpot" : "Customer"}</b><p>{entry.message}</p><small>{new Date(entry.created_at).toLocaleString()}</small></div>)}</div>
       <label>
         Response to customer
         <textarea
@@ -1413,12 +1417,11 @@ function AdminTicket({ ticket, onSave }) {
           maxLength="5000"
           value={response}
           onChange={(event) => setResponse(event.target.value)}
-          placeholder="Write a clear response. Do not request passwords or payment credentials."
+          placeholder="Write a clear response. The customer will see this in their support inbox and receive an email alert."
         />
       </label>
-      <button className="button button-dark" onClick={save} disabled={saving}>
-        {saving ? "Saving…" : "Save response"}
-      </button>
+      {notice && <div className="form-message">{notice}</div>}
+      <div className="admin-ticket-actions"><small>Sending this reply sets the selected status.</small><button className="button button-dark" onClick={save} disabled={saving || !response.trim()}>{saving ? "Sending…" : "Send reply"}</button></div>
     </article>
   );
 }

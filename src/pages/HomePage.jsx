@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import {
   ArrowRight,
   BadgeCheck,
-  CheckCircle2,
   Clock3,
   Headphones,
   LockKeyhole,
@@ -25,12 +24,10 @@ const metals = [
 ];
 
 const shopPaths = [
-  { label: "Popular gold", detail: "Buffaloes, Eagles and sovereign coins", to: "/shop?metal=gold&category=coin", metal: "gold", symbol: "Au", art: "coin" },
-  { label: "Gold bars", detail: "Refinery bars in practical weights", to: "/shop?metal=gold&category=bar", metal: "gold", symbol: "Au", art: "bar" },
-  { label: "Silver coins", detail: "Government-minted silver bullion", to: "/shop?metal=silver&category=coin", metal: "silver", symbol: "Ag", art: "coin" },
-  { label: "Silver bars", detail: "Stackable ounces and kilo formats", to: "/shop?metal=silver&category=bar", metal: "silver", symbol: "Ag", art: "bar" },
-  { label: "Platinum", detail: "Scarce bars and investment coins", to: "/shop?metal=platinum", metal: "platinum", symbol: "Pt", art: "coin" },
-  { label: "All bullion", detail: "Compare every available listing", to: "/shop", metal: "all", symbol: "G", art: "all" },
+  { label: "Gold coins", detail: "Buffaloes, Eagles and sovereign-minted gold", to: "/shop?metal=gold&category=coin", metal: "gold", category: "coin", symbol: "Au", art: "coin" },
+  { label: "Gold bars", detail: "Investment bars in practical weights", to: "/shop?metal=gold&category=bar", metal: "gold", category: "bar", symbol: "Au", art: "bar" },
+  { label: "Silver coins", detail: "Government-minted silver bullion", to: "/shop?metal=silver&category=coin", metal: "silver", category: "coin", symbol: "Ag", art: "coin" },
+  { label: "Silver bars", detail: "Stackable silver bars and larger formats", to: "/shop?metal=silver&category=bar", metal: "silver", category: "bar", symbol: "Ag", art: "bar" },
 ];
 
 function FeaturedHeroProduct({ product, spot }) {
@@ -133,6 +130,10 @@ export default function HomePage() {
     () => products.find((product) => product.is_featured) || products[0] || null,
     [products],
   );
+  const categoryImage = (path) => {
+    const product = products.find((item) => item.metal === path.metal && item.category === path.category && (item.image_url || item.image_urls?.[0]));
+    return product?.image_url || product?.image_urls?.[0] || "";
+  };
 
   return (
     <>
@@ -169,16 +170,26 @@ export default function HomePage() {
         </div>
       </section>
 
+      <section className="section home-products-section home-products-priority">
+        <div className="container">
+          <div className="home-section-heading">
+            <div><span className="eyebrow dark">SHOP AVAILABLE INVENTORY</span><h2>Bullion you can order now.</h2><p>Active listings with market-linked prices, clear weights, and current availability.</p></div>
+            <Link to="/shop">View all products <ArrowRight /></Link>
+          </div>
+          {loadingProducts ? <div className="catalog-loading">Loading today’s bullion selection…</div> : products.length ? <div className="product-grid home-product-grid">{products.slice(0, 4).map((product) => <ProductCard key={product.id} product={product} spot={spot} />)}</div> : <div className="empty-state compact"><h3>Listings are being added</h3><p>There are no active products to display yet.</p></div>}
+        </div>
+      </section>
+
       <section className="section home-shop-section">
         <div className="container">
           <div className="home-section-heading">
-            <div><span className="eyebrow dark">START SHOPPING</span><h2>Find your bullion faster.</h2><p>Go directly to the metal and format you want—without digging through a crowded catalog.</p></div>
+            <div><span className="eyebrow dark">SHOP BY FORMAT</span><h2>Start with what you want to own.</h2><p>Choose coins or bars, then compare the real listings currently available.</p></div>
             <Link to="/shop">View full catalog <ArrowRight /></Link>
           </div>
           <div className="home-shop-grid">
             {shopPaths.map((path) => (
               <Link key={path.label} className={`home-shop-tile ${path.metal}`} to={path.to}>
-                <span className={`home-tile-art ${path.art}`}>{path.symbol}</span>
+                {categoryImage(path) ? <span className="home-tile-product"><img src={categoryImage(path)} alt="" /></span> : <span className={`home-tile-art ${path.art}`}>{path.symbol}</span>}
                 <span><b>{path.label}</b><small>{path.detail}</small></span>
                 <ArrowRight />
               </Link>
@@ -189,41 +200,9 @@ export default function HomePage() {
 
       <MarketDesk spot={spot} />
 
-      <section className="section home-products-section">
-        <div className="container">
-          <div className="home-section-heading">
-            <div><span className="eyebrow dark">AVAILABLE NOW</span><h2>Featured from the bullion desk.</h2><p>Real listings from your active catalog, priced against the current market.</p></div>
-            <Link to="/shop?featured=true">Shop featured <ArrowRight /></Link>
-          </div>
-          {loadingProducts ? (
-            <div className="catalog-loading">Loading today’s bullion selection…</div>
-          ) : products.length ? (
-            <div className="product-grid home-product-grid">{products.slice(0, 4).map((product) => <ProductCard key={product.id} product={product} spot={spot} />)}</div>
-          ) : (
-            <div className="empty-state compact"><h3>Listings are being added</h3><p>There are no active products to display yet.</p></div>
-          )}
-        </div>
-      </section>
-
-      <section className="section home-confidence-section">
-        <div className="container home-confidence-grid">
-          <div className="home-confidence-intro">
-            <span className="eyebrow">BUILT FOR SERIOUS PURCHASES</span>
-            <h2>Confidence at every step.</h2>
-            <p>Bullion buying should feel precise, not confusing. GoldOnTheSpot keeps pricing, inventory and order status clear from product page to delivery.</p>
-            <Link className="button button-gold" to="/about">Why GoldOnTheSpot <ArrowRight /></Link>
-          </div>
-          <div className="home-confidence-cards">
-            <article><span>01</span><CheckCircle2 /><h3>Market-linked pricing</h3><p>Eligible products update with the metals market and your saved listing rules.</p></article>
-            <article><span>02</span><LockKeyhole /><h3>Protected price lock</h3><p>The trusted checkout service recalculates the exact order total before submission.</p></article>
-            <article><span>03</span><PackageCheck /><h3>Tracked fulfillment</h3><p>Follow the order from payment review through insured, signature-required delivery.</p></article>
-          </div>
-        </div>
-      </section>
-
       <section className="home-process-section">
         <div className="container">
-          <div className="home-process-heading"><span className="eyebrow dark">FROM MARKET TO YOUR DOOR</span><h2>Four clear steps. No mystery.</h2></div>
+          <div className="home-process-heading"><span className="eyebrow dark">A CLEAR ORDER PROCESS</span><h2>Know what happens next.</h2></div>
           <ol className="home-process-grid">
             <li><b>1</b><span><strong>Choose</strong><small>Compare metal, mint, weight and live selling price.</small></span></li>
             <li><b>2</b><span><strong>Lock</strong><small>Checkout rechecks inventory and confirms your exact total.</small></span></li>

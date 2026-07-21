@@ -205,6 +205,23 @@ ${storeContext}`;
   return answer;
 }
 
+function relevantLinks(message: string, products: Array<Record<string, unknown>>) {
+  const input = message.toLowerCase();
+  const links: Array<{ label: string; to: string }> = [];
+  const add = (label: string, to: string) => { if (!links.some((link) => link.to === to)) links.push({ label, to }); };
+
+  if (/human|person|representative|customer service|support|contact|help desk/.test(input)) add("Contact support", "/support");
+  if (/my order|order status|track|tracking|shipment status|payment status/.test(input)) add("View my orders", "/account?tab=orders");
+  if (/shipping|delivery|insured|insurance|signature|carrier/.test(input)) add("Shipping information", "/shipping");
+  if (/payment method|bank wire|\bach\b|certified check|card fee|surcharge|cancel|return|refund/.test(input)) add("Purchase terms", "/terms");
+
+  const productIntent = /shop|buy|available|inventory|in stock|recommend|compare|which (?:coin|bar|product)|product|listing|coin|bar|bullion/.test(input);
+  if (productIntent) {
+    products.slice(0, 2).forEach((product) => add(String(product.name), String(product.to)));
+  }
+  return links.slice(0, 3);
+}
+
 Deno.serve(async (req: Request) => {
   const origin = req.headers.get("origin");
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(origin) });
@@ -227,9 +244,7 @@ Deno.serve(async (req: Request) => {
     const products = await relevantProducts(client, contextQuery, market);
     try {
       const answer = await generateAnswer(message, history, products, market);
-      const productLinks = products.slice(0, 2).map((product) => ({ label: String(product.name), to: String(product.to) }));
-      const supportLink = /order|track|cancel|return|refund|payment problem|account/i.test(message) ? [{ label: "Open support", to: "/support" }] : [];
-      return respond(origin, { answer, links: [...productLinks, ...supportLink].slice(0, 3), source: "cloudflare-llama" });
+      return respond(origin, { answer, links: relevantLinks(message, products), source: "cloudflare-llama" });
     } catch (error) {
       console.error("cloudflare-ai", error);
     }

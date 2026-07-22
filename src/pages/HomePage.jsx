@@ -79,7 +79,7 @@ function MarketDesk({ spot }) {
             <h2>Know the market before you buy.</h2>
             <p>GoldOnTheSpot prices refresh automatically. Compare the current ounce and gram basis at a glance.</p>
           </div>
-          <span className="home-market-status"><i /> Refreshes every 30 seconds</span>
+          <span className="home-market-status"><i /> Refreshes every 10 seconds</span>
         </div>
         <div className="home-market-grid">
           {metals.map((metal) => {

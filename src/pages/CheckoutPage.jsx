@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { CheckCircle2, LockKeyhole } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { fetchMarketPrices, readCachedMarket } from "../lib/marketPrices";
 import { metalSymbol, money, productPrice } from "../lib/pricing";
 import { useCart } from "../state/CartContext";
 import { useAuth } from "../state/AuthContext";
@@ -14,7 +15,7 @@ export default function CheckoutPage() {
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [spot, setSpot] = useState(null);
+  const [spot, setSpot] = useState(() => readCachedMarket()?.metals || null);
   const [cartReady, setCartReady] = useState(false);
   const [settings, setSettings] = useState(defaults);
   const [form, setForm] = useState({ firstName: profile?.first_name || "", lastName: profile?.last_name || "", phone: profile?.phone || "", address1: profile?.address_line_1 || "", address2: profile?.address_line_2 || "", city: profile?.city || "", state: profile?.state || "", postalCode: profile?.postal_code || "", paymentMethod: "wire", notes: "", saveAddress: true, agree: false });
@@ -22,7 +23,7 @@ export default function CheckoutPage() {
   useEffect(() => {
     let active = true;
     Promise.all([
-      fetch(`/api/metals?t=${Date.now()}`, { cache: "no-store" }).then((response) => response.ok ? response.json() : null).catch(() => null),
+      fetchMarketPrices().catch(() => null),
       supabase.from("app_settings").select("key, value").in("key", ["shipping_flat", "free_shipping_threshold", "card_surcharge_percent", "accepting_orders"]),
     ]).then(([market, settingResult]) => {
       if (!active) return;

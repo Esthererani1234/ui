@@ -1,22 +1,7 @@
 import { useEffect, useState } from "react";
 import { Activity } from "lucide-react";
 import { money } from "../lib/pricing";
-
-const CACHE_KEY = "gots-market-prices-v1";
-const CACHE_MAX_AGE = 30 * 60 * 1000;
-
-const readCachedMarket = () => {
-  try {
-    const cached = JSON.parse(localStorage.getItem(CACHE_KEY));
-    if (
-      cached?.metals &&
-      Number(cached.cachedAt) > Date.now() - CACHE_MAX_AGE
-    ) return cached;
-  } catch {
-    // A missing or invalid cache simply falls through to the live request.
-  }
-  return null;
-};
+import { fetchMarketPrices, readCachedMarket } from "../lib/marketPrices";
 
 const labels = [
   ["gold", "GOLD", "Au"],
@@ -35,13 +20,9 @@ export default function MarketTicker({ onPrices }) {
     if (data?.metals) onPrices?.(data.metals);
     const load = async () => {
       try {
-        const response = await fetch("/api/metals");
-        const next = await response.json();
-        if (!response.ok || !next.metals) throw new Error("Price feed unavailable");
+        const next = await fetchMarketPrices();
         if (mounted) {
-          const fresh = { ...next, cachedAt: Date.now() };
-          setData(fresh);
-          localStorage.setItem(CACHE_KEY, JSON.stringify(fresh));
+          setData(next);
           setRefreshing(false);
           setError(false);
           onPrices?.(next.metals);
@@ -54,10 +35,17 @@ export default function MarketTicker({ onPrices }) {
       }
     };
     load();
-    const timer = setInterval(load, 30_000);
+    const timer = setInterval(() => {
+      if (!document.hidden) load();
+    }, 10_000);
+    const refreshWhenVisible = () => {
+      if (!document.hidden) load();
+    };
+    document.addEventListener("visibilitychange", refreshWhenVisible);
     return () => {
       mounted = false;
       clearInterval(timer);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
   }, [onPrices]);
 

@@ -21,7 +21,7 @@ function json(body, status = 200, extraHeaders = {}) {
     headers: {
       "content-type": "application/json; charset=utf-8",
       "access-control-allow-origin": "*",
-      "cache-control": "public, s-maxage=30, stale-while-revalidate=120",
+      "cache-control": "public, max-age=10, s-maxage=10, stale-while-revalidate=86400, stale-if-error=86400",
       ...extraHeaders
     }
   });
@@ -137,7 +137,7 @@ export default async function handler(request) {
       unit: "troy_ounce",
       timestamp: timestamps[0] || new Date().toISOString(),
       source: "GoldOnTheSpot live market",
-      refreshSeconds: 30
+      refreshSeconds: 10
     });
   } catch (error) {
     return json({

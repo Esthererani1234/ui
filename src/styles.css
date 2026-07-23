@@ -907,7 +907,15 @@ img { max-width: 100%; display: block; }
 .home-hero-product { position: relative; min-width: 0; display: grid; grid-template-rows: auto minmax(280px, 1fr) auto; padding: 17px; color: var(--ink); background: linear-gradient(150deg, #fff, #f4f6f7); border: 1px solid rgba(255,255,255,.72); border-radius: 8px; box-shadow: 0 30px 75px rgba(0,0,0,.37); transition: transform .2s, box-shadow .2s; }
 .home-hero-product:hover { transform: translateY(-4px); box-shadow: 0 36px 85px rgba(0,0,0,.43); }
 .home-hero-product::after { content: ""; position: absolute; inset: 9px; pointer-events: none; border: 1px solid rgba(168,117,22,.2); border-radius: 4px; }
-.home-hero-product.placeholder { min-height: 465px; place-items: center; }
+.home-hero-product.placeholder { min-height: 465px; display: block; overflow: hidden; pointer-events: none; }
+.home-hero-product-skeleton { width: 100%; height: 100%; display: grid; grid-template-rows: 38px minmax(280px, 1fr) auto auto; gap: 12px; }
+.home-hero-product-skeleton span { display: block; border-radius: 4px; background: linear-gradient(100deg, #e8ecef 20%, #f7f9fa 40%, #e8ecef 60%); background-size: 220% 100%; animation: home-product-skeleton 1.25s ease-in-out infinite; }
+.home-hero-product-skeleton .skeleton-topline { width: 48%; height: 12px; align-self: center; }
+.home-hero-product-skeleton .skeleton-photo { width: 72%; height: 72%; place-self: center; border-radius: 6px; opacity: .72; }
+.home-hero-product-skeleton .skeleton-title { width: 78%; height: 20px; }
+.home-hero-product-skeleton .skeleton-price { width: 38%; height: 28px; margin-bottom: 5px; }
+@keyframes home-product-skeleton { to { background-position-x: -220%; } }
+@media (prefers-reduced-motion: reduce) { .home-hero-product-skeleton span { animation: none; } }
 .home-hero-product-topline { position: relative; z-index: 2; min-height: 38px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 5px 9px; border-bottom: 1px solid #dde3e7; }
 .home-hero-product-topline span { display: inline-flex; align-items: center; gap: 6px; color: var(--gold-700); font-size: 9px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
 .home-hero-product-topline svg { width: 15px; }

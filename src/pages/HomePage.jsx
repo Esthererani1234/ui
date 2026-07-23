@@ -36,8 +36,13 @@ function FeaturedHeroProduct({ product, spot }) {
 
   if (!product) {
     return (
-      <div className="home-hero-product placeholder" aria-hidden="true">
-        <div className="home-hero-bullion"><span>G</span><b>FINE BULLION</b><small>GOLDONTHESPOT</small></div>
+      <div className="home-hero-product placeholder" role="status" aria-label="Loading featured product">
+        <div className="home-hero-product-skeleton" aria-hidden="true">
+          <span className="skeleton-topline" />
+          <span className="skeleton-photo" />
+          <span className="skeleton-title" />
+          <span className="skeleton-price" />
+        </div>
       </div>
     );
   }

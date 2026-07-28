@@ -151,7 +151,7 @@ export default function HomePage() {
         <div className="home-hero-glow two" />
         <div className="container home-hero-grid">
           <div className="home-hero-copy">
-            <span className="eyebrow">PRECIOUS METALS · PRICED RIGHT NOW</span>
+            <span className="eyebrow">PRECIOUS METALS · PRICED RIGHT</span>
             <h1>A clearer way to<br /><em>own real value.</em></h1>
             <p>Shop physical gold, silver, platinum and palladium with live market-linked pricing, tracked inventory and secure order review.</p>
             <div className="home-hero-actions">

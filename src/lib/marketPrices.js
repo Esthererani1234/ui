@@ -2,6 +2,7 @@ const CACHE_KEY = "gots-market-prices-v1";
 const METALS = ["gold", "silver", "platinum", "palladium"];
 
 let activeRequest = null;
+let memoryMarket = null;
 
 const hasValidPrices = (market) =>
   Boolean(
@@ -13,17 +14,20 @@ const hasValidPrices = (market) =>
   );
 
 export function readCachedMarket() {
+  if (hasValidPrices(memoryMarket)) return memoryMarket;
   try {
     const cached = JSON.parse(localStorage.getItem(CACHE_KEY));
-    return hasValidPrices(cached) ? cached : null;
+    if (hasValidPrices(cached)) memoryMarket = cached;
+    return memoryMarket;
   } catch {
-    return null;
+    return memoryMarket;
   }
 }
 
 export function storeCachedMarket(market) {
   if (!hasValidPrices(market)) return null;
   const cached = { ...market, cachedAt: Date.now() };
+  memoryMarket = cached;
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(cached));
   } catch {

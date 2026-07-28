@@ -8,6 +8,7 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { metalSymbol } from "../lib/pricing";
+import { productImageSrcSet, productImageUrl } from "../lib/productImages";
 
 export default function ProductGallery({ product, images }) {
   const gallery = [...new Set((images || []).filter(Boolean))];
@@ -105,7 +106,17 @@ export default function ProductGallery({ product, images }) {
               onClick={openLightbox}
               aria-label={`Magnify ${product.name}`}
             >
-              <img src={activeImage} alt={product.name} />
+              <img
+                src={productImageUrl(activeImage, 1100, 84)}
+                srcSet={productImageSrcSet(activeImage, [640, 880, 1100])}
+                sizes="(max-width: 760px) 94vw, 48vw"
+                alt={product.name}
+                width="1100"
+                height="1100"
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
+              />
             </button>
           ) : (
             <div
@@ -165,7 +176,14 @@ export default function ProductGallery({ product, images }) {
                   aria-label={`View product picture ${index + 1}`}
                   aria-pressed={index === currentIndex}
                 >
-                  <img src={url} alt="" />
+                  <img
+                    src={productImageUrl(url, 180, 76)}
+                    alt=""
+                    width="180"
+                    height="180"
+                    loading="lazy"
+                    decoding="async"
+                  />
                 </button>
               ))}
             </div>
@@ -214,8 +232,11 @@ export default function ProductGallery({ product, images }) {
               </button>
             )}
             <img
-              src={activeImage}
+              src={productImageUrl(activeImage, 1600, 88)}
               alt={`${product.name}, picture ${currentIndex + 1}`}
+              width="1600"
+              height="1600"
+              decoding="async"
               style={{ transform: `scale(${zoom})` }}
             />
             {gallery.length > 1 && (

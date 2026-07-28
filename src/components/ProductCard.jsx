@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Check, ShoppingCart } from "lucide-react";
 import { metalSymbol, money, productPrice } from "../lib/pricing";
 import { useCart } from "../state/CartContext";
+import { productImageSrcSet, productImageUrl } from "../lib/productImages";
 
 export default function ProductCard({ product, spot }) {
   const { add, items, lastAdded } = useCart();
@@ -17,7 +18,16 @@ export default function ProductCard({ product, spot }) {
       {product.badge && <span className="product-badge">{product.badge}</span>}
       <Link className="product-image" to={`/product/${product.slug}`}>
         {mainImage ? (
-          <img src={mainImage} alt={product.name} />
+          <img
+            src={productImageUrl(mainImage, 640, 80)}
+            srcSet={productImageSrcSet(mainImage)}
+            sizes="(max-width: 600px) 46vw, (max-width: 1000px) 31vw, 280px"
+            alt={product.name}
+            width="640"
+            height="640"
+            loading="lazy"
+            decoding="async"
+          />
         ) : (
           <div className={`bullion-art ${product.metal} ${product.category}`}>
             <span>{metalSymbol(product.metal)}</span>

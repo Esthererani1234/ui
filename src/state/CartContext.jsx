@@ -34,7 +34,11 @@ export function CartProvider({ children }) {
   const [lastAdded, setLastAdded] = useState(null);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    } catch {
+      // Keep the cart usable for the current session when storage is blocked.
+    }
   }, [items]);
 
   const value = useMemo(

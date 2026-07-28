@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ChevronDown, SlidersHorizontal } from "lucide-react";
-import { supabase } from "../lib/supabase";
+import {
+  fetchActiveProducts,
+  readCachedProducts,
+} from "../lib/catalogCache";
 import { productPrice } from "../lib/pricing";
 import MarketTicker from "../components/MarketTicker";
 import ProductCard from "../components/ProductCard";
@@ -10,8 +13,9 @@ const PAGE_SIZE = 24;
 
 export default function ShopPage() {
   const [params, setParams] = useSearchParams();
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const cachedProducts = readCachedProducts();
+  const [products, setProducts] = useState(cachedProducts || []);
+  const [loading, setLoading] = useState(!cachedProducts);
   const [spot, setSpot] = useState(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -23,16 +27,19 @@ export default function ShopPage() {
   const sort = params.get("sort") || "recommended";
 
   useEffect(() => {
-    setLoading(true);
-    supabase
-      .from("products")
-      .select("*")
-      .eq("is_active", true)
-      .order("sort_order")
-      .then(({ data }) => {
-        setProducts(data || []);
+    let mounted = true;
+    fetchActiveProducts()
+      .then((data) => {
+        if (!mounted) return;
+        setProducts(data);
         setLoading(false);
+      })
+      .catch(() => {
+        if (mounted) setLoading(false);
       });
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   useEffect(() => {

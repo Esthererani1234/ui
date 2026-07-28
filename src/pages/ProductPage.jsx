@@ -9,7 +9,10 @@ import {
   ShoppingCart,
   Truck,
 } from "lucide-react";
-import { supabase } from "../lib/supabase";
+import {
+  fetchActiveProducts,
+  findCachedProduct,
+} from "../lib/catalogCache";
 import { money, productPrice } from "../lib/pricing";
 import { useCart } from "../state/CartContext";
 import MarketTicker from "../components/MarketTicker";
@@ -18,21 +21,29 @@ import ProductGallery from "../components/ProductGallery";
 export default function ProductPage() {
   const { slug } = useParams();
   const { add, items, lastAdded } = useCart();
-  const [product, setProduct] = useState(null);
+  const [product, setProduct] = useState(() => findCachedProduct(slug));
   const [spot, setSpot] = useState(null);
   const [quantity, setQuantity] = useState("1");
   const receivePrices = useCallback((next) => setSpot(next), []);
 
   useEffect(() => {
-    setProduct(null);
+    const cached = findCachedProduct(slug);
+    setProduct(cached);
     setQuantity("1");
-    supabase
-      .from("products")
-      .select("*")
-      .eq("slug", slug)
-      .eq("is_active", true)
-      .single()
-      .then(({ data }) => setProduct(data || false));
+    let mounted = true;
+    fetchActiveProducts()
+      .then((products) => {
+        if (mounted)
+          setProduct(
+            products.find((item) => item.slug === slug) || false,
+          );
+      })
+      .catch(() => {
+        if (mounted && !cached) setProduct(false);
+      });
+    return () => {
+      mounted = false;
+    };
   }, [slug]);
 
   if (product === false)

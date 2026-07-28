@@ -11,7 +11,11 @@ import {
   Sparkles,
   Truck,
 } from "lucide-react";
-import { supabase } from "../lib/supabase";
+import {
+  fetchActiveProducts,
+  readCachedProducts,
+} from "../lib/catalogCache";
+import { productImageSrcSet, productImageUrl } from "../lib/productImages";
 import { metalSymbol, money, productPrice } from "../lib/pricing";
 import MarketTicker from "../components/MarketTicker";
 import ProductCard from "../components/ProductCard";
@@ -54,7 +58,7 @@ function FeaturedHeroProduct({ product, spot }) {
         {product.badge && <b>{product.badge}</b>}
       </div>
       <div className="home-hero-product-image">
-        {image ? <img src={image} alt={product.name} /> : (
+        {image ? <img src={productImageUrl(image, 960, 82)} srcSet={productImageSrcSet(image, [480, 720, 960])} sizes="(max-width: 760px) 92vw, 42vw" alt={product.name} width="960" height="768" loading="eager" fetchPriority="high" decoding="async" /> : (
           <div className={`home-hero-bullion ${product.metal}`}>
             <span>{metalSymbol(product.metal)}</span>
             <b>{product.metal_weight_oz} TROY OZ</b>
@@ -109,24 +113,22 @@ function MarketDesk({ spot }) {
 }
 
 export default function HomePage() {
-  const [products, setProducts] = useState([]);
+  const cachedProducts = readCachedProducts();
+  const [products, setProducts] = useState(cachedProducts || []);
   const [spot, setSpot] = useState(null);
-  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [loadingProducts, setLoadingProducts] = useState(!cachedProducts);
   const receivePrices = useCallback((next) => setSpot(next), []);
 
   useEffect(() => {
     let mounted = true;
-    supabase
-      .from("products")
-      .select("*")
-      .eq("is_active", true)
-      .order("is_featured", { ascending: false })
-      .order("sort_order")
-      .limit(8)
-      .then(({ data }) => {
+    fetchActiveProducts()
+      .then((data) => {
         if (!mounted) return;
-        setProducts(data || []);
+        setProducts(data);
         setLoadingProducts(false);
+      })
+      .catch(() => {
+        if (mounted) setLoadingProducts(false);
       });
     return () => { mounted = false; };
   }, []);
@@ -194,7 +196,7 @@ export default function HomePage() {
           <div className="home-shop-grid">
             {shopPaths.map((path) => (
               <Link key={path.label} className={`home-shop-tile ${path.metal}`} to={path.to}>
-                {categoryImage(path) ? <span className="home-tile-product"><img src={categoryImage(path)} alt="" /></span> : <span className={`home-tile-art ${path.art}`}>{path.symbol}</span>}
+                {categoryImage(path) ? <span className="home-tile-product"><img src={productImageUrl(categoryImage(path), 320, 78)} alt="" width="320" height="320" loading="lazy" decoding="async" /></span> : <span className={`home-tile-art ${path.art}`}>{path.symbol}</span>}
                 <span><b>{path.label}</b><small>{path.detail}</small></span>
                 <ArrowRight />
               </Link>

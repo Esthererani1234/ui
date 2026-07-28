@@ -10,7 +10,7 @@ function Logo() {
   return (
     <Link className="brand" to="/" aria-label="GoldOnTheSpot home">
       <span className="brand-mark">G</span>
-      <span className="brand-copy"><b>GoldOnTheSpot</b><small>PRECIOUS METALS • RIGHT NOW</small></span>
+      <span className="brand-copy"><b>GoldOnTheSpot</b><small>PRECIOUS METALS • PRICED RIGHT</small></span>
     </Link>
   );
 }
@@ -31,7 +31,7 @@ export default function Layout() {
     return () => window.clearTimeout(timer);
   }, [lastAdded]);
   useEffect(() => {
-    const titles = { "/": "GoldOnTheSpot | Precious Metals, Right Now", "/shop": "Shop Live-Priced Bullion | GoldOnTheSpot", "/cart": "Shopping Cart | GoldOnTheSpot", "/checkout": "Secure Checkout | GoldOnTheSpot", "/login": "Customer Sign In | GoldOnTheSpot", "/account": "Your Account | GoldOnTheSpot", "/support": "Customer Support | GoldOnTheSpot", "/shipping": "Shipping & Insurance | GoldOnTheSpot", "/terms": "Terms of Purchase | GoldOnTheSpot", "/privacy": "Privacy Policy | GoldOnTheSpot", "/about": "About GoldOnTheSpot" };
+    const titles = { "/": "GoldOnTheSpot | Precious Metals, Priced Right", "/shop": "Shop Live-Priced Bullion | GoldOnTheSpot", "/cart": "Shopping Cart | GoldOnTheSpot", "/checkout": "Secure Checkout | GoldOnTheSpot", "/login": "Customer Sign In | GoldOnTheSpot", "/account": "Your Account | GoldOnTheSpot", "/support": "Customer Support | GoldOnTheSpot", "/shipping": "Shipping & Insurance | GoldOnTheSpot", "/terms": "Terms of Purchase | GoldOnTheSpot", "/privacy": "Privacy Policy | GoldOnTheSpot", "/about": "About GoldOnTheSpot" };
     document.title = location.pathname.startsWith("/product/") ? "Bullion Product | GoldOnTheSpot" : titles[location.pathname] || "GoldOnTheSpot";
   }, [location.pathname]);
   useEffect(() => {

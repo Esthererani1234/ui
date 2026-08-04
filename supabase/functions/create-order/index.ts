@@ -193,7 +193,7 @@ Deno.serve(async (request: Request) => {
     const paymentReference = `GOTS-${String(data.order_number).replace(/[^A-Z0-9-]/gi, "")}`.slice(0, 48);
     const { error: paymentMetadataError } = await admin.from("orders").update({
       payment_method: requestedPaymentMethod,
-      payment_provider: requestedPaymentMethod === "wire" ? "manual_wire" : requestedPaymentMethod === "card" ? "stripe" : "bitpay",
+      payment_provider: requestedPaymentMethod === "wire" ? "manual_wire" : requestedPaymentMethod === "card" ? "stripe" : "nowpayments",
       payment_reference: paymentReference,
       payment_due_at: data.price_locked_until,
       terms_version: "2026-08-04",

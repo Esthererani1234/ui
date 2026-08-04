@@ -70,7 +70,16 @@ export function assertPayable(order, method) {
 
 export const safeProviderPayload = (payload) => {
   if (!payload || typeof payload !== "object") return {};
-  const allowed = ["id", "status", "price", "currency", "createdTime", "expirationTime", "exceptionStatus", "paymentSubtotals", "paymentTotals"];
+  // Keep only reconciliation fields. Wallet/deposit addresses and customer
+  // details are deliberately excluded from our database event snapshots.
+  const allowed = [
+    "id", "status", "price", "currency", "createdTime", "expirationTime",
+    "exceptionStatus", "paymentSubtotals", "paymentTotals", "payment_id",
+    "invoice_id", "payment_status", "price_amount", "price_currency",
+    "pay_amount", "actually_paid", "pay_currency", "purchase_id", "order_id",
+    "order_description", "created_at", "updated_at", "outcome_amount",
+    "outcome_currency", "invoice_url",
+  ];
   return Object.fromEntries(allowed.filter((key) => key in payload).map((key) => [key, payload[key]]));
 };
 
@@ -139,4 +148,3 @@ export async function wireSettings() {
 }
 
 export const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
-

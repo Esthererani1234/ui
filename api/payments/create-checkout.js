@@ -52,20 +52,33 @@ export default async function handler(request, response) {
 
     if (order.payment_method === "crypto") {
       assertPayable(order, "crypto");
-      if (process.env.BITPAY_ENABLED !== "true") throw Object.assign(new Error("Bitcoin checkout is not enabled yet"), { status: 503 });
-      if (!process.env.BITPAY_API_TOKEN) throw new Error("BitPay is not configured");
-      if (order.payment_provider === "bitpay" && order.provider_checkout_url) return json(response, 200, { method: "crypto", url: order.provider_checkout_url });
+      if (process.env.NOWPAYMENTS_ENABLED !== "true") throw Object.assign(new Error("Crypto checkout is not enabled yet"), { status: 503 });
+      if (!process.env.NOWPAYMENTS_API_KEY || !process.env.NOWPAYMENTS_IPN_SECRET) throw new Error("NOWPayments is not configured");
+      if (order.payment_provider === "nowpayments" && order.provider_checkout_url) return json(response, 200, { method: "crypto", url: order.provider_checkout_url });
       const siteUrl = process.env.SITE_URL || "https://goldonthespot.com";
-      const bitpay = await fetch(`${process.env.BITPAY_API_URL || "https://bitpay.com"}/invoices`, {
+      const apiUrl = (process.env.NOWPAYMENTS_API_URL || "https://api.nowpayments.io").replace(/\/$/, "");
+      const checkout = await fetch(`${apiUrl}/v1/invoice`, {
         method: "POST",
-        headers: { "content-type": "application/json", "x-accept-version": "2.0.0" },
-        body: JSON.stringify({ token: process.env.BITPAY_API_TOKEN, price: Number(order.total), currency: "USD", orderId: order.order_number, itemDesc: `GoldOnTheSpot order ${order.order_number}`, notificationURL: `${siteUrl}/api/payments/bitpay-webhook`, redirectURL: `${siteUrl}/account?tab=orders&order=${encodeURIComponent(order.order_number)}&payment=return`, buyer: { name: `${order.first_name} ${order.last_name}`, email: order.email }, physical: true, transactionSpeed: "medium", acceptanceWindow: 600000, extendedNotifications: true }),
+        headers: { "content-type": "application/json", "x-api-key": process.env.NOWPAYMENTS_API_KEY },
+        body: JSON.stringify({
+          price_amount: Number(order.total),
+          price_currency: "usd",
+          order_id: order.order_number,
+          order_description: `GoldOnTheSpot order ${order.order_number}`,
+          ipn_callback_url: `${siteUrl}/api/payments/nowpayments-webhook`,
+          success_url: `${siteUrl}/account?tab=orders&order=${encodeURIComponent(order.order_number)}&payment=return`,
+          cancel_url: `${siteUrl}/account?tab=orders&order=${encodeURIComponent(order.order_number)}&payment=cancelled`,
+        }),
       });
-      const payload = await bitpay.json();
-      if (!bitpay.ok || !payload?.data?.id || !payload?.data?.url) throw new Error(payload?.error || "BitPay could not create the invoice");
-      const invoice = payload.data;
-      await insertAttempt(order, "bitpay", invoice.id, "pending", invoice.url, invoice.expirationTime ? new Date(invoice.expirationTime).toISOString() : order.price_locked_until, invoice);
-      return json(response, 200, { method: "crypto", url: invoice.url });
+      const invoice = await checkout.json().catch(() => ({}));
+      const invoiceId = String(invoice?.id || invoice?.invoice_id || "");
+      const checkoutUrl = invoice?.invoice_url || invoice?.url || "";
+      if (!checkout.ok || !invoiceId || !checkoutUrl) {
+        console.error("NOWPayments invoice creation failed", checkout.status, invoice?.status || invoice?.message || invoice?.error || "unknown response");
+        throw new Error("NOWPayments could not create the crypto checkout");
+      }
+      await insertAttempt(order, "nowpayments", invoiceId, "pending", checkoutUrl, order.price_locked_until, invoice);
+      return json(response, 200, { method: "crypto", url: checkoutUrl });
     }
 
     return json(response, 400, { error: "Unsupported payment method" });

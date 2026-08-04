@@ -7,7 +7,10 @@ export default function handler(request, response) {
     methods: {
       wire: process.env.PAYMENTS_V2_ENABLED === "true" && Boolean(process.env.PAYMENT_SETTINGS_ENCRYPTION_KEY),
       card: process.env.PAYMENTS_V2_ENABLED === "true" && process.env.STRIPE_ENABLED === "true" && Boolean(process.env.STRIPE_SECRET_KEY),
-      crypto: process.env.PAYMENTS_V2_ENABLED === "true" && process.env.BITPAY_ENABLED === "true" && Boolean(process.env.BITPAY_API_TOKEN),
+      crypto: process.env.PAYMENTS_V2_ENABLED === "true"
+        && process.env.NOWPAYMENTS_ENABLED === "true"
+        && Boolean(process.env.NOWPAYMENTS_API_KEY)
+        && Boolean(process.env.NOWPAYMENTS_IPN_SECRET),
     },
   });
 }

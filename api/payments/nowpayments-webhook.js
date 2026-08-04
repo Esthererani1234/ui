@@ -24,6 +24,7 @@ const mapped = (status) => ({
   confirming: ["confirming", "confirming"],
   confirmed: ["confirming", "confirming"],
   spending: ["confirming", "confirming"],
+  sending: ["confirming", "confirming"],
   partially_paid: ["partially_paid", "pending"],
   finished: ["paid", "paid"],
   failed: ["failed", "failed"],

@@ -1,9 +1,20 @@
 import { createClient } from "@supabase/supabase-js";
 import crypto from "node:crypto";
 
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLIC_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-const SUPABASE_SECRET_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// The project URL and publishable key are public identifiers already used by
+// the storefront. Keeping the same fallback here prevents serverless checkout
+// auth from drifting away from the working browser auth configuration.
+const SUPABASE_URL = process.env.SUPABASE_URL
+  || process.env.VITE_SUPABASE_URL
+  || "https://jwquqphzsnnijopabuhn.supabase.co";
+const SUPABASE_PUBLIC_KEY = process.env.SUPABASE_PUBLISHABLE_KEY
+  || process.env.VITE_SUPABASE_PUBLISHABLE_KEY
+  || process.env.SUPABASE_ANON_KEY
+  || "sb_publishable_UmuOpNm2x13dOqlv1jL3Og_XSQtFuHV";
+// Prefer Supabase's independently rotatable modern server secret. Continue
+// accepting the legacy service-role name so existing deployments keep working.
+const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY
+  || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 export const service = () => {
   if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) throw new Error("Payment service is not configured");

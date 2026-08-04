@@ -80,7 +80,7 @@ const statuses = [
   "cancelled",
 ];
 const orderFields =
-  "id, order_number, user_id, first_name, last_name, email, phone, status, payment_status, payment_method, subtotal, payment_surcharge, shipping_amount, insurance_amount, total, spot_snapshot, price_locked_until, shipping_address, customer_notes, tracking_number, created_at, updated_at, order_items(*)";
+  "id, order_number, user_id, first_name, last_name, email, phone, status, payment_status, payment_method, payment_provider, provider_payment_id, payment_reference, payment_due_at, paid_at, terms_version, terms_accepted_at, subtotal, payment_surcharge, shipping_amount, insurance_amount, total, spot_snapshot, price_locked_until, shipping_address, customer_notes, tracking_number, created_at, updated_at, order_items(*)";
 const imagePath = (url) => {
   const marker = "/storage/v1/object/public/product-images/";
   return url?.includes(marker)
@@ -1524,16 +1524,17 @@ function OrderDetailModal({ order, onClose, onSave }) {
           <div className="order-detail-facts">
             <div><span>Customer</span><b>{order.first_name} {order.last_name}</b><small>{order.email}<br />{order.phone}</small></div>
             <div><span>Shipping address</span><b>{address.address_line_1}</b><small>{[address.address_line_2, address.city, address.state, address.postal_code, address.country].filter(Boolean).join(", ")}</small></div>
-            <div><span>Order total</span><b>{money(order.total)}</b><small>{order.payment_method} • {order.payment_status}</small></div>
+            <div><span>Order total</span><b>{money(order.total)}</b><small>{order.payment_method} • {order.payment_status}<br />{order.payment_provider || "No provider"}{order.provider_payment_id ? ` • ${order.provider_payment_id}` : ""}</small></div>
             <div><span>Price lock</span><b>{order.price_locked_until ? new Date(order.price_locked_until).toLocaleString() : "Not recorded"}</b><small>Server-calculated snapshot</small></div>
           </div>
           <section className="order-detail-lines"><h3>Order items</h3>{(order.order_items || []).map((item) => <div key={item.id}><span><b>{item.quantity} × {item.product_name}</b><small>{item.sku} • {item.metal_weight_oz} oz {item.metal}</small></span><strong>{money(item.line_total)}</strong></div>)}</section>
           {order.customer_notes && <section className="order-customer-note"><h3>Customer note</h3><p>{order.customer_notes}</p></section>}
+          <section className="order-customer-note"><h3>Payment contract</h3><p>Reference: {order.payment_reference || "Not recorded"}<br />Terms: {order.terms_version || "Legacy order"} • accepted {order.terms_accepted_at ? new Date(order.terms_accepted_at).toLocaleString() : "not recorded"}<br />Provider payment: {order.provider_payment_id || "Not created"}</p></section>
           <section className="order-admin-controls">
             <h3>Fulfillment controls</h3>
             <div className="form-row">
               <label>Order status<select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}>{statuses.map((status) => <option key={status} value={status}>{orderStatusLabel(status)}</option>)}</select></label>
-              <label>Payment status<select value={form.paymentStatus} onChange={(event) => setForm({ ...form, paymentStatus: event.target.value })}>{["unpaid", "pending", "paid", "refunded", "failed"].map((status) => <option key={status} value={status}>{orderStatusLabel(status)}</option>)}</select></label>
+              <label>Payment status<select value={form.paymentStatus} onChange={(event) => setForm({ ...form, paymentStatus: event.target.value })}>{["unpaid", "pending", "confirming", "paid", "partially_paid", "expired", "refunded", "failed", "disputed"].map((status) => <option key={status} value={status}>{orderStatusLabel(status)}</option>)}</select></label>
             </div>
             <label>Tracking number<input maxLength="200" value={form.trackingNumber} onChange={(event) => setForm({ ...form, trackingNumber: event.target.value })} /></label>
             <label>Private internal notes<textarea rows="5" maxLength="5000" value={form.internalNotes} onChange={(event) => setForm({ ...form, internalNotes: event.target.value })} /></label>

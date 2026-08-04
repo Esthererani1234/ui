@@ -1,0 +1,13 @@
+import { json } from "../_lib/payments.js";
+
+export default function handler(request, response) {
+  if (request.method !== "GET") return json(response, 405, { error: "Method not allowed" });
+  return json(response, 200, {
+    enabled: process.env.PAYMENTS_V2_ENABLED === "true",
+    methods: {
+      wire: process.env.PAYMENTS_V2_ENABLED === "true" && Boolean(process.env.PAYMENT_SETTINGS_ENCRYPTION_KEY),
+      card: process.env.PAYMENTS_V2_ENABLED === "true" && process.env.STRIPE_ENABLED === "true" && Boolean(process.env.STRIPE_SECRET_KEY),
+      crypto: process.env.PAYMENTS_V2_ENABLED === "true" && process.env.BITPAY_ENABLED === "true" && Boolean(process.env.BITPAY_API_TOKEN),
+    },
+  });
+}

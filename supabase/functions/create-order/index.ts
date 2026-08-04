@@ -155,6 +155,12 @@ Deno.serve(async (request: Request) => {
     }
 
     const spot = await fetchSpot();
+    const requestedPaymentMethod = typeof body.payment_method === "string" ? body.payment_method : "";
+    if (!["wire", "card", "crypto"].includes(requestedPaymentMethod))
+      return json(request, { error: "Unsupported payment method" }, 400);
+    const terms = body.terms && typeof body.terms === "object" ? body.terms as Record<string, unknown> : {};
+    if (terms.accepted !== true || terms.version !== "2026-08-04")
+      return json(request, { error: "Accept the current Terms of Purchase before placing the order." }, 400);
     const contact =
       body.contact && typeof body.contact === "object"
         ? { ...(body.contact as Record<string, unknown>), email: user.email }
@@ -165,7 +171,10 @@ Deno.serve(async (request: Request) => {
       p_shipping: body.shipping || {},
       p_cart: cart,
       p_spot: spot,
-      p_payment_method: body.payment_method,
+      // The current SQL pricing function treats wire as the no-surcharge base.
+      // Crypto is changed to its final method immediately below, in the same
+      // trusted service, until the next consolidated schema snapshot.
+      p_payment_method: requestedPaymentMethod === "crypto" ? "wire" : requestedPaymentMethod,
       p_notes: typeof body.notes === "string" ? body.notes.slice(0, 1000) : null,
     });
     if (error) {
@@ -175,6 +184,24 @@ Deno.serve(async (request: Request) => {
         : "We could not lock this order. Please refresh the cart and try again.";
       return json(request, { error: customerSafe }, 400);
     }
+
+    const forwardedIp = (request.headers.get("x-forwarded-for") || "").split(",")[0].trim();
+    const ipSalt = Deno.env.get("ORDER_AUDIT_IP_SALT") || "";
+    const ipDigest = forwardedIp && ipSalt
+      ? Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${forwardedIp}|${ipSalt}`))), (byte) => byte.toString(16).padStart(2, "0")).join("")
+      : null;
+    const paymentReference = `GOTS-${String(data.order_number).replace(/[^A-Z0-9-]/gi, "")}`.slice(0, 48);
+    const { error: paymentMetadataError } = await admin.from("orders").update({
+      payment_method: requestedPaymentMethod,
+      payment_provider: requestedPaymentMethod === "wire" ? "manual_wire" : requestedPaymentMethod === "card" ? "stripe" : "bitpay",
+      payment_reference: paymentReference,
+      payment_due_at: data.price_locked_until,
+      terms_version: "2026-08-04",
+      terms_accepted_at: new Date().toISOString(),
+      terms_ip_hash: ipDigest,
+      terms_user_agent: (request.headers.get("user-agent") || "").slice(0, 500),
+    }).eq("id", data.order_id);
+    if (paymentMetadataError) throw paymentMetadataError;
 
     await admin.from("price_snapshots").insert(Object.entries(spot).map(([metal, price]) => ({ metal, price, source: "GoldOnTheSpot retail spot" })));
     return json(request, data, 201);

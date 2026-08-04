@@ -1136,3 +1136,9 @@ img { max-width: 100%; display: block; }
   .support-message { width: 92%; }
   .support-thread-actions .button { width: 100%; }
 }
+
+.payment-options label.disabled { opacity: .58; cursor: not-allowed; }
+.order-payment-action { display: grid; gap: .7rem; margin-top: .8rem; }
+.order-payment-action .button { width: fit-content; }
+.wire-instructions { display: grid; gap: .35rem; padding: 1rem; border: 1px solid #c7d3dc; background: #f8fbfd; }
+.wire-instructions span, .wire-instructions small { display: block; }

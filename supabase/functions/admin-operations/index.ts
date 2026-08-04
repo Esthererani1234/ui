@@ -142,7 +142,7 @@ Deno.serve(async (request: Request) => {
         return json(request, { error: "Invalid order" }, 400);
       const { data: order, error } = await admin
         .from("orders")
-        .select("id, order_number, user_id, first_name, last_name, email, phone, status, payment_status, payment_method, subtotal, payment_surcharge, shipping_amount, insurance_amount, total, spot_snapshot, price_locked_until, shipping_address, customer_notes, internal_notes, tracking_number, created_at, updated_at, order_items(*)")
+        .select("id, order_number, user_id, first_name, last_name, email, phone, status, payment_status, payment_method, payment_provider, provider_payment_id, payment_reference, payment_due_at, paid_at, terms_version, terms_accepted_at, subtotal, payment_surcharge, shipping_amount, insurance_amount, total, spot_snapshot, price_locked_until, shipping_address, customer_notes, internal_notes, tracking_number, created_at, updated_at, order_items(*)")
         .eq("id", orderId)
         .maybeSingle();
       if (error) throw error;

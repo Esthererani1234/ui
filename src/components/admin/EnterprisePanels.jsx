@@ -399,7 +399,39 @@ export function StoreAdminPanel() {
       {message && <div className="form-message">{message}</div>}
       <button className="button button-dark" onClick={save} disabled={busy}><Save /> {busy ? "Publishing…" : "Save and publish settings"}</button>
     </section>
+    <WireSettingsPanel />
   </div>;
+}
+
+function WireSettingsPanel() {
+  const empty = { bank_name: "", beneficiary_name: "", routing_number: "", account_number: "", swift_code: "", bank_address: "", notes: "", reason: "" };
+  const [form, setForm] = useState(empty);
+  const [configured, setConfigured] = useState(false);
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data }) => {
+      const response = await fetch("/api/payments/wire-settings", { headers: { authorization: `Bearer ${data.session?.access_token || ""}` } });
+      const result = await response.json().catch(() => ({}));
+      if (response.ok && result.settings) {
+        setConfigured(true);
+        setForm((current) => ({ ...current, ...result.settings, account_number: "" }));
+      }
+    });
+  }, []);
+  const save = async (event) => {
+    event.preventDefault(); setBusy(true); setMessage("");
+    try {
+      const { data } = await supabase.auth.getSession();
+      const response = await fetch("/api/payments/wire-settings", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${data.session?.access_token || ""}` }, body: JSON.stringify(form) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      setConfigured(true); setForm((current) => ({ ...current, account_number: "", reason: "" }));
+      setMessage(`Encrypted wire instructions saved. Account ending ${result.account_last4}.`);
+    } catch (error) { setMessage(error.message || "Wire settings could not be saved."); }
+    finally { setBusy(false); }
+  };
+  return <form className="admin-panel store-settings-panel" onSubmit={save}><div className="panel-title"><div><h2>Encrypted bank-wire instructions</h2><p>{configured ? "Instructions are configured. Enter the full account number only when replacing them." : "Configure the instructions customers receive after placing a wire order."}</p></div><KeyRound /></div><div className="form-row"><label>Bank name<input required value={form.bank_name} onChange={(event) => setForm({ ...form, bank_name: event.target.value })} /></label><label>Beneficiary / business name<input required value={form.beneficiary_name} onChange={(event) => setForm({ ...form, beneficiary_name: event.target.value })} /></label></div><div className="form-row"><label>Routing number<input required inputMode="numeric" autoComplete="off" value={form.routing_number} onChange={(event) => setForm({ ...form, routing_number: event.target.value })} /></label><label>Full account number<input required type="password" autoComplete="new-password" value={form.account_number} onChange={(event) => setForm({ ...form, account_number: event.target.value })} placeholder={configured ? "Enter full number to replace" : "Account number"} /></label></div><div className="form-row"><label>SWIFT / BIC (optional)<input autoComplete="off" value={form.swift_code} onChange={(event) => setForm({ ...form, swift_code: event.target.value })} /></label><label>Bank address (optional)<input value={form.bank_address} onChange={(event) => setForm({ ...form, bank_address: event.target.value })} /></label></div><label>Customer instructions (optional)<textarea rows="3" maxLength="500" value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} /></label><label>Required audit reason<textarea required minLength="3" rows="3" maxLength="1000" value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} /></label>{message && <div className="form-message">{message}</div>}<button className="button button-dark" disabled={busy}><Save />{busy ? " Encrypting…" : " Encrypt and save wire instructions"}</button></form>;
 }
 
 export function AuditAdminPanel() {

@@ -6,7 +6,7 @@ import { supabase } from "../lib/supabase";
 import { money, orderStatusLabel } from "../lib/pricing";
 import { useAuth } from "../state/AuthContext";
 
-const orderFields = "id, order_number, user_id, first_name, last_name, email, phone, status, payment_status, payment_method, subtotal, payment_surcharge, shipping_amount, insurance_amount, total, spot_snapshot, price_locked_until, shipping_address, customer_notes, tracking_number, created_at, updated_at, order_items(*)";
+const orderFields = "id, order_number, user_id, first_name, last_name, email, phone, status, payment_status, payment_method, payment_provider, provider_checkout_url, payment_reference, payment_due_at, subtotal, payment_surcharge, shipping_amount, insurance_amount, total, spot_snapshot, price_locked_until, shipping_address, customer_notes, tracking_number, created_at, updated_at, order_items(*)";
 const tabs = [
   ["orders", Package, "Orders"],
   ["profile", UserRound, "Profile"],
@@ -101,5 +101,31 @@ export default function AccountPage() {
 
 function OrdersPanel({ orders, loading, highlightedOrder }) {
   if (loading) return <div className="catalog-loading">Loading your secure order history…</div>;
-  return <div><div className="account-panel-heading"><div><h2>Your orders</h2><p>Payment, fulfillment, and tracking in one place.</p></div><Package /></div>{orders.length ? <div className="order-list">{orders.map((order) => <article className={order.order_number === highlightedOrder ? "order-card highlighted" : "order-card"} key={order.id}><div className="order-card-top"><div><small>ORDER</small><b>{order.order_number}</b></div><div><small>PLACED</small><b>{new Date(order.created_at).toLocaleDateString()}</b></div><div><small>TOTAL</small><b>{money(order.total)}</b></div><span className={`status-pill ${order.status}`}>{orderStatusLabel(order.status)}</span></div><div className="order-lines">{order.order_items?.map((item) => <div key={item.id}><span>{item.quantity} × {item.product_name}</span><b>{money(item.line_total)}</b></div>)}</div><div className="order-total-breakdown"><span>Items {money(order.subtotal)}</span><span>Shipping {Number(order.shipping_amount) ? money(order.shipping_amount) : "Free"}</span>{Number(order.payment_surcharge) > 0 && <span>Card surcharge {money(order.payment_surcharge)}</span>}<b>Total {money(order.total)}</b></div><div className="payment-instructions"><b>Payment: {orderStatusLabel(order.payment_method)} • {orderStatusLabel(order.payment_status)}</b><span>{order.payment_method === "card" ? "A secure card invoice will be sent after order review." : "Payment instructions will be sent after order review."}</span>{order.tracking_number && <strong>Tracking: {order.tracking_number}</strong>}<small>Price lock recorded: {order.price_locked_until ? new Date(order.price_locked_until).toLocaleString() : "Pending"}</small></div></article>)}</div> : <div className="empty-state compact"><h3>No orders yet</h3><p>Your placed orders will appear here immediately.</p><Link className="button button-dark" to="/shop">Shop bullion</Link></div>}</div>;
+  return <div><div className="account-panel-heading"><div><h2>Your orders</h2><p>Payment, fulfillment, and tracking in one place.</p></div><Package /></div>{orders.length ? <div className="order-list">{orders.map((order) => <article className={order.order_number === highlightedOrder ? "order-card highlighted" : "order-card"} key={order.id}><div className="order-card-top"><div><small>ORDER</small><b>{order.order_number}</b></div><div><small>PLACED</small><b>{new Date(order.created_at).toLocaleDateString()}</b></div><div><small>TOTAL</small><b>{money(order.total)}</b></div><span className={`status-pill ${order.status}`}>{orderStatusLabel(order.status)}</span></div><div className="order-lines">{order.order_items?.map((item) => <div key={item.id}><span>{item.quantity} × {item.product_name}</span><b>{money(item.line_total)}</b></div>)}</div><div className="order-total-breakdown"><span>Items {money(order.subtotal)}</span><span>Shipping {Number(order.shipping_amount) ? money(order.shipping_amount) : "Free"}</span>{Number(order.payment_surcharge) > 0 && <span>Card surcharge {money(order.payment_surcharge)}</span>}<b>Total {money(order.total)}</b></div><div className="payment-instructions"><b>Payment: {orderStatusLabel(order.payment_method)} • {orderStatusLabel(order.payment_status)}</b><span>{order.payment_method === "wire" ? `Use reference ${order.payment_reference || order.order_number}. Instructions are available securely below and were emailed when the order was placed.` : order.payment_method === "card" ? "Card details are entered only on Stripe's secure hosted checkout." : "Bitcoin payment is completed on BitPay's secure hosted invoice."}</span>{!["paid", "refunded", "disputed"].includes(order.payment_status) && <PaymentAction order={order} />}{order.tracking_number && <strong>Tracking: {order.tracking_number}</strong>}<small>Price lock recorded: {order.price_locked_until ? new Date(order.price_locked_until).toLocaleString() : "Pending"}</small></div></article>)}</div> : <div className="empty-state compact"><h3>No orders yet</h3><p>Your placed orders will appear here immediately.</p><Link className="button button-dark" to="/shop">Shop bullion</Link></div>}</div>;
+}
+
+function PaymentAction({ order }) {
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [wire, setWire] = useState(null);
+  const act = async () => {
+    setBusy(true); setMessage("");
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token || "";
+      if (order.payment_method === "wire") {
+        const response = await fetch(`/api/payments/wire-instructions?order_id=${order.id}`, { headers: { authorization: `Bearer ${token}` } });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error);
+        setWire(result);
+      } else {
+        const response = await fetch("/api/payments/create-checkout", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ order_id: order.id }) });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error);
+        if (result.url) window.location.assign(result.url);
+      }
+    } catch (error) { setMessage(error.message || "Payment is temporarily unavailable."); }
+    finally { setBusy(false); }
+  };
+  return <div className="order-payment-action"><button className="button button-dark" type="button" onClick={act} disabled={busy}>{busy ? "Opening securely…" : order.payment_method === "wire" ? "View wire instructions" : `Pay with ${order.payment_method === "card" ? "card" : "Bitcoin"}`}</button>{message && <small className="form-message error">{message}</small>}{wire && <div className="wire-instructions"><b>{wire.instructions.bank_name}</b><span>Beneficiary: {wire.instructions.beneficiary_name}</span><span>Routing: {wire.instructions.routing_number}</span><span>Account: {wire.instructions.account_number}</span>{wire.instructions.swift_code && <span>SWIFT: {wire.instructions.swift_code}</span>}<strong>Reference: {wire.reference}</strong><small>Send exactly {money(wire.total)}. Orders ship only after cleared funds and review.</small></div>}</div>;
 }

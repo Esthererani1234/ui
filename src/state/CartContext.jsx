@@ -99,6 +99,28 @@ export function CartProvider({ children }) {
       remove(productId) {
         setItems((current) => current.filter((item) => item.product.id !== productId));
       },
+      completePurchase(purchasedItems = []) {
+        const purchased = new Map(
+          purchasedItems
+            .map((item) => [
+              Number(item?.productId ?? item?.product_id),
+              Math.max(1, Math.floor(Number(item?.quantity) || 1)),
+            ])
+            .filter(([productId]) => Number.isSafeInteger(productId) && productId > 0),
+        );
+        if (!purchased.size) return;
+        setItems((current) =>
+          current
+            .map((item) => {
+              const purchasedQuantity = purchased.get(Number(item.product.id)) || 0;
+              return purchasedQuantity
+                ? { ...item, quantity: item.quantity - purchasedQuantity }
+                : item;
+            })
+            .filter((item) => item.quantity > 0),
+        );
+        setLastAdded(null);
+      },
       clear() {
         setItems([]);
         setLastAdded(null);

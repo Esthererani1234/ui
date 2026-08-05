@@ -44,7 +44,7 @@ export default async function handler(request, response) {
         metadata: { order_id: String(order.id), order_number: order.order_number, user_id: user.id },
         payment_intent_data: { metadata: { order_id: String(order.id), order_number: order.order_number, user_id: user.id } },
         success_url: `${siteUrl}/account?tab=orders&order=${encodeURIComponent(order.order_number)}&payment=return`,
-        cancel_url: `${siteUrl}/account?tab=orders&order=${encodeURIComponent(order.order_number)}&payment=cancelled`,
+        cancel_url: `${siteUrl}/cart?order=${encodeURIComponent(order.order_number)}&payment=cancelled`,
       }, { idempotencyKey: `gots-checkout-${order.id}` });
       await insertAttempt(order, "stripe", session.id, "pending", session.url, order.price_locked_until, session);
       return json(response, 200, { method: "card", url: session.url });
@@ -67,7 +67,7 @@ export default async function handler(request, response) {
           order_description: `GoldOnTheSpot order ${order.order_number}`,
           ipn_callback_url: `${siteUrl}/api/payments/nowpayments-webhook`,
           success_url: `${siteUrl}/account?tab=orders&order=${encodeURIComponent(order.order_number)}&payment=return`,
-          cancel_url: `${siteUrl}/account?tab=orders&order=${encodeURIComponent(order.order_number)}&payment=cancelled`,
+          cancel_url: `${siteUrl}/cart?order=${encodeURIComponent(order.order_number)}&payment=cancelled`,
         }),
       });
       const invoice = await checkout.json().catch(() => ({}));

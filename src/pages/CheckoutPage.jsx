@@ -7,6 +7,7 @@ import { metalSymbol, money, productPrice } from "../lib/pricing";
 import { useCart } from "../state/CartContext";
 import { useAuth } from "../state/AuthContext";
 import { productImageUrl } from "../lib/productImages";
+import { saveCheckoutRecovery } from "../lib/checkoutRecovery";
 
 const defaults = { shipping_flat: 35, free_shipping_threshold: 5000, card_surcharge_percent: 4, accepting_orders: true };
 
@@ -84,8 +85,18 @@ export default function CheckoutPage() {
         await supabase.from("profiles").update({ first_name: form.firstName.trim(), last_name: form.lastName.trim(), phone: form.phone.trim(), address_line_1: form.address1.trim(), address_line_2: form.address2.trim() || null, city: form.city.trim(), state: form.state.trim().toUpperCase(), postal_code: form.postalCode.trim() }).eq("id", user.id);
         await refreshProfile();
       }
+      if (payment.url) {
+        saveCheckoutRecovery({
+          orderId: data.order_id,
+          orderNumber: data.order_number,
+          priceLockedUntil: data.price_locked_until,
+          paymentMethod: form.paymentMethod,
+          items,
+        });
+        window.location.assign(payment.url);
+        return;
+      }
       clear();
-      if (payment.url) { window.location.assign(payment.url); return; }
       navigate(`/account?order=${encodeURIComponent(data.order_number)}&tab=orders`, { state: { newOrder: data } });
     } catch (submitError) {
       setError(submitError.message || "Unable to place the order. Please try again.");

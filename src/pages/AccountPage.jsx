@@ -142,7 +142,7 @@ export default function AccountPage() {
   const doSignOut = async () => { await signOut(); navigate("/"); };
 
   return <section className="section account-section"><div className="container">
-    {highlightedOrder && paymentResult === "cancelled" && <div className="form-message"><b>Payment was not completed.</b> Your cart is still saved. <Link to="/cart">Return to your cart</Link> or resume payment from the order below.</div>}
+    {highlightedOrder && paymentResult === "cancelled" && <div className="form-message"><b>Payment was not completed.</b> Your locked order is saved below. Use “Pay with card” to reopen the same checkout without creating another order.</div>}
     {highlightedOrder && paymentResult === "return" && paymentState === "paid" && <div className="success-banner"><CheckCircle2 /><div><b>Payment received for order {highlightedOrder}.</b><span>Your purchased items were removed from this browser's cart after payment confirmation.</span></div></div>}
     {highlightedOrder && paymentResult === "return" && paymentState === "checking" && <div className="form-message"><b>Confirming your secure payment…</b> This normally takes only a few seconds. Do not submit another order.</div>}
     {highlightedOrder && paymentResult === "return" && paymentState === "pending" && <div className="form-message"><b>Your payment is still being confirmed.</b> The order remains below and your cart stays saved until Stripe confirms payment.</div>}

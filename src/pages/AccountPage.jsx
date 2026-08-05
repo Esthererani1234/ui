@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { CheckCircle2, Headphones, LockKeyhole, LogOut, MapPin, Package, ShieldCheck, UserRound } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { money, orderStatusLabel } from "../lib/pricing";
 import { useAuth } from "../state/AuthContext";
+import { useCart } from "../state/CartContext";
+import { clearCheckoutRecovery, readCheckoutRecovery } from "../lib/checkoutRecovery";
 
 const orderFields = "id, order_number, user_id, first_name, last_name, email, phone, status, payment_status, payment_method, payment_provider, provider_checkout_url, payment_reference, payment_due_at, subtotal, payment_surcharge, shipping_amount, insurance_amount, total, spot_snapshot, price_locked_until, shipping_address, customer_notes, tracking_number, created_at, updated_at, order_items(*)";
 const tabs = [
@@ -28,7 +30,10 @@ export default function AccountPage() {
   } = useAuth();
   const [params] = useSearchParams();
   const navigate = useNavigate();
+  const { completePurchase } = useCart();
+  const completePurchaseRef = useRef(completePurchase);
   const requestedTab = params.get("tab");
+  const paymentResult = params.get("payment");
   const [active, setActive] = useState(tabs.some(([id]) => id === requestedTab) ? requestedTab : "orders");
   const [orders, setOrders] = useState([]);
   const [tickets, setTickets] = useState([]);
@@ -38,10 +43,16 @@ export default function AccountPage() {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const highlightedOrder = params.get("order");
+  const [paymentState, setPaymentState] = useState(
+    paymentResult === "return" ? "checking" : paymentResult === "cancelled" ? "cancelled" : "none",
+  );
 
   useEffect(() => {
     setActive(tabs.some(([id]) => id === requestedTab) ? requestedTab : "orders");
   }, [requestedTab]);
+  useEffect(() => {
+    completePurchaseRef.current = completePurchase;
+  }, [completePurchase]);
   useEffect(() => {
     setForm({ ...emptyProfile, ...(profile || {}) });
   }, [profile]);
@@ -58,6 +69,53 @@ export default function AccountPage() {
     });
     return () => { activeRequest = false; };
   }, [user.id]);
+  useEffect(() => {
+    if (paymentResult !== "return" || !highlightedOrder) return undefined;
+    let activeRequest = true;
+    let timer;
+    setPaymentState("checking");
+
+    const confirmPayment = async (attempt = 0) => {
+      const { data, error } = await supabase
+        .from("orders")
+        .select(orderFields)
+        .eq("user_id", user.id)
+        .eq("order_number", highlightedOrder)
+        .maybeSingle();
+      if (!activeRequest) return;
+
+      if (data) {
+        setOrders((current) => {
+          const exists = current.some((order) => order.id === data.id);
+          return exists
+            ? current.map((order) => order.id === data.id ? data : order)
+            : [data, ...current];
+        });
+      }
+
+      if (data?.payment_status === "paid") {
+        const recovery = readCheckoutRecovery();
+        if (recovery?.orderNumber === highlightedOrder) {
+          clearCheckoutRecovery(highlightedOrder);
+          completePurchaseRef.current(recovery.items);
+        }
+        setPaymentState("paid");
+        return;
+      }
+
+      if (attempt < 8) {
+        timer = window.setTimeout(() => confirmPayment(attempt + 1), 1250);
+      } else {
+        setPaymentState(error ? "pending" : "pending");
+      }
+    };
+
+    confirmPayment();
+    return () => {
+      activeRequest = false;
+      window.clearTimeout(timer);
+    };
+  }, [paymentResult, highlightedOrder, user.id]);
 
   const totals = useMemo(() => ({ orders: orders.length, open: orders.filter((order) => !["completed", "cancelled"].includes(order.status)).length, tickets: tickets.filter((ticket) => !["resolved", "closed"].includes(ticket.status)).length }), [orders, tickets]);
 
@@ -84,7 +142,11 @@ export default function AccountPage() {
   const doSignOut = async () => { await signOut(); navigate("/"); };
 
   return <section className="section account-section"><div className="container">
-    {highlightedOrder && <div className="success-banner"><CheckCircle2 /><div><b>Order {highlightedOrder} was placed successfully.</b><span>The exact server-calculated total and current status appear below.</span></div></div>}
+    {highlightedOrder && paymentResult === "cancelled" && <div className="form-message"><b>Payment was not completed.</b> Your cart is still saved. <Link to="/cart">Return to your cart</Link> or resume payment from the order below.</div>}
+    {highlightedOrder && paymentResult === "return" && paymentState === "paid" && <div className="success-banner"><CheckCircle2 /><div><b>Payment received for order {highlightedOrder}.</b><span>Your purchased items were removed from this browser's cart after payment confirmation.</span></div></div>}
+    {highlightedOrder && paymentResult === "return" && paymentState === "checking" && <div className="form-message"><b>Confirming your secure payment…</b> This normally takes only a few seconds. Do not submit another order.</div>}
+    {highlightedOrder && paymentResult === "return" && paymentState === "pending" && <div className="form-message"><b>Your payment is still being confirmed.</b> The order remains below and your cart stays saved until Stripe confirms payment.</div>}
+    {highlightedOrder && !paymentResult && <div className="success-banner"><CheckCircle2 /><div><b>Order {highlightedOrder} was placed successfully.</b><span>The exact server-calculated total and current status appear below.</span></div></div>}
     <div className="account-header"><div><span className="eyebrow dark">CUSTOMER ACCOUNT</span><h1>Welcome{profile?.first_name ? `, ${profile.first_name}` : ""}</h1><p>{user.email}</p></div><div>{isAdmin && <Link className="button button-dark" to="/admin">Open admin dashboard</Link>}<button className="button button-outline" onClick={doSignOut}><LogOut /> Sign out</button></div></div>
     <div className="account-snapshot"><div><b>{totals.orders}</b><span>Total orders</span></div><div><b>{totals.open}</b><span>Open orders</span></div><div><b>{totals.tickets}</b><span>Open support requests</span></div><div><b>{user.email_confirmed_at ? "Verified" : "Pending"}</b><span>Email status</span></div></div>
     {loadError && <div className="form-message error">{loadError}</div>}

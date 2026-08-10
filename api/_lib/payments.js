@@ -167,10 +167,31 @@ export function decryptSettings(row) {
 }
 
 export async function wireSettings() {
-  const { data, error } = await service().from("secure_payment_settings").select("ciphertext,iv,auth_tag").eq("key", "wire_instructions").maybeSingle();
-  if (error) throw error;
-  if (!data) throw Object.assign(new Error("Wire instructions have not been configured"), { status: 503 });
-  return decryptSettings(data);
+  const { data: vaulted, error: vaultError } = await service().rpc("get_wire_instructions_secret");
+  if (!vaultError && vaulted) return typeof vaulted === "string" ? JSON.parse(vaulted) : vaulted;
+
+  if (process.env.PAYMENT_SETTINGS_ENCRYPTION_KEY) {
+    const { data, error } = await service().from("secure_payment_settings").select("ciphertext,iv,auth_tag").eq("key", "wire_instructions").maybeSingle();
+    if (error) throw error;
+    if (data) return decryptSettings(data);
+  }
+
+  if (vaultError && vaultError.code !== "PGRST202") throw vaultError;
+  throw Object.assign(new Error("Wire instructions have not been configured"), { status: 503 });
+}
+
+export async function saveWireSettings(settings) {
+  const { error: vaultError } = await service().rpc("set_wire_instructions_secret", { secret_value: settings });
+  if (!vaultError) return;
+
+  if (process.env.PAYMENT_SETTINGS_ENCRYPTION_KEY) {
+    const encrypted = encryptSettings(settings);
+    const { error } = await service().from("secure_payment_settings").upsert({ key: "wire_instructions", ...encrypted, updated_at: new Date().toISOString() });
+    if (!error) return;
+    throw error;
+  }
+
+  throw vaultError;
 }
 
 export const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);

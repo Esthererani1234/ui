@@ -145,16 +145,19 @@ Deno.serve(async (request: Request) => {
     if (limitError) throw limitError;
     if (!withinLimit) return json(request, { error: "Too many checkout attempts. Please wait and try again." }, 429);
 
-    if (!Array.isArray(body.cart) || body.cart.length < 1 || body.cart.length > 25) return json(request, { error: "Your cart is invalid." }, 400);
-    const cart = body.cart.map((item: { product_id?: unknown; quantity?: unknown }) => ({
+    const quoteId = typeof body.quote_id === "string" && /^[0-9a-f-]{36}$/i.test(body.quote_id)
+      ? body.quote_id
+      : null;
+    if (!quoteId && (!Array.isArray(body.cart) || body.cart.length < 1 || body.cart.length > 25)) return json(request, { error: "Your cart is invalid." }, 400);
+    const cart = (Array.isArray(body.cart) ? body.cart : []).map((item: { product_id?: unknown; quantity?: unknown }) => ({
       product_id: Number(item.product_id),
       quantity: Number(item.quantity),
     }));
-    if (cart.some((item) => !Number.isInteger(item.product_id) || !Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 100)) {
+    if (!quoteId && cart.some((item) => !Number.isInteger(item.product_id) || !Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 100)) {
       return json(request, { error: "One or more cart quantities are invalid." }, 400);
     }
 
-    const spot = await fetchSpot();
+    const spot = quoteId ? null : await fetchSpot();
     const requestedPaymentMethod = typeof body.payment_method === "string" ? body.payment_method : "";
     if (!["wire", "card", "crypto"].includes(requestedPaymentMethod))
       return json(request, { error: "Unsupported payment method" }, 400);
@@ -165,21 +168,25 @@ Deno.serve(async (request: Request) => {
       body.contact && typeof body.contact === "object"
         ? { ...(body.contact as Record<string, unknown>), email: user.email }
         : { email: user.email };
-    const { data, error } = await admin.rpc("create_order", {
+    const orderArgs = {
       p_user_id: user.id,
       p_contact: contact,
       p_shipping: body.shipping || {},
-      p_cart: cart,
-      p_spot: spot,
-      // The current SQL pricing function treats wire as the no-surcharge base.
-      // Crypto is changed to its final method immediately below, in the same
-      // trusted service, until the next consolidated schema snapshot.
-      p_payment_method: requestedPaymentMethod === "crypto" ? "wire" : requestedPaymentMethod,
+      p_payment_method: requestedPaymentMethod,
       p_notes: typeof body.notes === "string" ? body.notes.slice(0, 1000) : null,
-    });
+    };
+    const { data, error } = quoteId
+      ? await admin.rpc("create_order_from_quote", { ...orderArgs, p_quote_id: quoteId })
+      : await admin.rpc("create_order", {
+          ...orderArgs,
+          p_cart: cart,
+          p_spot: spot,
+          // The legacy SQL function does not accept crypto directly.
+          p_payment_method: requestedPaymentMethod === "crypto" ? "wire" : requestedPaymentMethod,
+        });
     if (error) {
       console.error("create_order failed", error.code, error.message);
-      const customerSafe = /inventory|unavailable|address|contact|payment|cart|quote|quantity|account/i.test(error.message)
+      const customerSafe = /inventory|unavailable|address|contact|payment|cart|quote|quantity|account|expired|price lock|refreshed/i.test(error.message)
         ? error.message
         : "We could not lock this order. Please refresh the cart and try again.";
       return json(request, { error: customerSafe }, 400);
@@ -203,7 +210,9 @@ Deno.serve(async (request: Request) => {
     }).eq("id", data.order_id);
     if (paymentMetadataError) throw paymentMetadataError;
 
-    await admin.from("price_snapshots").insert(Object.entries(spot).map(([metal, price]) => ({ metal, price, source: "GoldOnTheSpot retail spot" })));
+    if (spot) {
+      await admin.from("price_snapshots").insert(Object.entries(spot).map(([metal, price]) => ({ metal, price, source: "GoldOnTheSpot retail spot" })));
+    }
     return json(request, data, 201);
   } catch (error) {
     console.error("checkout error", error);

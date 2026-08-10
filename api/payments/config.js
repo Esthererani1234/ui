@@ -6,9 +6,15 @@ export default function handler(request, response) {
   if (request.method !== "GET") return json(response, 405, { error: "Method not allowed" });
   return json(response, 200, {
     enabled: process.env.PAYMENTS_V2_ENABLED === "true",
+    stripe_publishable_key: process.env.STRIPE_PUBLISHABLE_KEY || null,
     methods: {
       wire: process.env.PAYMENTS_V2_ENABLED === "true" && paymentDatabaseReady && Boolean(process.env.PAYMENT_SETTINGS_ENCRYPTION_KEY),
       card: process.env.PAYMENTS_V2_ENABLED === "true" && paymentDatabaseReady && process.env.STRIPE_ENABLED === "true" && Boolean(process.env.STRIPE_SECRET_KEY),
+      embedded_card: process.env.PAYMENTS_V2_ENABLED === "true"
+        && paymentDatabaseReady
+        && process.env.STRIPE_ENABLED === "true"
+        && Boolean(process.env.STRIPE_SECRET_KEY)
+        && Boolean(process.env.STRIPE_PUBLISHABLE_KEY),
       crypto: process.env.PAYMENTS_V2_ENABLED === "true"
         && paymentDatabaseReady
         && process.env.NOWPAYMENTS_ENABLED === "true"

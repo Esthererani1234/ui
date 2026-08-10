@@ -66,7 +66,7 @@ export async function requireAdmin(request) {
 
 export async function customerOrder(orderId, userId) {
   const { data, error } = await service().from("orders")
-    .select("id,order_number,user_id,email,first_name,last_name,payment_method,payment_status,payment_provider,provider_payment_id,provider_checkout_url,payment_reference,payment_due_at,total,price_locked_until,status,shipping_address,order_items(product_name,quantity,unit_price,line_total)")
+    .select("id,order_number,user_id,email,first_name,last_name,phone,payment_method,payment_status,payment_provider,provider_payment_id,provider_checkout_url,payment_reference,payment_due_at,subtotal,payment_surcharge,shipping_amount,total,spot_snapshot,price_locked_until,status,shipping_address,order_items(id,product_id,product_name,quantity,unit_price,line_total,products(image_url,image_urls))")
     .eq("id", orderId).eq("user_id", userId).maybeSingle();
   if (error) throw error;
   if (!data) throw Object.assign(new Error("Order not found"), { status: 404 });
@@ -102,12 +102,19 @@ export async function insertAttempt(order, provider, providerId, status, checkou
     expires_at: expiresAt || null, provider_payload: safeProviderPayload(providerPayload), updated_at: new Date().toISOString(),
   }, { onConflict: "provider,provider_payment_id" });
   if (error) throw error;
-  const { error: orderError } = await db.from("orders").update({
+  const paid = status === "paid";
+  let orderUpdate = db.from("orders").update({
     payment_provider: provider, provider_payment_id: providerId || null,
     provider_checkout_url: checkoutUrl || null, payment_due_at: expiresAt || order.price_locked_until,
-    payment_status: provider === "manual_wire" ? "pending" : "unpaid", status: "awaiting_payment",
+    payment_status: paid ? "paid" : provider === "manual_wire" ? "pending" : "unpaid",
+    status: paid ? "payment_received" : "awaiting_payment",
+    ...(paid ? { paid_at: new Date().toISOString() } : {}),
     updated_at: new Date().toISOString(),
   }).eq("id", order.id);
+  // A late API response must not downgrade an order that a verified webhook
+  // already moved into a terminal payment state.
+  if (!paid) orderUpdate = orderUpdate.not("payment_status", "in", "(paid,refunded,disputed)");
+  const { error: orderError } = await orderUpdate;
   if (orderError) throw orderError;
 }
 

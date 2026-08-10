@@ -1,4 +1,3 @@
-import Stripe from "stripe";
 import { assertPayable, authenticateCustomer, customerOrder, escapeHtml, insertAttempt, json, readJson, sendPaymentEmail, wireSettings } from "../_lib/payments.js";
 
 export const config = { api: { bodyParser: false } };
@@ -27,27 +26,16 @@ export default async function handler(request, response) {
     }
 
     if (order.payment_method === "card") {
-      assertPayable(order, "card");
       if (process.env.STRIPE_ENABLED !== "true") throw Object.assign(new Error("Card checkout is awaiting processor approval"), { status: 503 });
-      if (!process.env.STRIPE_SECRET_KEY) throw new Error("Stripe is not configured");
-      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-      const existing = order.payment_provider === "stripe" && order.provider_payment_id
-        ? await stripe.checkout.sessions.retrieve(order.provider_payment_id).catch(() => null) : null;
-      if (existing?.url && existing.status === "open") return json(response, 200, { method: "card", url: existing.url });
+      if (["paid", "refunded", "disputed"].includes(order.payment_status)) {
+        throw Object.assign(new Error("This order cannot accept another payment"), { status: 409 });
+      }
       const siteUrl = process.env.SITE_URL || "https://goldonthespot.com";
-      const session = await stripe.checkout.sessions.create({
-        mode: "payment",
-        payment_method_types: ["card"],
-        customer_email: order.email,
-        client_reference_id: order.order_number,
-        line_items: [{ price_data: { currency: "usd", product_data: { name: `GoldOnTheSpot order ${order.order_number}`, description: `${order.order_items?.length || 0} bullion line item(s)` }, unit_amount: Math.round(Number(order.total) * 100) }, quantity: 1 }],
-        metadata: { order_id: String(order.id), order_number: order.order_number, user_id: user.id },
-        payment_intent_data: { metadata: { order_id: String(order.id), order_number: order.order_number, user_id: user.id } },
-        success_url: `${siteUrl}/account?tab=orders&order=${encodeURIComponent(order.order_number)}&payment=return`,
-        cancel_url: `${siteUrl}/cart?order=${encodeURIComponent(order.order_number)}&payment=cancelled`,
-      }, { idempotencyKey: `gots-checkout-${order.id}` });
-      await insertAttempt(order, "stripe", session.id, "pending", session.url, order.price_locked_until, session);
-      return json(response, 200, { method: "card", url: session.url });
+      return json(response, 200, {
+        method: "card",
+        embedded: true,
+        url: `${siteUrl}/checkout?resume_order=${order.id}`,
+      });
     }
 
     if (order.payment_method === "crypto") {

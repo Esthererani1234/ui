@@ -5,6 +5,7 @@ export const config = { api: { bodyParser: false } };
 
 const stateFor = (type, object) => {
   if (["checkout.session.completed", "checkout.session.async_payment_succeeded"].includes(type) && object.payment_status === "paid") return ["paid", "paid"];
+  if (type === "payment_intent.succeeded") return ["paid", "paid"];
   if (["checkout.session.async_payment_failed", "payment_intent.payment_failed"].includes(type)) return ["failed", "failed"];
   if (type === "checkout.session.expired") return ["expired", "expired"];
   if (type === "charge.refunded") return ["refunded", "refunded"];
@@ -34,4 +35,3 @@ export default async function handler(request, response) {
     return json(response, 400, { error: "Invalid webhook" });
   }
 }
-

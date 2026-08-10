@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 const CartContext = createContext(null);
 const STORAGE_KEY = "gots-cart-v1";
@@ -40,6 +40,18 @@ export function CartProvider({ children }) {
       // Keep the cart usable for the current session when storage is blocked.
     }
   }, [items]);
+
+  const reconcileProducts = useCallback((products) => {
+    const fresh = new Map(products.map((product) => [product.id, product]));
+    setItems((current) => current
+      .filter((item) => fresh.has(item.product.id)
+        && fresh.get(item.product.id).is_active
+        && fresh.get(item.product.id).inventory_count > 0)
+      .map((item) => ({
+        product: fresh.get(item.product.id),
+        quantity: Math.min(item.quantity, fresh.get(item.product.id).inventory_count),
+      })));
+  }, []);
 
   const value = useMemo(
     () => ({
@@ -92,10 +104,7 @@ export function CartProvider({ children }) {
             : current.map((item) => (item.product.id === productId ? { ...item, quantity: Math.min(Math.max(1, Math.floor(Number(quantity) || 1)), Math.max(0, Number(item.product.inventory_count) || 0)) } : item)).filter((item) => item.quantity > 0),
         );
       },
-      reconcileProducts(products) {
-        const fresh = new Map(products.map((product) => [product.id, product]));
-        setItems((current) => current.filter((item) => fresh.has(item.product.id) && fresh.get(item.product.id).is_active && fresh.get(item.product.id).inventory_count > 0).map((item) => ({ product: fresh.get(item.product.id), quantity: Math.min(item.quantity, fresh.get(item.product.id).inventory_count) })));
-      },
+      reconcileProducts,
       remove(productId) {
         setItems((current) => current.filter((item) => item.product.id !== productId));
       },
@@ -126,7 +135,7 @@ export function CartProvider({ children }) {
         setLastAdded(null);
       },
     }),
-    [items, lastAdded],
+    [items, lastAdded, reconcileProducts],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

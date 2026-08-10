@@ -434,10 +434,13 @@ export default function CheckoutPage() {
   }, [items, settings]);
 
   const pricing = quote || fallbackEstimate;
+  const wireTotal = Number.isFinite(Number(pricing.wire_total))
+    ? Number(pricing.wire_total)
+    : Number(pricing.subtotal || 0) + Number(pricing.shipping || 0);
   const displayedTotal =
     form.paymentMethod === "card"
       ? Number(pricing.card_total || 0)
-      : Number(pricing.wire_total || 0);
+      : wireTotal;
 
   const displayItems =
     quote?.line_items ||
@@ -916,7 +919,7 @@ export default function CheckoutPage() {
                 value="wire"
                 form={form}
                 setForm={setForm}
-                disabled={!paymentConfig.wire}
+                disabled={!paymentConfig.wire || Boolean(orderInfo)}
                 title="Bank wire"
                 detail="Encrypted instructions by email and in your order • no surcharge"
               />
@@ -924,11 +927,18 @@ export default function CheckoutPage() {
                 value="crypto"
                 form={form}
                 setForm={setForm}
-                disabled={!paymentConfig.crypto}
+                disabled={!paymentConfig.crypto || Boolean(orderInfo)}
                 title="Crypto"
                 detail="Choose a supported cryptocurrency on secure hosted checkout • automatic confirmation"
               />
             </div>
+
+            {orderInfo && (
+              <div className="form-message">
+                This saved order is already set to card. Return to your cart and
+                start a new checkout if you want to use bank wire instead.
+              </div>
+            )}
 
             {form.paymentMethod === "card" &&
               paymentConfig.embedded_card &&
@@ -1013,6 +1023,7 @@ export default function CheckoutPage() {
               quoteLoading ||
               quoteRefreshing ||
               !quote ||
+              displayedTotal <= 0 ||
               !cartReady ||
               !settings.accepting_orders
             }

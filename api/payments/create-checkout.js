@@ -1,4 +1,4 @@
-import { assertPayable, authenticateCustomer, customerOrder, escapeHtml, insertAttempt, json, readJson, sendPaymentEmail, wireSettings } from "../_lib/payments.js";
+import { assertPayable, authenticateCustomer, customerOrder, escapeHtml, insertAttempt, json, nextWirePaymentDeadline, readJson, sendPaymentEmail, wireSettings } from "../_lib/payments.js";
 
 export const config = { api: { bodyParser: false } };
 
@@ -15,14 +15,28 @@ export default async function handler(request, response) {
       assertPayable(order, "wire");
       const settings = await wireSettings();
       const reference = order.payment_reference || order.order_number;
-      await insertAttempt(order, "manual_wire", reference, "pending", null, order.price_locked_until, {});
-      const lines = [settings.bank_name, settings.beneficiary_name, settings.routing_number && `Routing: ${settings.routing_number}`, settings.account_number && `Account: ${settings.account_number}`, settings.swift_code && `SWIFT: ${settings.swift_code}`, `Reference: ${reference}`, settings.notes].filter(Boolean);
-      const email = await sendPaymentEmail({
-        to: order.email,
-        subject: `Wire instructions for ${order.order_number}`,
-        html: `<h1>GoldOnTheSpot wire instructions</h1><p>Your order total is <strong>$${Number(order.total).toFixed(2)}</strong>.</p>${lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}<p>Use the order reference exactly so we can match your payment. Your order ships only after cleared funds and review.</p>`,
-      });
-      return json(response, 200, { method: "wire", order_number: order.order_number, reference, instructions: settings, email_sent: email.sent });
+      const dueAt = nextWirePaymentDeadline();
+      await insertAttempt(order, "manual_wire", reference, "pending", null, dueAt, {});
+      const lines = [
+        ["Bank", settings.bank_name],
+        ["Beneficiary", settings.beneficiary_name],
+        ["Routing number", settings.routing_number],
+        ["Account number", settings.account_number],
+        ["SWIFT / BIC", settings.swift_code],
+        ["Bank address", settings.bank_address],
+        ["Order reference", reference],
+      ].filter(([, value]) => Boolean(value));
+      let email = { sent: false };
+      try {
+        email = await sendPaymentEmail({
+          to: order.email,
+          subject: `Wire instructions for ${order.order_number}`,
+          html: `<div style="background:#f3f6f7;padding:32px 16px;font-family:Arial,sans-serif;color:#102c40"><div style="max-width:620px;margin:auto;background:#fff;border:1px solid #d5dee3;padding:30px"><div style="font-size:13px;letter-spacing:1.5px;color:#a66f00;font-weight:700">GOLDONTHESPOT</div><h1 style="margin:8px 0 10px;font-family:Georgia,serif">Bank-wire instructions</h1><p style="line-height:1.6">Your bullion order <strong>${escapeHtml(order.order_number)}</strong> has been placed at the locked total below and is awaiting payment.</p><div style="background:#08283b;color:#fff;padding:18px;margin:24px 0"><div style="font-size:13px;opacity:.8">SEND EXACTLY</div><div style="font-size:28px;font-weight:700">$${Number(order.total).toFixed(2)}</div><div style="margin-top:8px">Due ${escapeHtml(new Date(dueAt).toUTCString())}</div></div>${lines.map(([label, value]) => `<div style="padding:10px 0;border-bottom:1px solid #e4e9ec"><div style="font-size:12px;color:#627581;text-transform:uppercase">${escapeHtml(label)}</div><strong>${escapeHtml(value)}</strong></div>`).join("")}${settings.notes ? `<p style="line-height:1.6"><strong>Additional instructions:</strong> ${escapeHtml(settings.notes)}</p>` : ""}<p style="line-height:1.6;margin-top:24px">Use the order reference exactly so we can match your payment. Your order will ship only after funds have cleared and the payment has been verified.</p><p style="font-size:13px;color:#627581">GoldOnTheSpot will never ask for your banking password, verification code, or card number by email.</p></div></div>`,
+        });
+      } catch (emailError) {
+        console.error("wire instruction email failed", emailError);
+      }
+      return json(response, 200, { method: "wire", order_number: order.order_number, reference, due_at: dueAt, instructions: settings, email_sent: email.sent });
     }
 
     if (order.payment_method === "card") {

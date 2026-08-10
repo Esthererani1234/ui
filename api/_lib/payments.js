@@ -138,6 +138,14 @@ export async function sendPaymentEmail({ to, subject, html }) {
   return { sent: true };
 }
 
+export function nextWirePaymentDeadline(now = new Date()) {
+  const due = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  while (due.getUTCDay() === 0 || due.getUTCDay() === 6) {
+    due.setUTCDate(due.getUTCDate() + 1);
+  }
+  return due.toISOString();
+}
+
 const encryptionKey = () => {
   const raw = process.env.PAYMENT_SETTINGS_ENCRYPTION_KEY || "";
   const key = Buffer.from(raw, "base64");

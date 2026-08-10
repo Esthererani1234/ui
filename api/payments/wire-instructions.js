@@ -8,9 +8,8 @@ export default async function handler(request, response) {
     const order = await customerOrder(orderId, user.id);
     if (order.payment_method !== "wire") return json(response, 404, { error: "Wire instructions are not available for this order" });
     const instructions = await wireSettings();
-    return json(response, 200, { order_number: order.order_number, total: order.total, reference: order.payment_reference || order.order_number, instructions });
+    return json(response, 200, { order_number: order.order_number, total: order.total, reference: order.payment_reference || order.order_number, due_at: order.payment_due_at, instructions });
   } catch (error) {
     return json(response, error.status || 500, { error: error.status ? error.message : "Wire instructions are temporarily unavailable" });
   }
 }
-

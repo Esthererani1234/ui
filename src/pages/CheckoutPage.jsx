@@ -676,10 +676,12 @@ export default function CheckoutPage() {
       }
 
       clear();
+      const wireQuery =
+        form.paymentMethod === "wire" ? "&wire=show" : "";
       navigate(
         `/account?order=${encodeURIComponent(
           order.order_number,
-        )}&tab=orders`,
+        )}&tab=orders${wireQuery}`,
         { state: { newOrder: order } },
       );
     } catch (submitError) {

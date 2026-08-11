@@ -22,7 +22,9 @@ export default async function handler(request, response) {
     if (error) throw error;
     return json(response, 200, { report: data });
   } catch (error) {
-    console.error("admin traffic analytics failed", error);
+    if (!error.status || error.status >= 500) {
+      console.error("admin traffic analytics failed", error);
+    }
     return json(response, error.status || 500, {
       error: error.status
         ? error.message

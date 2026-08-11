@@ -34,7 +34,10 @@ import { metalSymbol, money, productPrice } from "../lib/pricing";
 import { useCart } from "../state/CartContext";
 import { useAuth } from "../state/AuthContext";
 import { productImageUrl } from "../lib/productImages";
-import { saveCheckoutRecovery } from "../lib/checkoutRecovery";
+import {
+  clearCheckoutRecovery,
+  saveCheckoutRecovery,
+} from "../lib/checkoutRecovery";
 
 const defaults = {
   shipping_flat: 35,
@@ -610,7 +613,7 @@ export default function CheckoutPage() {
         );
       }
 
-      const order = await createOrder();
+      let order = await createOrder();
       await saveAddress();
 
       if (form.paymentMethod === "card") {
@@ -666,6 +669,27 @@ export default function CheckoutPage() {
         return;
       }
 
+      if (form.paymentMethod === "wire" && orderInfo) {
+        order = await authenticatedPost("/api/payments/change-method", {
+          order_id: order.order_id,
+          payment_method: "wire",
+        });
+        setOrderInfo((current) => ({
+          ...current,
+          ...order,
+          price_locked_until:
+            order.price_locked_until || current?.price_locked_until,
+        }));
+        saveCheckoutRecovery({
+          orderId: order.order_id,
+          orderNumber: order.order_number,
+          priceLockedUntil:
+            order.price_locked_until || quote?.expires_at || null,
+          paymentMethod: "wire",
+          items,
+        });
+      }
+
       let payment = {};
       if (paymentConfig.enabled) {
         payment = await authenticatedPost(
@@ -678,6 +702,7 @@ export default function CheckoutPage() {
         return;
       }
 
+      clearCheckoutRecovery(order.order_number);
       clear();
       const wireQuery =
         form.paymentMethod === "wire" ? "&wire=show" : "";
@@ -919,7 +944,7 @@ export default function CheckoutPage() {
                 value="wire"
                 form={form}
                 setForm={setForm}
-                disabled={!paymentConfig.wire || Boolean(orderInfo)}
+                disabled={!paymentConfig.wire}
                 title="Bank wire"
                 detail="Encrypted instructions by email and in your order • no surcharge"
               />
@@ -935,8 +960,9 @@ export default function CheckoutPage() {
 
             {orderInfo && (
               <div className="form-message">
-                This saved order is already set to card. Return to your cart and
-                start a new checkout if you want to use bank wire instead.
+                This unpaid order is saved. You can finish by card or switch to
+                bank wire; the card surcharge is removed before wire
+                instructions are issued.
               </div>
             )}
 

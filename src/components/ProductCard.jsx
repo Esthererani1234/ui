@@ -3,6 +3,7 @@ import { Check, ShoppingCart } from "lucide-react";
 import { metalSymbol, money, productPrice } from "../lib/pricing";
 import { useCart } from "../state/CartContext";
 import { productImageSrcSet, productImageUrl } from "../lib/productImages";
+import { trackEvent } from "../lib/analytics";
 
 export default function ProductCard({ product, spot }) {
   const { add, items, lastAdded } = useCart();
@@ -16,7 +17,17 @@ export default function ProductCard({ product, spot }) {
   return (
     <article className="product-card">
       {product.badge && <span className="product-badge">{product.badge}</span>}
-      <Link className="product-image" to={`/product/${product.slug}`}>
+      <Link
+        className="product-image"
+        to={`/product/${product.slug}`}
+        onClick={() =>
+          trackEvent("listing_click", {
+            productId: product.id,
+            path: `/product/${product.slug}`,
+            metadata: { source: "product_image" },
+          })
+        }
+      >
         {mainImage ? (
           <img
             src={productImageUrl(mainImage, 640, 80)}
@@ -39,7 +50,16 @@ export default function ProductCard({ product, spot }) {
         <span className="product-kicker">
           {product.metal} • {product.category}
         </span>
-        <Link to={`/product/${product.slug}`}>
+        <Link
+          to={`/product/${product.slug}`}
+          onClick={() =>
+            trackEvent("listing_click", {
+              productId: product.id,
+              path: `/product/${product.slug}`,
+              metadata: { source: "product_title" },
+            })
+          }
+        >
           <h3>{product.name}</h3>
         </Link>
         <p>{product.short_description}</p>

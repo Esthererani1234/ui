@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { trackEvent } from "../lib/analytics";
 
 const CartContext = createContext(null);
 const STORAGE_KEY = "gots-cart-v1";
@@ -94,6 +95,16 @@ export function CartProvider({ children }) {
           productName: product.name,
           productImage: product.image_url || product.image_urls?.[0] || "",
           quantity: amountToAdd,
+        });
+        trackEvent("add_to_cart", {
+          productId: product.id,
+          path: `/product/${product.slug || ""}`,
+          metadata: {
+            quantity: amountToAdd,
+            source: window.location.pathname.startsWith("/product/")
+              ? "product_page"
+              : "product_card",
+          },
         });
         return true;
       },

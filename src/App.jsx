@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
+import AnalyticsTracker from "./components/AnalyticsTracker";
 import HomePage from "./pages/HomePage";
 import { useAuth } from "./state/AuthContext";
 
@@ -47,6 +48,7 @@ function Guard({ admin = false, requireMfa = true, children }) {
 export default function App() {
   return (
     <Suspense fallback={<div className="page-loader">Loading GoldOnTheSpot…</div>}>
+      <AnalyticsTracker />
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<HomePage />} />

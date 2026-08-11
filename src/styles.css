@@ -873,6 +873,23 @@ img { max-width: 100%; display: block; }
 .seller-progress-row strong { color: var(--navy-900); font-size: 9px; }
 .seller-progress-row > i { height: 7px; display: block; overflow: hidden; background: #edf1f3; border-radius: 5px; }
 .seller-progress-row em { height: 100%; display: block; min-width: 2px; background: linear-gradient(90deg, var(--navy-700), var(--gold-500)); border-radius: inherit; transition: width .3s ease; }
+.traffic-kpi-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.traffic-chart-area { fill: url(#traffic-area-fill); pointer-events: none; }
+.traffic-ratio-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; margin: -4px 0 14px; }
+.traffic-ratio-grid article { min-width: 0; padding: 13px 15px; background: linear-gradient(135deg, #08283b, #123e57); border-bottom: 3px solid var(--gold-500); }
+.traffic-ratio-grid small, .traffic-ratio-grid strong, .traffic-ratio-grid span { display: block; }
+.traffic-ratio-grid small { color: #b7c7d0; font-size: 7px; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; }
+.traffic-ratio-grid strong { margin: 5px 0 2px; color: #fff; font-size: 21px; }
+.traffic-ratio-grid span { overflow: hidden; color: #d9e3e8; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.traffic-breakdowns .seller-detail-card h3 { display: flex; align-items: center; gap: 6px; }
+.traffic-breakdowns .seller-detail-card h3 svg { width: 16px; height: 16px; color: var(--gold-700); }
+.traffic-product-table { min-width: 820px; }
+.traffic-product-table th:not(:nth-child(2)), .traffic-product-table td:not(:nth-child(2)) { text-align: right; }
+.traffic-hour-grid { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 3px; padding-top: 8px; }
+.traffic-hour-grid > div { min-width: 0; text-align: center; }
+.traffic-hour-grid i { height: 58px; display: block; background: linear-gradient(180deg, var(--gold-500), var(--navy-700)); border-radius: 3px 3px 1px 1px; transition: opacity .2s, transform .2s; }
+.traffic-hour-grid > div:hover i { transform: translateY(-3px); }
+.traffic-hour-grid small { min-height: 25px; display: block; margin-top: 5px; color: #71818b; font-size: 6px; font-weight: 800; white-space: nowrap; transform: rotate(-35deg); transform-origin: top center; }
 .spin { animation: admin-spin .8s linear infinite; }
 @keyframes admin-spin { to { transform: rotate(360deg); } }
 .store-state-card { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 15px; padding: 20px; color: #fff; background: var(--navy-900); border-left: 5px solid var(--gold-500); }
@@ -1182,4 +1199,20 @@ img { max-width: 100%; display: block; }
 @media (max-width: 560px) {
   .mobile-price-lock strong { font-size: 28px; }
   .embedded-card-box { margin-left: -8px; margin-right: -8px; padding: 14px 10px; }
+}
+
+@media (max-width: 1100px) {
+  .traffic-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .traffic-ratio-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .traffic-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .traffic-hour-grid { grid-template-columns: repeat(12, minmax(0, 1fr)); row-gap: 12px; }
+}
+
+@media (max-width: 480px) {
+  .traffic-kpi-grid, .traffic-ratio-grid { grid-template-columns: 1fr; }
+  .traffic-hour-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .traffic-hour-grid small { transform: none; }
 }

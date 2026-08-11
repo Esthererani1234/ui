@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  Activity,
   Boxes,
   BarChart3,
   Copy,
@@ -33,6 +34,7 @@ import {
   SalesAdminPanel,
   StoreAdminPanel,
 } from "../components/admin/EnterprisePanels";
+import TrafficAnalyticsPanel from "../components/admin/TrafficAnalyticsPanel";
 
 const blankProduct = {
   name: "",
@@ -63,6 +65,7 @@ const tabTitles = {
   products: "Products & pricing",
   orders: "Order management",
   sales: "Sales reporting",
+  traffic: "Storefront traffic",
   support: "Customer support",
   customers: "Customer operations",
   risk: "Fraud & risk center",
@@ -469,6 +472,12 @@ export default function AdminPage() {
             <BarChart3 /> Sales
           </button>
           <button
+            className={tab === "traffic" ? "active" : ""}
+            onClick={() => setTab("traffic")}
+          >
+            <Activity /> Traffic
+          </button>
+          <button
             className={tab === "support" ? "active" : ""}
             onClick={() => setTab("support")}
           >
@@ -804,6 +813,7 @@ export default function AdminPage() {
           </div>
         )}
         {tab === "sales" && <SalesAdminPanel />}
+        {tab === "traffic" && <TrafficAnalyticsPanel />}
         {tab === "support" && (
           <div className="admin-panel">
             <div className="panel-title">

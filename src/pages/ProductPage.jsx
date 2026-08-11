@@ -17,6 +17,7 @@ import { money, productPrice } from "../lib/pricing";
 import { useCart } from "../state/CartContext";
 import MarketTicker from "../components/MarketTicker";
 import ProductGallery from "../components/ProductGallery";
+import { trackEvent } from "../lib/analytics";
 
 export default function ProductPage() {
   const { slug } = useParams();
@@ -45,6 +46,15 @@ export default function ProductPage() {
       mounted = false;
     };
   }, [slug]);
+
+  useEffect(() => {
+    if (!product?.id) return;
+    trackEvent("product_view", {
+      productId: product.id,
+      path: `/product/${product.slug}`,
+      metadata: { slug: product.slug },
+    });
+  }, [product?.id, product?.slug]);
 
   if (product === false)
     return (

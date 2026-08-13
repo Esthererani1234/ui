@@ -4,6 +4,7 @@ import { LockKeyhole, LogOut, MessageSquareText, ShieldCheck } from "lucide-reac
 import { supabase } from "../lib/supabase";
 import { formatUsPhone, toUsE164 } from "../lib/phone";
 import { useAuth } from "../state/AuthContext";
+import SmsConsentDisclosure from "../components/SmsConsentDisclosure";
 
 const friendlyMfaError = (error) => {
   const message = error?.message || "SMS verification could not be completed.";
@@ -164,8 +165,9 @@ export default function CustomerMfaPage() {
               <small>U.S. mobile number. Standard carrier messaging rates may apply.</small>
             </label>
             <button className="button button-gold full" onClick={sendCode} disabled={busy}>
-              <MessageSquareText /> {busy ? "Sending securely…" : "Send security code"}
+              <MessageSquareText /> {busy ? "Sending securely…" : "Send Code"}
             </button>
+            <SmsConsentDisclosure />
           </div>
         ) : stage === "send" ? (
           <div className="customer-mfa-form">
@@ -174,8 +176,9 @@ export default function CustomerMfaPage() {
               <span><small>Verification destination</small><b>{phone || "Your enrolled phone"}</b></span>
             </div>
             <button className="button button-gold full" onClick={sendCode} disabled={busy}>
-              {busy ? "Sending securely…" : "Text me a security code"}
+              {busy ? "Sending securely…" : "Send Code"}
             </button>
+            <SmsConsentDisclosure />
           </div>
         ) : (
           <form className="customer-mfa-form" onSubmit={verify}>

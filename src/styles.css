@@ -598,6 +598,11 @@ img { max-width: 100%; display: block; }
 .mfa-code-input input { width: 100%; height: 54px; border: 0; border-left: 1px solid var(--line); outline: 0; text-align: center; font-size: 23px; font-weight: 900; letter-spacing: .28em; }
 .customer-mfa-signout { display: inline-flex; align-items: center; gap: 6px; margin-top: 17px; padding: 7px; color: var(--muted); background: none; border: 0; font-size: 10px; font-weight: 800; }
 .customer-mfa-signout svg { width: 15px; }
+.sms-consent-disclosure { margin: 13px 0 17px; padding: 13px 14px; color: #405562; background: #f7f9fa; border: 1px solid #c8d4da; font-size: 11px; font-weight: 500; line-height: 1.6; text-align: left; }
+.sms-consent-disclosure p { margin: 0; }
+.sms-consent-links { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 8px; }
+.sms-consent-links a { color: var(--navy-700); font-weight: 900; text-decoration: underline; text-underline-offset: 2px; }
+.sms-consent-links a:focus-visible { outline: 2px solid var(--gold-600); outline-offset: 2px; }
 
 .enterprise-admin-stack { display: grid; gap: 18px; }
 .enterprise-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }

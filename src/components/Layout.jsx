@@ -26,6 +26,13 @@ export default function Layout() {
 
   useEffect(() => { setMenuOpen(false); window.scrollTo({ top: 0, behavior: "auto" }); }, [location.pathname]);
   useEffect(() => {
+    const activeQuery =
+      location.pathname === "/shop"
+        ? new URLSearchParams(location.search).get("q") || ""
+        : "";
+    setSearch(activeQuery);
+  }, [location.pathname, location.search]);
+  useEffect(() => {
     if (!lastAdded) return undefined;
     const timer = window.setTimeout(clearLastAdded, 2800);
     return () => window.clearTimeout(timer);

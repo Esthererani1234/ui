@@ -6,6 +6,7 @@ import {
   readCachedProducts,
 } from "../lib/catalogCache";
 import { productPrice } from "../lib/pricing";
+import { productSearchScore } from "../lib/productSearch";
 import MarketTicker from "../components/MarketTicker";
 import ProductCard from "../components/ProductCard";
 
@@ -47,24 +48,20 @@ export default function ShopPage() {
   }, [metal, category, query, featured, sort]);
 
   const filtered = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    const matches = products.filter((product) => {
-      if (metal !== "all" && product.metal !== metal) return false;
-      if (category !== "all" && product.category !== category) return false;
-      if (featured && !product.is_featured) return false;
-      if (
-        normalizedQuery &&
-        !`${product.name} ${product.short_description || ""} ${
-          product.description || ""
-        } ${product.sku}`
-          .toLowerCase()
-          .includes(normalizedQuery)
-      )
-        return false;
-      return true;
-    });
+    const hasQuery = Boolean(query.trim());
+    const matches = [];
+    for (const product of products) {
+      if (metal !== "all" && product.metal !== metal) continue;
+      if (category !== "all" && product.category !== category) continue;
+      if (featured && !product.is_featured) continue;
+      const relevance = hasQuery ? productSearchScore(product, query) : 0;
+      if (hasQuery && relevance === null) continue;
+      matches.push({ product, relevance });
+    }
 
-    return [...matches].sort((a, b) => {
+    matches.sort((left, right) => {
+      const a = left.product;
+      const b = right.product;
       if (sort === "price-low")
         return (productPrice(a, spot) ?? Infinity) -
           (productPrice(b, spot) ?? Infinity);
@@ -73,10 +70,12 @@ export default function ShopPage() {
           (productPrice(a, spot) ?? -Infinity);
       if (sort === "name") return a.name.localeCompare(b.name);
       return (
+        right.relevance - left.relevance ||
         Number(b.is_featured) - Number(a.is_featured) ||
         Number(a.sort_order) - Number(b.sort_order)
       );
     });
+    return matches.map(({ product }) => product);
   }, [products, metal, category, query, featured, sort, spot]);
 
   const setFilter = (key, value) => {

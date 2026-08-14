@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { CheckCircle2, Menu, Search, ShieldCheck, ShoppingCart, User, X } from "lucide-react";
+import { CheckCircle2, Menu, ShieldCheck, ShoppingCart, User, X } from "lucide-react";
 import { useCart } from "../state/CartContext";
 import { useAuth } from "../state/AuthContext";
 import SupportAssistant from "./SupportAssistant";
+import SmartSearch from "./SmartSearch";
 import { supabase } from "../lib/supabase";
 
 function Logo() {
@@ -50,9 +51,8 @@ export default function Layout() {
       .then(({ data }) => setAnnouncement(typeof data?.value === "string" ? data.value : ""));
   }, []);
 
-  const submitSearch = (event) => {
-    event.preventDefault();
-    const query = search.trim();
+  const submitSearch = (value = search) => {
+    const query = value.trim();
     navigate(query ? `/shop?q=${encodeURIComponent(query)}` : "/shop");
   };
 
@@ -68,11 +68,11 @@ export default function Layout() {
       <header className="site-header">
         <div className="container header-main">
           <Logo />
-          <form className="header-search" onSubmit={submitSearch} role="search">
-            <Search size={18} />
-            <input name="q" aria-label="Search products" placeholder="Search coins, bars, mints, weights…" value={search} onChange={(event) => setSearch(event.target.value)} />
-            <button type="submit">Search</button>
-          </form>
+          <SmartSearch
+            search={search}
+            setSearch={setSearch}
+            onSubmit={submitSearch}
+          />
           <div className="header-actions">
             <Link className="header-action" to={user ? "/account" : "/login"}><User size={22} /><span>{user ? "Account" : "Sign in"}</span></Link>
             <Link className={`header-action cart-link${lastAdded ? " cart-bump" : ""}`} to="/cart"><ShoppingCart size={22} /><span>Cart</span>{count > 0 && <b>{count}</b>}</Link>

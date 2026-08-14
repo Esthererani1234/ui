@@ -6,7 +6,11 @@ import {
   readCachedProducts,
 } from "../lib/catalogCache";
 import { productPrice } from "../lib/pricing";
-import { productSearchScore } from "../lib/productSearch";
+import {
+  productSearchScore,
+  suggestSearchCorrection,
+  understandSearchQuery,
+} from "../lib/productSearch";
 import MarketTicker from "../components/MarketTicker";
 import ProductCard from "../components/ProductCard";
 
@@ -26,6 +30,7 @@ export default function ShopPage() {
   const query = params.get("q") || "";
   const featured = params.get("featured") === "true";
   const sort = params.get("sort") || "recommended";
+  const searchIntent = useMemo(() => understandSearchQuery(query), [query]);
 
   useEffect(() => {
     let mounted = true;
@@ -54,21 +59,47 @@ export default function ShopPage() {
       if (metal !== "all" && product.metal !== metal) continue;
       if (category !== "all" && product.category !== category) continue;
       if (featured && !product.is_featured) continue;
+      if (searchIntent.inStock && Number(product.inventory_count || 0) <= 0)
+        continue;
+      const livePrice = productPrice(product, spot);
+      if (
+        searchIntent.maximumPrice !== null &&
+        livePrice !== null &&
+        livePrice > searchIntent.maximumPrice
+      ) continue;
+      if (
+        searchIntent.minimumPrice !== null &&
+        livePrice !== null &&
+        livePrice < searchIntent.minimumPrice
+      ) continue;
       const relevance = hasQuery ? productSearchScore(product, query) : 0;
       if (hasQuery && relevance === null) continue;
-      matches.push({ product, relevance });
+      matches.push({
+        product,
+        relevance:
+          relevance +
+          (searchIntent.featured && product.is_featured ? 220 : 0),
+      });
     }
 
     matches.sort((left, right) => {
       const a = left.product;
       const b = right.product;
-      if (sort === "price-low")
+      const effectiveSort =
+        sort === "recommended" ? searchIntent.sort || sort : sort;
+      if (effectiveSort === "price-low")
         return (productPrice(a, spot) ?? Infinity) -
           (productPrice(b, spot) ?? Infinity);
-      if (sort === "price-high")
+      if (effectiveSort === "price-high")
         return (productPrice(b, spot) ?? -Infinity) -
           (productPrice(a, spot) ?? -Infinity);
-      if (sort === "name") return a.name.localeCompare(b.name);
+      if (effectiveSort === "name") return a.name.localeCompare(b.name);
+      if (searchIntent.newest) {
+        const dateDifference =
+          new Date(b.created_at || 0).getTime() -
+          new Date(a.created_at || 0).getTime();
+        if (dateDifference) return dateDifference;
+      }
       return (
         right.relevance - left.relevance ||
         Number(b.is_featured) - Number(a.is_featured) ||
@@ -76,7 +107,12 @@ export default function ShopPage() {
       );
     });
     return matches.map(({ product }) => product);
-  }, [products, metal, category, query, featured, sort, spot]);
+  }, [products, metal, category, query, featured, sort, spot, searchIntent]);
+
+  const searchCorrection = useMemo(
+    () => (query.trim() ? suggestSearchCorrection(products, query) : null),
+    [products, query],
+  );
 
   const setFilter = (key, value) => {
     const next = new URLSearchParams(params);
@@ -187,6 +223,15 @@ export default function ShopPage() {
                   </select>
                 </label>
               </div>
+              {searchCorrection && (
+                <button
+                  className="catalog-search-correction"
+                  type="button"
+                  onClick={() => setFilter("q", searchCorrection)}
+                >
+                  Did you mean <b>{searchCorrection}</b>?
+                </button>
+              )}
               {loading ? (
                 <div className="catalog-loading">Loading secure catalog…</div>
               ) : filtered.length ? (

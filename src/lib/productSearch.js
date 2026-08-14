@@ -31,7 +31,51 @@ const TOKEN_ALIASES = new Map([
   ["twentieth", "1 20"],
 ]);
 
-const STOP_WORDS = new Set(["a", "an", "and", "for", "of", "the", "with"]);
+const STOP_WORDS = new Set([
+  "a",
+  "an",
+  "and",
+  "any",
+  "available",
+  "best",
+  "buy",
+  "do",
+  "find",
+  "for",
+  "get",
+  "have",
+  "in",
+  "item",
+  "items",
+  "looking",
+  "me",
+  "need",
+  "of",
+  "please",
+  "popular",
+  "product",
+  "products",
+  "recommended",
+  "seller",
+  "sellers",
+  "sale",
+  "show",
+  "some",
+  "stock",
+  "that",
+  "the",
+  "to",
+  "want",
+  "what",
+  "which",
+  "with",
+  "you",
+]);
+
+const PRICE_CLAUSE =
+  /\b(?:under|below|less\s+than|up\s+to|over|above|more\s+than|at\s+least)\s*\$?\s*[\d,]+(?:\.\d+)?\b/gi;
+const SEARCH_INTENT_WORDS =
+  /\b(?:affordable|budget|cheap|cheapest|highest|lowest|new|newest|latest|recent|expensive)\b/gi;
 
 const normalizeToken = (token) => {
   const alias = TOKEN_ALIASES.get(token);
@@ -58,10 +102,15 @@ export const normalizeSearchText = (value) =>
     .join(" ");
 
 const tokenize = (value) => {
-  const tokens = normalizeSearchText(value).split(" ").filter(Boolean);
-  const meaningfulTokens = tokens.filter((token) => !STOP_WORDS.has(token));
-  return meaningfulTokens.length ? meaningfulTokens : tokens;
+  const searchableText = String(value || "")
+    .replace(PRICE_CLAUSE, " ")
+    .replace(SEARCH_INTENT_WORDS, " ");
+  return normalizeSearchText(searchableText)
+    .split(" ")
+    .filter((token) => token && !STOP_WORDS.has(token));
 };
+
+const compact = (value) => normalizeSearchText(value).replaceAll(" ", "");
 
 const boundedDamerauLevenshtein = (left, right, limit) => {
   if (left === right) return 0;
@@ -137,6 +186,57 @@ const weightedTokens = (product) => {
   );
 };
 
+const consecutivePhrases = (tokens, maximumWords = 5) => {
+  const phrases = [];
+  for (let start = 0; start < tokens.length; start += 1) {
+    let compactText = "";
+    const words = [];
+    for (
+      let end = start;
+      end < tokens.length && end < start + maximumWords;
+      end += 1
+    ) {
+      words.push(tokens[end]);
+      compactText += tokens[end];
+      if (compactText.length >= 3) {
+        phrases.push({ compact: compactText, text: words.join(" ") });
+      }
+    }
+  }
+  return phrases;
+};
+
+const searchPhrases = (product) => {
+  const primaryTokens = tokenize(
+    `${product.name || ""} ${product.sku || ""} ${product.metal || ""} ${
+      product.category || ""
+    }`,
+  );
+  return consecutivePhrases(primaryTokens);
+};
+
+const bestPhraseMatch = (queryCompact, phrases) => {
+  if (queryCompact.length < 4) return null;
+
+  let best = null;
+  for (const phrase of phrases) {
+    const longest = Math.max(queryCompact.length, phrase.compact.length);
+    const limit = Math.max(1, Math.ceil(longest * 0.36));
+    if (Math.abs(queryCompact.length - phrase.compact.length) > limit) continue;
+    const distance = boundedDamerauLevenshtein(
+      queryCompact,
+      phrase.compact,
+      limit,
+    );
+    if (distance > limit) continue;
+    const similarity = 1 - distance / longest;
+    if (!best || similarity > best.similarity) {
+      best = { ...phrase, similarity };
+    }
+  }
+  return best;
+};
+
 const productIndexCache = new WeakMap();
 
 const productSearchIndex = (product) => {
@@ -145,6 +245,7 @@ const productSearchIndex = (product) => {
 
   const index = {
     candidates: weightedTokens(product),
+    phrases: searchPhrases(product),
     normalizedName: normalizeSearchText(product.name),
     normalizedSku: normalizeSearchText(product.sku),
     normalizedPrimary: normalizeSearchText(
@@ -161,15 +262,12 @@ export function productSearchScore(product, query) {
   const queryTokens = tokenize(query);
   if (!queryTokens.length) return 0;
 
-  const {
-    candidates,
-    normalizedName,
-    normalizedSku,
-    normalizedPrimary,
-  } = productSearchIndex(product);
+  const { candidates, phrases, normalizedName, normalizedSku, normalizedPrimary } =
+    productSearchIndex(product);
   if (!candidates.length) return null;
 
   let score = 0;
+  let unmatchedTokens = 0;
   for (const queryToken of queryTokens) {
     let best = 0;
     for (const candidate of candidates) {
@@ -178,12 +276,22 @@ export function productSearchScore(product, query) {
         tokenMatchScore(queryToken, candidate.token) * candidate.weight,
       );
     }
-    if (!best) return null;
-    score += best;
+    if (!best) unmatchedTokens += 1;
+    else score += best;
   }
 
-  const normalizedQuery = normalizeSearchText(query);
-  const compactQuery = normalizedQuery.replaceAll(" ", "");
+  const normalizedQuery = queryTokens.join(" ");
+  const compactQuery = compact(normalizedQuery);
+  const phraseMatch = bestPhraseMatch(compactQuery, phrases);
+
+  // Phrase comparison rescues searches such as "golbuflo" or "goldbuffalo"
+  // without maintaining a hand-written list of possible mistakes.
+  if (unmatchedTokens && (!phraseMatch || phraseMatch.similarity < 0.64)) {
+    return null;
+  }
+  if (phraseMatch?.similarity >= 0.64) {
+    score += phraseMatch.similarity * 420 - unmatchedTokens * 30;
+  }
 
   if (normalizedName === normalizedQuery) score += 1_000;
   else if (normalizedName.startsWith(normalizedQuery)) score += 700;
@@ -198,4 +306,135 @@ export function productSearchScore(product, query) {
   }
 
   return score;
+}
+
+const priceFromMatch = (match) => {
+  if (!match?.[1]) return null;
+  const value = Number(match[1].replaceAll(",", ""));
+  return Number.isFinite(value) ? value : null;
+};
+
+export function understandSearchQuery(query) {
+  const raw = String(query || "").toLowerCase();
+  const maximumMatch = raw.match(
+    /\b(?:under|below|less\s+than|up\s+to)\s*\$?\s*([\d,]+(?:\.\d+)?)/i,
+  );
+  const minimumMatch = raw.match(
+    /\b(?:over|above|more\s+than|at\s+least)\s*\$?\s*([\d,]+(?:\.\d+)?)/i,
+  );
+  const wantsLowestPrice =
+    /\b(?:affordable|budget|cheap|cheapest|lowest)\b/i.test(raw);
+  const wantsHighestPrice = /\b(?:expensive|highest)\b/i.test(raw);
+
+  return {
+    terms: tokenize(query).join(" "),
+    inStock: /\b(?:in\s+stock|available)\b/i.test(raw),
+    featured: /\b(?:best|best\s*seller|popular|recommended)\b/i.test(raw),
+    newest: /\b(?:new|newest|latest|recent)\b/i.test(raw),
+    maximumPrice: priceFromMatch(maximumMatch),
+    minimumPrice: priceFromMatch(minimumMatch),
+    sort:
+      wantsLowestPrice && !wantsHighestPrice
+        ? "price-low"
+        : wantsHighestPrice
+          ? "price-high"
+          : null,
+  };
+}
+
+export function searchProducts(products, query, limit = Infinity) {
+  if (!String(query || "").trim()) return products.slice(0, limit);
+  return products
+    .map((product) => ({ product, score: productSearchScore(product, query) }))
+    .filter(({ score }) => score !== null)
+    .sort(
+      (left, right) =>
+        right.score - left.score ||
+        Number(right.product.is_featured) - Number(left.product.is_featured) ||
+        String(left.product.name || "").localeCompare(
+          String(right.product.name || ""),
+        ),
+    )
+    .slice(0, limit)
+    .map(({ product }) => product);
+}
+
+const catalogVocabularyCache = new WeakMap();
+
+const catalogVocabulary = (products) => {
+  const cached = catalogVocabularyCache.get(products);
+  if (cached) return cached;
+
+  const words = new Map();
+  const phrases = [];
+  for (const product of products) {
+    const index = productSearchIndex(product);
+    for (const candidate of index.candidates) {
+      if (candidate.token.length < 3 && !/^\d+$/.test(candidate.token)) continue;
+      words.set(
+        candidate.token,
+        (words.get(candidate.token) || 0) + candidate.weight,
+      );
+    }
+    phrases.push(...index.phrases.filter((phrase) => phrase.text.includes(" ")));
+  }
+
+  const vocabulary = {
+    words: [...words.entries()].map(([word, weight]) => ({ word, weight })),
+    wordSet: new Set(words.keys()),
+    phrases,
+  };
+  catalogVocabularyCache.set(products, vocabulary);
+  return vocabulary;
+};
+
+const correctedCatalogWord = (queryWord, vocabulary) => {
+  if (vocabulary.wordSet.has(queryWord) || /^\d+$/.test(queryWord)) {
+    return queryWord;
+  }
+  if (queryWord.length < 3) return queryWord;
+
+  const allowedDistance = queryWord.length <= 5 ? 1 : queryWord.length <= 8 ? 2 : 3;
+  let best = null;
+  for (const candidate of vocabulary.words) {
+    if (Math.abs(queryWord.length - candidate.word.length) > allowedDistance)
+      continue;
+    const distance = boundedDamerauLevenshtein(
+      queryWord,
+      candidate.word,
+      allowedDistance,
+    );
+    if (distance > allowedDistance) continue;
+    const similarity = 1 - distance / Math.max(queryWord.length, candidate.word.length);
+    const rank = similarity + Math.min(candidate.weight / 80, 0.12);
+    if (!best || rank > best.rank) best = { word: candidate.word, rank };
+  }
+  return best?.word || queryWord;
+};
+
+export function suggestSearchCorrection(products, query) {
+  const queryTokens = tokenize(query);
+  if (!queryTokens.length || !products.length) return null;
+
+  const vocabulary = catalogVocabulary(products);
+  const correctedTokens = queryTokens.map((token) =>
+    correctedCatalogWord(token, vocabulary),
+  );
+  const normalizedQuery = queryTokens.join(" ");
+  const correctedQuery = correctedTokens.join(" ");
+  if (correctedQuery !== normalizedQuery) return correctedQuery;
+
+  // A one-word search can actually be several words run together. Compare it
+  // with phrases learned from product titles (for example "goldbuffalo").
+  if (queryTokens.length === 1 && queryTokens[0].length >= 5) {
+    const phraseMatch = bestPhraseMatch(queryTokens[0], vocabulary.phrases);
+    if (
+      phraseMatch?.similarity >= 0.68 &&
+      phraseMatch.text !== normalizedQuery
+    ) {
+      return phraseMatch.text;
+    }
+  }
+
+  return null;
 }

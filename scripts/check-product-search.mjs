@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import {
   normalizeSearchText,
   productSearchScore,
+  searchProducts,
+  suggestSearchCorrection,
+  understandSearchQuery,
 } from "../src/lib/productSearch.js";
 
 const products = [
@@ -59,6 +62,24 @@ const products = [
     category: "coin",
     short_description: "Quarter-ounce sovereign bullion coin",
   },
+  {
+    id: 7,
+    name: "1 oz South African Gold Krugerrand Coin",
+    sku: "KRUG-1OZ",
+    slug: "south-african-gold-krugerrand",
+    metal: "gold",
+    category: "coin",
+    short_description: "Classic South African bullion coin",
+  },
+  {
+    id: 8,
+    name: "1 oz Valcambi Suisse Gold Bar",
+    sku: "VALC-AU-1OZ",
+    slug: "valcambi-suisse-gold-bar",
+    metal: "gold",
+    category: "bar",
+    short_description: "Swiss refinery minted bar",
+  },
 ];
 
 const matches = (query) =>
@@ -80,10 +101,38 @@ assert.equal(matches("platinm")[0], 5);
 assert.equal(matches("AU buffalo")[0], 1);
 assert.equal(matches("one ounce bufalo")[0], 1);
 assert.equal(matches("quarter ounce eagle")[0], 6);
+assert.equal(matches("golbuflo")[0], 1);
+assert.equal(matches("gld bufflo")[0], 1);
+assert.equal(matches("goldbuffalo")[0], 1);
+assert.equal(matches("buffalo gold american")[0], 1);
+assert.equal(matches("krugerand")[0], 7);
+assert.equal(matches("valcambe gold")[0], 8);
 assert.deepEqual(matches("silver buffalo"), []);
 assert.ok(
   productSearchScore(products[0], "buffalo") >
     productSearchScore(products[0], "bufalo"),
 );
+assert.equal(searchProducts(products, "amercan egale", 1)[0].id, 2);
+assert.equal(searchProducts(products, "show me a krugerand coin please", 1)[0].id, 7);
+assert.ok(searchProducts(products, "cheap gold bars under $5,000").length > 0);
+assert.equal(suggestSearchCorrection(products, "bufalo"), "buffalo");
+assert.equal(
+  suggestSearchCorrection(products, "amercan egale"),
+  "american eagle",
+);
+assert.equal(suggestSearchCorrection(products, "golbuflo"), "gold buffalo");
+assert.equal(suggestSearchCorrection(products, "krugerand"), "krugerrand");
+assert.deepEqual(understandSearchQuery("show me cheap gold bars under $5,000"), {
+  terms: "gold bar",
+  inStock: false,
+  featured: false,
+  newest: false,
+  maximumPrice: 5000,
+  minimumPrice: null,
+  sort: "price-low",
+});
+assert.equal(understandSearchQuery("latest silver coins in stock").terms, "silver coin");
+assert.equal(understandSearchQuery("latest silver coins in stock").inStock, true);
+assert.equal(understandSearchQuery("latest silver coins in stock").newest, true);
 
 console.log("Product search checks passed.");

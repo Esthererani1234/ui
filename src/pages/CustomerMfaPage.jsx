@@ -129,6 +129,15 @@ export default function CustomerMfaPage() {
       .from("profiles")
       .update({ phone: toUsE164(phone) || phone })
       .eq("id", user.id);
+    const { data: verifiedSession } = await supabase.auth.getSession();
+    if (verifiedSession.session?.access_token) {
+      await fetch("/api/auth/enable-phone-login", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${verifiedSession.session.access_token}`,
+        },
+      });
+    }
     await refreshSecurity();
     setBusy(false);
     navigate(destination, { replace: true });

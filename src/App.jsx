@@ -24,6 +24,7 @@ function Guard({ admin = false, requireMfa = true, children }) {
     loading,
     requiresCustomerMfa,
     phoneMfaVerified,
+    phoneLoginVerified,
     aal,
   } = useAuth();
   const location = useLocation();
@@ -34,7 +35,7 @@ function Guard({ admin = false, requireMfa = true, children }) {
     requireMfa &&
     !isAdmin &&
     requiresCustomerMfa &&
-    (!phoneMfaVerified || aal !== "aal2")
+    !phoneLoginVerified && (!phoneMfaVerified || aal !== "aal2")
   )
     return (
       <Navigate

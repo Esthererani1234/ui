@@ -135,10 +135,8 @@ Deno.serve(async (request: Request) => {
       Boolean(authSettings.sms_provider_ready) &&
       Boolean(authSettings.customer_sms_mfa_required);
     const customerMfa = (mfaRows || []).find((row) => row.user_id === user.id);
-    const phoneLoginVerified = Boolean(user.phone && user.phone_confirmed_at);
     if (
       smsRequired &&
-      !phoneLoginVerified &&
       (jwtPayload(token).aal !== "aal2" || !customerMfa?.has_phone_mfa)
     )
       return json(request, { error: "Verify the SMS code on your account before checkout." }, 403);
@@ -166,17 +164,10 @@ Deno.serve(async (request: Request) => {
     const terms = body.terms && typeof body.terms === "object" ? body.terms as Record<string, unknown> : {};
     if (terms.accepted !== true || terms.version !== "2026-08-04")
       return json(request, { error: "Accept the current Terms of Purchase before placing the order." }, 400);
-    const contactEmail = user.email || (
-      typeof user.user_metadata?.contact_email === "string"
-        ? user.user_metadata.contact_email.trim().toLowerCase()
-        : ""
-    );
-    if (!/^\S+@\S+\.\S+$/.test(contactEmail))
-      return json(request, { error: "Add a valid contact email to your account before checkout." }, 400);
     const contact =
       body.contact && typeof body.contact === "object"
-        ? { ...(body.contact as Record<string, unknown>), email: contactEmail }
-        : { email: contactEmail };
+        ? { ...(body.contact as Record<string, unknown>), email: user.email }
+        : { email: user.email };
     const orderArgs = {
       p_user_id: user.id,
       p_contact: contact,

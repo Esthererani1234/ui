@@ -14,7 +14,6 @@ export function AuthProvider({ children }) {
   });
   const [aal, setAal] = useState("aal1");
   const [phoneMfaVerified, setPhoneMfaVerified] = useState(false);
-  const [phoneLoginVerified, setPhoneLoginVerified] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadSecurityPolicy = async () => {
@@ -53,7 +52,6 @@ export function AuthProvider({ children }) {
         setIsAdmin(false);
         setAal("aal1");
         setPhoneMfaVerified(false);
-        setPhoneLoginVerified(false);
         setLoading(false);
         return;
       }
@@ -74,12 +72,8 @@ export function AuthProvider({ children }) {
       setProfile(profileData || null);
       setIsAdmin(Boolean(adminData));
       setAal(assuranceResult.data?.currentLevel || "aal1");
-      const primaryPhoneVerified = Boolean(
-        nextSession.user.phone && nextSession.user.phone_confirmed_at,
-      );
-      setPhoneLoginVerified(primaryPhoneVerified);
       setPhoneMfaVerified(
-        primaryPhoneVerified || Boolean(
+        Boolean(
           factorsResult.data?.phone?.some(
             (factor) => factor.status === "verified",
           ),
@@ -102,20 +96,11 @@ export function AuthProvider({ children }) {
   const value = useMemo(
     () => ({
       session,
-      user: session?.user
-        ? {
-            ...session.user,
-            email:
-              session.user.email ||
-              session.user.user_metadata?.contact_email ||
-              "",
-          }
-        : null,
+      user: session?.user || null,
       profile,
       isAdmin,
       aal,
       phoneMfaVerified,
-      phoneLoginVerified,
       securityPolicy,
       requiresCustomerMfa:
         securityPolicy.smsProviderReady &&
@@ -147,7 +132,6 @@ export function AuthProvider({ children }) {
       isAdmin,
       aal,
       phoneMfaVerified,
-      phoneLoginVerified,
       securityPolicy,
       loading,
     ],

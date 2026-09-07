@@ -126,7 +126,6 @@ const CardFields = forwardRef(function CardFields({ amount, email }, ref) {
 export default function CheckoutPage() {
   const { items, clear, reconcileProducts } = useCart();
   const { user, profile, refreshProfile } = useAuth();
-  const contactEmail = user.email || user.user_metadata?.contact_email || "";
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const resumeOrderId = Number(searchParams.get("resume_order"));
@@ -533,7 +532,7 @@ export default function CheckoutPage() {
           contact: {
             first_name: form.firstName.trim(),
             last_name: form.lastName.trim(),
-            email: contactEmail,
+            email: user.email,
             phone: form.phone.trim(),
           },
           shipping: {
@@ -828,7 +827,7 @@ export default function CheckoutPage() {
             <div className="form-row">
               <label>
                 Verified email
-                <input disabled value={contactEmail} />
+                <input disabled value={user.email} />
               </label>
               <label>
                 Phone
@@ -990,7 +989,7 @@ export default function CheckoutPage() {
                     <CardFields
                       ref={cardRef}
                       amount={elementsOptions.amount}
-                      email={contactEmail}
+                      email={user.email}
                     />
                   </Elements>
                   <div className="card-security-note">

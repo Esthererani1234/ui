@@ -28,7 +28,6 @@ export default function AccountPage() {
     phoneMfaVerified,
     requiresCustomerMfa,
   } = useAuth();
-  const contactEmail = user.email || user.user_metadata?.contact_email || "";
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const { completePurchase } = useCart();
@@ -149,8 +148,8 @@ export default function AccountPage() {
     {highlightedOrder && paymentResult === "return" && paymentState === "checking" && <div className="form-message"><b>Confirming your secure payment…</b> This normally takes only a few seconds. Do not submit another order.</div>}
     {highlightedOrder && paymentResult === "return" && paymentState === "pending" && <div className="form-message"><b>Your payment is still being confirmed.</b> The order remains below and your cart stays saved until Stripe confirms payment.</div>}
     {highlightedOrder && !paymentResult && <div className="success-banner"><CheckCircle2 /><div><b>Order {highlightedOrder} was placed successfully.</b><span>The exact server-calculated total and current status appear below.</span></div></div>}
-    <div className="account-header"><div><span className="eyebrow dark">CUSTOMER ACCOUNT</span><h1>Welcome{profile?.first_name ? `, ${profile.first_name}` : ""}</h1><p>{contactEmail}</p></div><div>{isAdmin && <Link className="button button-dark" to="/admin">Open admin dashboard</Link>}<button className="button button-outline" onClick={doSignOut}><LogOut /> Sign out</button></div></div>
-    <div className="account-snapshot"><div><b>{totals.orders}</b><span>Total orders</span></div><div><b>{totals.open}</b><span>Open orders</span></div><div><b>{totals.tickets}</b><span>Open support requests</span></div><div><b>{phoneMfaVerified ? "Verified" : "Pending"}</b><span>Mobile status</span></div></div>
+    <div className="account-header"><div><span className="eyebrow dark">CUSTOMER ACCOUNT</span><h1>Welcome{profile?.first_name ? `, ${profile.first_name}` : ""}</h1><p>{user.email}</p></div><div>{isAdmin && <Link className="button button-dark" to="/admin">Open admin dashboard</Link>}<button className="button button-outline" onClick={doSignOut}><LogOut /> Sign out</button></div></div>
+    <div className="account-snapshot"><div><b>{totals.orders}</b><span>Total orders</span></div><div><b>{totals.open}</b><span>Open orders</span></div><div><b>{totals.tickets}</b><span>Open support requests</span></div><div><b>{user.email_confirmed_at ? "Verified" : "Pending"}</b><span>Email status</span></div></div>
     {loadError && <div className="form-message error">{loadError}</div>}
     <div className="account-layout"><aside className="account-nav">{tabs.map(([id, Icon, label]) => <button key={id} className={active === id ? "active" : ""} onClick={() => selectTab(id)}><Icon /> {label}</button>)}</aside>
       <div className="account-content">

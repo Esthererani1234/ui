@@ -23,8 +23,7 @@ function Guard({ admin = false, requireMfa = true, children }) {
     isAdmin,
     loading,
     requiresCustomerMfa,
-    phoneMfaVerified,
-    aal,
+    customerSmsVerified,
   } = useAuth();
   const location = useLocation();
   if (loading) return <div className="page-loader">Loading secure account…</div>;
@@ -34,7 +33,7 @@ function Guard({ admin = false, requireMfa = true, children }) {
     requireMfa &&
     !isAdmin &&
     requiresCustomerMfa &&
-    (!phoneMfaVerified || aal !== "aal2")
+    !customerSmsVerified
   )
     return (
       <Navigate

@@ -111,7 +111,8 @@ Deno.serve(async (request: Request) => {
     }
 
     const admin = createClient(supabaseUrl, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
-    const [{ data: risk }, { data: securitySettings }, { data: mfaRows }] =
+    const sessionId = String(jwtPayload(token).session_id || "");
+    const [{ data: risk }, { data: securitySettings }, { data: smsSession }] =
       await Promise.all([
         admin
           .from("customer_risk_profiles")
@@ -122,7 +123,9 @@ Deno.serve(async (request: Request) => {
           .from("app_settings")
           .select("key, value")
           .in("key", ["sms_provider_ready", "customer_sms_mfa_required", "accepting_orders"]),
-        admin.rpc("admin_customer_security_summary"),
+        sessionId
+          ? admin.from("customer_sms_sessions").select("session_id").eq("user_id", user.id).eq("session_id", sessionId).gt("expires_at", new Date().toISOString()).maybeSingle()
+          : Promise.resolve({ data: null }),
       ]);
     if (risk?.status === "blocked" || risk?.checkout_disabled)
       return json(request, { error: "Checkout is disabled for this account. Contact support for review." }, 403);
@@ -134,11 +137,7 @@ Deno.serve(async (request: Request) => {
     const smsRequired =
       Boolean(authSettings.sms_provider_ready) &&
       Boolean(authSettings.customer_sms_mfa_required);
-    const customerMfa = (mfaRows || []).find((row) => row.user_id === user.id);
-    if (
-      smsRequired &&
-      (jwtPayload(token).aal !== "aal2" || !customerMfa?.has_phone_mfa)
-    )
+    if (smsRequired && !smsSession)
       return json(request, { error: "Verify the SMS code on your account before checkout." }, 403);
 
     const { data: withinLimit, error: limitError } = await admin.rpc("check_checkout_rate_limit", { p_user_id: user.id });

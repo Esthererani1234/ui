@@ -5,7 +5,7 @@ export const config = { api: { bodyParser: false } };
 export default async function handler(request, response) {
   if (request.method !== "POST") return json(response, 405, { error: "Method not allowed" });
   try {
-    const { user } = await authenticateCustomer(request);
+    const { user } = await authenticateCustomer(request, { requireSms: true });
     const body = await readJson(request);
     const orderId = Number(body.order_id);
     if (!Number.isSafeInteger(orderId) || orderId < 1) return json(response, 400, { error: "Invalid order" });

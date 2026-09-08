@@ -30,6 +30,21 @@ const invokeAdmin = async (body) => {
   return data;
 };
 
+const smsAdminRequest = async (method = "GET", body) => {
+  const { data } = await supabase.auth.getSession();
+  const response = await fetch("/api/admin/sms-settings", {
+    method,
+    headers: {
+      authorization: `Bearer ${data.session?.access_token || ""}`,
+      ...(body ? { "content-type": "application/json" } : {}),
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || "SMS settings are unavailable.");
+  return result;
+};
+
 const dateTime = (value) =>
   value ? new Date(value).toLocaleString() : "Never";
 const isSuspended = (customer) =>
@@ -296,40 +311,45 @@ export function RiskAdminPanel() {
 }
 
 export function SecurityAdminPanel() {
-  const [form, setForm] = useState({ smsProvider: "twilio", smsSender: "", smsProviderReady: false, smsRequired: false, brandedEmailReady: false, reason: "" });
+  const [form, setForm] = useState({ accessKey: "", accessKeyLast4: "", sender: "", configured: false, required: false, codeTtlSeconds: 300, resendSeconds: 30, maxAttempts: 5, sessionHours: 720, reason: "" });
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const load = async () => {
-    const { data } = await supabase.from("app_settings").select("key, value").in("key", ["sms_provider_name", "sms_sender", "sms_provider_ready", "customer_sms_mfa_required", "branded_email_ready"]);
-    const settings = Object.fromEntries((data || []).map((row) => [row.key, row.value]));
-    setForm((current) => ({ ...current, smsProvider: settings.sms_provider_name || "twilio", smsSender: settings.sms_sender || "", smsProviderReady: Boolean(settings.sms_provider_ready), smsRequired: Boolean(settings.customer_sms_mfa_required), brandedEmailReady: Boolean(settings.branded_email_ready) }));
+    try {
+      const settings = await smsAdminRequest();
+      setForm((current) => ({ ...current, accessKey: "", accessKeyLast4: settings.access_key_last4 || "", sender: settings.sender || "", configured: Boolean(settings.configured), required: Boolean(settings.required), codeTtlSeconds: settings.codeTtlSeconds || 300, resendSeconds: settings.resendSeconds || 30, maxAttempts: settings.maxAttempts || 5, sessionHours: settings.sessionHours || 720, reason: "" }));
+    } catch (error) { setMessage(error.message); }
   };
   useEffect(() => { load(); }, []);
   const save = async () => {
     setBusy(true); setMessage("");
     try {
-      await invokeAdmin({ action: "update_security_settings", sms_provider_name: form.smsProvider, sms_sender: form.smsSender, sms_provider_ready: form.smsProviderReady, customer_sms_mfa_required: form.smsRequired, branded_email_ready: form.brandedEmailReady, reason: form.reason });
-      setMessage("Security policy saved and audited."); await load();
+      await smsAdminRequest("POST", { access_key: form.accessKey, sender: form.sender, required: form.required, code_ttl_seconds: Number(form.codeTtlSeconds), resend_seconds: Number(form.resendSeconds), max_attempts: Number(form.maxAttempts), session_hours: Number(form.sessionHours), reason: form.reason });
+      setMessage("MessageBird connection and customer SMS policy saved securely.");
+      await load();
     } catch (error) { setMessage(error.message); } finally { setBusy(false); }
   };
   return <div className="enterprise-admin-stack">
     <div className="security-control-grid">
-      <article><ShieldCheck /><span><small>ADMIN DATABASE ACCESS</small><h2>Authenticator MFA enforced</h2><p>Admin RLS now requires an AAL2 session. The dashboard alone is no longer the security boundary.</p><b className="control-ready"><CheckCircle2 /> Active</b></span></article>
-      <article><MessageSquareText /><span><small>CUSTOMER IDENTITY</small><h2>SMS verification</h2><p>Customers can be required to verify a text code on every fresh sign-in before account or checkout access.</p><b className={form.smsRequired ? "control-ready" : "control-pending"}>{form.smsRequired ? <CheckCircle2 /> : <Clock3 />}{form.smsRequired ? "Required" : "Waiting for provider"}</b></span></article>
-      <article><MailCheck /><span><small>AUTH EMAIL DELIVERY</small><h2>GoldOnTheSpot branded mail</h2><p>Custom HTML templates are ready. Custom SMTP must be connected so messages come from your domain.</p><b className={form.brandedEmailReady ? "control-ready" : "control-pending"}>{form.brandedEmailReady ? <CheckCircle2 /> : <Clock3 />}{form.brandedEmailReady ? "Configured" : "SMTP needed"}</b></span></article>
+      <article><ShieldCheck /><span><small>ADMIN DATABASE ACCESS</small><h2>Authenticator MFA enforced</h2><p>Admin RLS requires an AAL2 session. Customer SMS settings cannot weaken administrator security.</p><b className="control-ready"><CheckCircle2 /> Active</b></span></article>
+      <article><MessageSquareText /><span><small>CUSTOMER IDENTITY</small><h2>MessageBird SMS</h2><p>Every new customer sign-in can require a six-digit code before account, support, order, or checkout data opens.</p><b className={form.required ? "control-ready" : "control-pending"}>{form.required ? <CheckCircle2 /> : <Clock3 />}{form.required ? "Required" : form.configured ? "Connected" : "Needs connection"}</b></span></article>
+      <article><MailCheck /><span><small>AUTH EMAIL DELIVERY</small><h2>Supabase + Resend email</h2><p>Supabase continues sending branded account-confirmation and password-recovery email through custom SMTP.</p><b className="control-ready"><CheckCircle2 /> Active</b></span></article>
     </div>
-    <section className="admin-panel security-activation-panel"><div className="panel-title"><div><h2>Authentication rollout controls</h2><p>These switches prevent an unfinished provider setup from locking customers out.</p></div></div>
+    <section className="admin-panel security-activation-panel"><div className="panel-title"><div><h2>Customer SMS controls</h2><p>MessageBird handles the codes directly. The access key is encrypted in Supabase Vault and is never shown again.</p></div></div>
       <div className="form-row">
-        <label>SMS provider<select value={form.smsProvider} onChange={(event) => setForm({ ...form, smsProvider: event.target.value })}><option value="twilio">Twilio</option><option value="vonage">Vonage</option><option value="messagebird">MessageBird</option></select></label>
-        <label>Sender phone number<input type="tel" maxLength="30" placeholder="+1 212 555 0100" value={form.smsSender} onChange={(event) => setForm({ ...form, smsSender: event.target.value })} /></label>
+        <label>MessageBird access key<input type="password" autoComplete="off" maxLength="500" placeholder={form.configured ? `Saved securely ••••${form.accessKeyLast4}` : "Paste the MessageBird live access key"} value={form.accessKey} onChange={(event) => setForm({ ...form, accessKey: event.target.value.trim() })} /><small>Leave blank to keep the saved key.</small></label>
+        <label>Verified sender phone number<input type="tel" maxLength="30" placeholder="+12125550100" value={form.sender} onChange={(event) => setForm({ ...form, sender: event.target.value })} /></label>
       </div>
-      <div className="security-warning"><b>Provider credentials stay off this web page</b><span>You can choose and manage the rollout here, but API secrets need a one-time encrypted server connection. They are never returned to the browser or displayed to staff.</span></div>
-      <label className="security-rollout-check"><input type="checkbox" checked={form.smsProviderReady} onChange={(event) => setForm({ ...form, smsProviderReady: event.target.checked, smsRequired: event.target.checked ? form.smsRequired : false })} /><span><b>SMS provider is connected and tested</b><small>Confirm only after Twilio, Vonage, or MessageBird successfully delivers a test code.</small></span></label>
-      <label className="security-rollout-check"><input type="checkbox" disabled={!form.smsProviderReady} checked={form.smsRequired} onChange={(event) => setForm({ ...form, smsRequired: event.target.checked })} /><span><b>Require SMS MFA for every customer</b><small>Existing customers will enroll their phone at the next sign-in.</small></span></label>
-      <label className="security-rollout-check"><input type="checkbox" checked={form.brandedEmailReady} onChange={(event) => setForm({ ...form, brandedEmailReady: event.target.checked })} /><span><b>Custom GoldOnTheSpot SMTP and templates are active</b><small>Confirmation and recovery emails should show your name and domain—not Supabase.</small></span></label>
-      <label>Required rollout reason<textarea rows="3" maxLength="1000" value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} placeholder="Example: Twilio delivery tested on July 16" /></label>
+      <div className="form-row three">
+        <label>Code expires<select value={form.codeTtlSeconds} onChange={(event) => setForm({ ...form, codeTtlSeconds: Number(event.target.value) })}><option value="180">3 minutes</option><option value="300">5 minutes</option><option value="600">10 minutes</option></select></label>
+        <label>Resend delay<select value={form.resendSeconds} onChange={(event) => setForm({ ...form, resendSeconds: Number(event.target.value) })}><option value="30">30 seconds</option><option value="60">60 seconds</option><option value="120">2 minutes</option></select></label>
+        <label>Maximum attempts<select value={form.maxAttempts} onChange={(event) => setForm({ ...form, maxAttempts: Number(event.target.value) })}><option value="3">3 attempts</option><option value="5">5 attempts</option><option value="10">10 attempts</option></select></label>
+      </div>
+      <label className="security-rollout-check"><input type="checkbox" disabled={!form.configured && !form.accessKey} checked={form.required} onChange={(event) => setForm({ ...form, required: event.target.checked })} /><span><b>Require SMS after every customer email-and-password sign-in</b><small>Signup finishes with email verification and then SMS. Password recovery requires the already-verified phone.</small></span></label>
+      <div className="security-warning"><b>No Supabase Phone MFA add-on</b><span>This uses MessageBird Verify directly, so Supabase’s separate $75-per-month Phone MFA switch stays disabled. Normal MessageBird usage charges still apply.</span></div>
+      <label>Required rollout reason<textarea rows="3" maxLength="1000" value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} placeholder="Example: MessageBird connection added and reviewed" /></label>
       {message && <div className="form-message">{message}</div>}
-      <button className="button button-dark" onClick={save} disabled={busy}><Save /> {busy ? "Saving…" : "Save security policy"}</button>
+      <button className="button button-dark" onClick={save} disabled={busy}><Save /> {busy ? "Checking MessageBird and saving…" : "Save MessageBird security"}</button>
     </section>
   </div>;
 }

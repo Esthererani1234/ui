@@ -26,7 +26,7 @@ export default async function handler(request, response) {
     if (process.env.STRIPE_ENABLED !== "true" || !process.env.STRIPE_SECRET_KEY) {
       throw Object.assign(new Error("Card payment is temporarily unavailable."), { status: 503 });
     }
-    const { user } = await authenticateCustomer(request);
+    const { user } = await authenticateCustomer(request, { requireSms: true });
     const body = await readJson(request);
     const orderId = Number(body.order_id);
     const confirmationTokenId = String(body.confirmation_token_id || "");

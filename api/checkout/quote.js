@@ -6,7 +6,7 @@ export const config = { api: { bodyParser: false } };
 export default async function handler(request, response) {
   if (request.method !== "POST") return json(response, 405, { error: "Method not allowed" });
   try {
-    const { user } = await authenticateCustomer(request);
+    const { user } = await authenticateCustomer(request, { requireSms: true });
     const body = await readJson(request);
     if (body.order_id != null) {
       const orderId = Number(body.order_id);

@@ -47,6 +47,19 @@ Deno.serve(async (req: Request) => {
     const isAdmin = Boolean(adminMembership) && jwtClaims(auth.slice(7)).aal === "aal2";
     if (adminMembership && !isAdmin) return json(req, { error: "Admin two-factor verification required" }, 403);
     if (!isAdmin && ticket.user_id !== user.id) return json(req, { error: "Access denied" }, 403);
+    if (!isAdmin) {
+      const claims = jwtClaims(auth.slice(7));
+      const sessionId = String(claims.session_id || "");
+      const [{ data: settingsRows }, { data: smsSession }] = await Promise.all([
+        adminClient.from("app_settings").select("key,value").in("key", ["sms_provider_ready", "customer_sms_mfa_required"]),
+        sessionId
+          ? adminClient.from("customer_sms_sessions").select("session_id").eq("user_id", user.id).eq("session_id", sessionId).gt("expires_at", new Date().toISOString()).maybeSingle()
+          : Promise.resolve({ data: null }),
+      ]);
+      const settings = Object.fromEntries((settingsRows || []).map((row) => [row.key, row.value]));
+      if (Boolean(settings.sms_provider_ready) && Boolean(settings.customer_sms_mfa_required) && !smsSession)
+        return json(req, { error: "SMS verification required" }, 403);
+    }
     if (action === "reply") {
       const message = clean(body.message);
       if (message.length < 2) return json(req, { error: "Write a reply before sending" }, 400);

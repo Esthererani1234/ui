@@ -5,6 +5,7 @@ import { supabase } from "../lib/supabase";
 import { formatUsPhone, toUsE164 } from "../lib/phone";
 import { useAuth } from "../state/AuthContext";
 import SmsConsentDisclosure from "../components/SmsConsentDisclosure";
+import { getCustomerSmsStatus, sendCustomerSmsCode, updatePasswordAfterSms, verifyCustomerSmsCode } from "../lib/customerSms";
 
 const initialForm = { email: "", confirmEmail: "", phone: "", password: "", confirmPassword: "", firstName: "", lastName: "", agree: false };
 
@@ -14,16 +15,18 @@ const friendlyError = (error) => {
   if (/email not confirmed/i.test(message)) return "Enter the verification code sent to your email before signing in.";
   if (/already registered|already been registered/i.test(message)) return "An account may already exist for that email. Try signing in or resetting the password.";
   if (/expired|invalid.*otp|token.*invalid/i.test(message)) return "That code is incorrect or expired. Request a new code and try again.";
+  if (/security code|SMS security|MessageBird|mobile number/i.test(message)) return message;
   if (/rate limit|too many|over.*limit/i.test(message)) return "Too many attempts. Wait a few minutes and try again.";
   if (/password/i.test(message)) return message;
   return "We could not complete that request. Please try again.";
 };
 
 export default function AuthPage() {
-  const { user, refreshSecurity } = useAuth();
+  const { user, loading, requiresCustomerMfa, refreshSecurity } = useAuth();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const recoveryRequested = params.get("recovery") === "1";
+  const resetSucceeded = params.get("reset") === "success";
   const [mode, setMode] = useState(recoveryRequested ? "recovery" : params.get("mode") === "signup" ? "signup" : "signin");
   const [stage, setStage] = useState("details");
   const [form, setForm] = useState(initialForm);
@@ -31,13 +34,13 @@ export default function AuthPage() {
   const [pendingPhone, setPendingPhone] = useState("");
   const [emailCode, setEmailCode] = useState("");
   const [smsCode, setSmsCode] = useState("");
-  const [factorId, setFactorId] = useState("");
   const [challengeId, setChallengeId] = useState("");
   const [resendSeconds, setResendSeconds] = useState(0);
-  const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState("");
+  const [message, setMessage] = useState(resetSucceeded ? "Password updated. Sign in with your new password and SMS code." : "");
+  const [messageType, setMessageType] = useState(resetSucceeded ? "success" : "");
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [recoverySmsVerified, setRecoverySmsVerified] = useState(null);
   const rawDestination = params.get("return") || "/account";
   const destination = rawDestination.startsWith("/") && !rawDestination.startsWith("//") ? rawDestination : "/account";
 
@@ -49,9 +52,10 @@ export default function AuthPage() {
   }, []);
 
   useEffect(() => {
+    if (resetSucceeded && mode === "signin") return;
     setMessage(""); setMessageType(""); setStage("details");
     setEmailCode(""); setSmsCode(""); setResendSeconds(0);
-  }, [mode]);
+  }, [mode, resetSucceeded]);
 
   useEffect(() => {
     if (!resendSeconds) return undefined;
@@ -59,7 +63,21 @@ export default function AuthPage() {
     return () => window.clearInterval(timer);
   }, [resendSeconds]);
 
+  useEffect(() => {
+    if (mode !== "recovery" || !user || loading || !requiresCustomerMfa) return;
+    let active = true;
+    setRecoverySmsVerified(null);
+    getCustomerSmsStatus("recovery")
+      .then((status) => { if (active) setRecoverySmsVerified(Boolean(status.verified)); })
+      .catch(() => { if (active) setRecoverySmsVerified(false); });
+    return () => { active = false; };
+  }, [mode, user, loading, requiresCustomerMfa]);
+
   const completingSignup = mode === "signup" && stage !== "details";
+  if (user && mode === "recovery" && !loading && requiresCustomerMfa && recoverySmsVerified === null)
+    return <div className="page-loader">Checking password-reset security…</div>;
+  if (user && mode === "recovery" && !loading && requiresCustomerMfa && !recoverySmsVerified)
+    return <Navigate to={`/verify-phone?purpose=recovery&return=${encodeURIComponent("/login?recovery=1")}`} replace />;
   if (user && mode !== "recovery" && !completingSignup) return <Navigate to={destination} replace />;
 
   const validateSignup = () => {
@@ -130,25 +148,12 @@ export default function AuthPage() {
   const sendSms = async () => {
     setBusy(true); setMessage(""); setMessageType("");
     try {
-      let nextFactorId = factorId;
-      if (!nextFactorId) {
-        const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
-        if (factorsError) throw factorsError;
-        const existing = factors?.phone?.find((factor) => factor.phone === pendingPhone);
-        if (existing) nextFactorId = existing.id;
-        else {
-          const { data, error } = await supabase.auth.mfa.enroll({ factorType: "phone", friendlyName: "GoldOnTheSpot SMS", phone: pendingPhone });
-          if (error) throw error;
-          nextFactorId = data.id;
-        }
-        setFactorId(nextFactorId);
-      }
-      const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: nextFactorId });
-      if (challengeError) throw challengeError;
-      setChallengeId(challenge.id); setSmsCode(""); setStage("sms-code");
-      setResendSeconds(30); setMessageType("success");
-      setMessage(`We sent a six-digit SMS code to ${formatUsPhone(pendingPhone)}.`);
+      const result = await sendCustomerSmsCode({ phone: pendingPhone, purpose: "signup" });
+      setChallengeId(result.challenge_id); setSmsCode(""); setStage("sms-code");
+      setResendSeconds(result.resend_after || 30); setMessageType("success");
+      setMessage(`We sent a six-digit SMS code to ${result.phone || formatUsPhone(pendingPhone)}.`);
     } catch (error) {
+      if (error.retryAfter) setResendSeconds(error.retryAfter);
       setMessage(friendlyError(error));
     } finally { setBusy(false); }
   };
@@ -157,13 +162,15 @@ export default function AuthPage() {
     event.preventDefault();
     if (!/^\d{6}$/.test(smsCode)) return setMessage("Enter the complete six-digit SMS code.");
     setBusy(true); setMessage(""); setMessageType("");
-    const { error } = await supabase.auth.mfa.verify({ factorId, challengeId, code: smsCode });
-    if (error) { setBusy(false); return setMessage(friendlyError(error)); }
-    const { data: currentUser } = await supabase.auth.getUser();
-    if (currentUser.user?.id) await supabase.from("profiles").update({ phone: pendingPhone }).eq("id", currentUser.user.id);
-    await refreshSecurity();
-    setBusy(false);
-    navigate(destination, { replace: true });
+    try {
+      await verifyCustomerSmsCode({ challengeId, code: smsCode });
+      await refreshSecurity();
+      navigate(destination, { replace: true });
+    } catch (error) {
+      setMessage(friendlyError(error));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const sendReset = async (event) => {
@@ -181,15 +188,20 @@ export default function AuthPage() {
     if (form.password.length < 12) return setMessage("Use at least 12 characters for the new password.");
     if (form.password !== form.confirmPassword) return setMessage("The passwords do not match.");
     setBusy(true); setMessage("");
-    const { error } = await supabase.auth.updateUser({ password: form.password });
-    setBusy(false);
-    if (error) setMessage(friendlyError(error));
-    else navigate("/account?tab=security", { replace: true });
+    try {
+      await updatePasswordAfterSms(form.password);
+      await supabase.auth.signOut();
+      window.location.assign("/login?reset=success");
+    } catch (error) {
+      setMessage(friendlyError(error));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const switchMode = (nextMode) => {
     setMode(nextMode); setForm(initialForm); setPendingEmail(""); setPendingPhone("");
-    setFactorId(""); setChallengeId("");
+    setChallengeId("");
   };
   const signupStep = stage === "details" ? 1 : stage === "email-code" ? 2 : 3;
 

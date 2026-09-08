@@ -15,7 +15,7 @@ export default async function handler(request, response) {
   }
 
   try {
-    const { user } = await authenticateCustomer(request);
+    const { user } = await authenticateCustomer(request, { requireSms: true });
     const body = await readJson(request);
     const orderId = Number(body.order_id);
 

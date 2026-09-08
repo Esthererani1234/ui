@@ -3,7 +3,7 @@ import { authenticateCustomer, customerOrder, json, wireSettings } from "../_lib
 export default async function handler(request, response) {
   if (request.method !== "GET") return json(response, 405, { error: "Method not allowed" });
   try {
-    const { user } = await authenticateCustomer(request);
+    const { user } = await authenticateCustomer(request, { requireSms: true });
     const orderId = Number(request.query.order_id);
     const order = await customerOrder(orderId, user.id);
     if (order.payment_method !== "wire") return json(response, 404, { error: "Wire instructions are not available for this order" });

@@ -45,19 +45,51 @@ export async function readRaw(request, maxBytes = 1_000_000) {
   return Buffer.concat(chunks);
 }
 
-export async function authenticateCustomer(request) {
+export const tokenPayload = (token) => {
+  try { return JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8")); }
+  catch { return {}; }
+};
+
+export const authSessionId = (token) => {
+  const sessionId = String(tokenPayload(token).session_id || "");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sessionId))
+    throw Object.assign(new Error("Your session is invalid. Please sign in again."), { status: 401 });
+  return sessionId;
+};
+
+export async function customerSmsStatus(userId, token) {
+  const db = service();
+  const sessionId = authSessionId(token);
+  const [{ data: rows, error: settingsError }, { data: verified, error: sessionError }] = await Promise.all([
+    db.from("app_settings").select("key,value").in("key", ["sms_provider_ready", "customer_sms_mfa_required"]),
+    db.from("customer_sms_sessions").select("verified_at,expires_at,phone").eq("user_id", userId).eq("session_id", sessionId).gt("expires_at", new Date().toISOString()).maybeSingle(),
+  ]);
+  if (settingsError) throw settingsError;
+  if (sessionError) throw sessionError;
+  const settings = Object.fromEntries((rows || []).map((row) => [row.key, row.value]));
+  const required = Boolean(settings.sms_provider_ready) && Boolean(settings.customer_sms_mfa_required);
+  return { required, verified: !required || Boolean(verified), sessionId, record: verified || null };
+}
+
+export async function authenticateCustomer(request, { requireSms = false } = {}) {
   const authorization = request.headers.authorization || "";
   if (!authorization.startsWith("Bearer ")) throw Object.assign(new Error("Sign in required"), { status: 401 });
   if (!SUPABASE_URL || !SUPABASE_PUBLIC_KEY) throw new Error("Authentication service is not configured");
   const client = createClient(SUPABASE_URL, SUPABASE_PUBLIC_KEY, { global: { headers: { Authorization: authorization } } });
   const { data: { user }, error } = await client.auth.getUser(authorization.slice(7));
   if (error || !user) throw Object.assign(new Error("Your session expired"), { status: 401 });
-  return { user, token: authorization.slice(7) };
+  const token = authorization.slice(7);
+  if (requireSms) {
+    const status = await customerSmsStatus(user.id, token);
+    if (!status.verified)
+      throw Object.assign(new Error("Enter the SMS security code before continuing."), { status: 403, code: "sms_verification_required" });
+  }
+  return { user, token };
 }
 
 export async function requireAdmin(request) {
   const { user, token } = await authenticateCustomer(request);
-  const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8"));
+  const payload = tokenPayload(token);
   if (payload.aal !== "aal2") throw Object.assign(new Error("Two-factor verification required"), { status: 403 });
   const { data } = await service().from("admin_users").select("user_id").eq("user_id", user.id).maybeSingle();
   if (!data) throw Object.assign(new Error("Administrator access required"), { status: 403 });

@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { getCustomerSmsStatus } from "../lib/customerSms";
 
 const AuthContext = createContext(null);
 
@@ -14,6 +15,8 @@ export function AuthProvider({ children }) {
   });
   const [aal, setAal] = useState("aal1");
   const [phoneMfaVerified, setPhoneMfaVerified] = useState(false);
+  const [customerSmsVerified, setCustomerSmsVerified] = useState(false);
+  const [customerSmsPhone, setCustomerSmsPhone] = useState("");
   const [loading, setLoading] = useState(true);
 
   const loadSecurityPolicy = async () => {
@@ -46,12 +49,15 @@ export function AuthProvider({ children }) {
     const hydrate = async (nextSession) => {
       const version = ++hydrateVersion;
       if (!active) return;
+      if (nextSession?.user) setLoading(true);
       setSession(nextSession);
       if (!nextSession?.user) {
         setProfile(null);
         setIsAdmin(false);
         setAal("aal1");
         setPhoneMfaVerified(false);
+        setCustomerSmsVerified(false);
+        setCustomerSmsPhone("");
         setLoading(false);
         return;
       }
@@ -79,6 +85,15 @@ export function AuthProvider({ children }) {
           ),
         ),
       );
+      if (adminData) {
+        setCustomerSmsVerified(true);
+        setCustomerSmsPhone("");
+      } else {
+        const smsStatus = await getCustomerSmsStatus().catch(() => null);
+        if (!active || version !== hydrateVersion) return;
+        setCustomerSmsVerified(Boolean(smsStatus?.verified));
+        setCustomerSmsPhone(smsStatus?.phone || "");
+      }
       setLoading(false);
     };
 
@@ -101,6 +116,8 @@ export function AuthProvider({ children }) {
       isAdmin,
       aal,
       phoneMfaVerified,
+      customerSmsVerified,
+      customerSmsPhone,
       securityPolicy,
       requiresCustomerMfa:
         securityPolicy.smsProviderReady &&
@@ -124,6 +141,11 @@ export function AuthProvider({ children }) {
             factors?.phone?.some((factor) => factor.status === "verified"),
           ),
         );
+        if (session?.user && !isAdmin) {
+          const smsStatus = await getCustomerSmsStatus().catch(() => null);
+          setCustomerSmsVerified(Boolean(smsStatus?.verified));
+          setCustomerSmsPhone(smsStatus?.phone || "");
+        }
       },
     }),
     [
@@ -132,6 +154,8 @@ export function AuthProvider({ children }) {
       isAdmin,
       aal,
       phoneMfaVerified,
+      customerSmsVerified,
+      customerSmsPhone,
       securityPolicy,
       loading,
     ],

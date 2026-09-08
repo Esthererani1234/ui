@@ -310,45 +310,54 @@ export function RiskAdminPanel() {
 
 export function SecurityAdminPanel() {
   const [form, setForm] = useState({ accessKey: "", accessKeyLast4: "", sender: "", configured: false, required: false, codeTtlSeconds: 300, resendSeconds: 30, maxAttempts: 5, sessionHours: 720, reason: "" });
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState({ text: "", type: "" });
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [showAccessKey, setShowAccessKey] = useState(false);
   const load = async () => {
     try {
       const settings = await smsAdminRequest();
       setForm((current) => ({ ...current, accessKey: "", accessKeyLast4: settings.access_key_last4 || "", sender: settings.sender || "", configured: Boolean(settings.configured), required: Boolean(settings.required), codeTtlSeconds: settings.codeTtlSeconds || 300, resendSeconds: settings.resendSeconds || 30, maxAttempts: settings.maxAttempts || 5, sessionHours: settings.sessionHours || 720, reason: "" }));
-    } catch (error) { setMessage(error.message); }
+    } catch (error) { setMessage({ text: error.message, type: "error" }); }
+    finally { setLoading(false); }
   };
   useEffect(() => { load(); }, []);
-  const save = async () => {
-    setBusy(true); setMessage("");
+  const updateField = (field, value) => setForm((current) => ({ ...current, [field]: value }));
+  const save = async (event) => {
+    event.preventDefault();
+    if (!form.accessKey && !form.configured) return setMessage({ text: "Enter your MessageBird live access key.", type: "error" });
+    if (form.reason.trim().length < 3) return setMessage({ text: "Enter a short reason for this security change.", type: "error" });
+    setBusy(true); setMessage({ text: "", type: "" });
     try {
-      await smsAdminRequest("POST", { access_key: form.accessKey, sender: form.sender, required: form.required, code_ttl_seconds: Number(form.codeTtlSeconds), resend_seconds: Number(form.resendSeconds), max_attempts: Number(form.maxAttempts), session_hours: Number(form.sessionHours), reason: form.reason });
-      setMessage("MessageBird connection and customer SMS policy saved securely.");
-      await load();
-    } catch (error) { setMessage(error.message); } finally { setBusy(false); }
+      const result = await smsAdminRequest("POST", { access_key: form.accessKey.trim(), sender: form.sender.trim(), required: form.required, code_ttl_seconds: Number(form.codeTtlSeconds), resend_seconds: Number(form.resendSeconds), max_attempts: Number(form.maxAttempts), session_hours: Number(form.sessionHours), reason: form.reason.trim() });
+      setForm((current) => ({ ...current, accessKey: "", accessKeyLast4: result.access_key_last4 || current.accessKeyLast4, configured: true, reason: "" }));
+      setShowAccessKey(false);
+      setMessage({ text: form.required ? "Saved. MessageBird SMS is connected and required for customers." : "Saved. MessageBird is connected; customer SMS is not required yet.", type: "success" });
+    } catch (error) { setMessage({ text: error.message, type: "error" }); } finally { setBusy(false); }
   };
+  if (loading) return <div className="admin-panel sms-settings-loading"><RefreshCw className="spin" /><span>Loading SMS security settings…</span></div>;
   return <div className="enterprise-admin-stack">
     <div className="security-control-grid">
       <article><ShieldCheck /><span><small>ADMIN DATABASE ACCESS</small><h2>Authenticator MFA enforced</h2><p>Admin RLS requires an AAL2 session. Customer SMS settings cannot weaken administrator security.</p><b className="control-ready"><CheckCircle2 /> Active</b></span></article>
       <article><MessageSquareText /><span><small>CUSTOMER IDENTITY</small><h2>MessageBird SMS</h2><p>Every new customer sign-in can require a six-digit code before account, support, order, or checkout data opens.</p><b className={form.required ? "control-ready" : "control-pending"}>{form.required ? <CheckCircle2 /> : <Clock3 />}{form.required ? "Required" : form.configured ? "Connected" : "Needs connection"}</b></span></article>
       <article><MailCheck /><span><small>AUTH EMAIL DELIVERY</small><h2>Supabase + Resend email</h2><p>Supabase continues sending branded account-confirmation and password-recovery email through custom SMTP.</p><b className="control-ready"><CheckCircle2 /> Active</b></span></article>
     </div>
-    <section className="admin-panel security-activation-panel"><div className="panel-title"><div><h2>Customer SMS controls</h2><p>MessageBird handles the codes directly. The access key is encrypted in Supabase Vault and is never shown again.</p></div></div>
+    <form className="admin-panel security-activation-panel" onSubmit={save}><div className="panel-title"><div><h2>Customer SMS controls</h2><p>MessageBird handles the codes directly. The access key is encrypted in Supabase Vault and is never shown again.</p></div><span className={form.configured ? "sms-connection-state connected" : "sms-connection-state"}>{form.configured ? <><CheckCircle2 /> Connected {form.accessKeyLast4 && `••••${form.accessKeyLast4}`}</> : <><AlertTriangle /> Not connected</>}</span></div>
       <div className="form-row">
-        <label>MessageBird access key<input type="password" autoComplete="off" maxLength="500" placeholder={form.configured ? `Saved securely ••••${form.accessKeyLast4}` : "Paste the MessageBird live access key"} value={form.accessKey} onChange={(event) => setForm({ ...form, accessKey: event.target.value.trim() })} /><small>Leave blank to keep the saved key.</small></label>
-        <label>Verified sender phone number<input type="tel" maxLength="30" placeholder="+12125550100" value={form.sender} onChange={(event) => setForm({ ...form, sender: event.target.value })} /></label>
+        <label>MessageBird live access key<div className="admin-secret-input"><input type={showAccessKey ? "text" : "password"} autoComplete="new-password" autoCapitalize="off" spellCheck="false" maxLength="500" placeholder={form.configured ? `Saved securely ••••${form.accessKeyLast4}` : "Paste the complete live access key"} value={form.accessKey} onChange={(event) => updateField("accessKey", event.target.value)} /><button type="button" onClick={() => setShowAccessKey((visible) => !visible)}>{showAccessKey ? "Hide" : "Show"}</button></div><small>{form.configured ? "Leave blank to keep the saved key." : "Use a live key permitted to send MessageBird Verify/SMS messages."}</small></label>
+        <label>Verified sender phone number<input type="tel" inputMode="tel" autoComplete="tel" maxLength="30" placeholder="+12125550100" value={form.sender} onChange={(event) => updateField("sender", event.target.value)} /><small>Include the country code, such as +1 for the United States.</small></label>
       </div>
       <div className="form-row three">
-        <label>Code expires<select value={form.codeTtlSeconds} onChange={(event) => setForm({ ...form, codeTtlSeconds: Number(event.target.value) })}><option value="180">3 minutes</option><option value="300">5 minutes</option><option value="600">10 minutes</option></select></label>
-        <label>Resend delay<select value={form.resendSeconds} onChange={(event) => setForm({ ...form, resendSeconds: Number(event.target.value) })}><option value="30">30 seconds</option><option value="60">60 seconds</option><option value="120">2 minutes</option></select></label>
-        <label>Maximum attempts<select value={form.maxAttempts} onChange={(event) => setForm({ ...form, maxAttempts: Number(event.target.value) })}><option value="3">3 attempts</option><option value="5">5 attempts</option><option value="10">10 attempts</option></select></label>
+        <label>Code expires<select value={form.codeTtlSeconds} onChange={(event) => updateField("codeTtlSeconds", Number(event.target.value))}><option value="180">3 minutes</option><option value="300">5 minutes</option><option value="600">10 minutes</option></select></label>
+        <label>Resend delay<select value={form.resendSeconds} onChange={(event) => updateField("resendSeconds", Number(event.target.value))}><option value="30">30 seconds</option><option value="60">60 seconds</option><option value="120">2 minutes</option></select></label>
+        <label>Maximum attempts<select value={form.maxAttempts} onChange={(event) => updateField("maxAttempts", Number(event.target.value))}><option value="3">3 attempts</option><option value="5">5 attempts</option><option value="10">10 attempts</option></select></label>
       </div>
-      <label className="security-rollout-check"><input type="checkbox" disabled={!form.configured && !form.accessKey} checked={form.required} onChange={(event) => setForm({ ...form, required: event.target.checked })} /><span><b>Require SMS after every customer email-and-password sign-in</b><small>Signup finishes with email verification and then SMS. Password recovery requires the already-verified phone.</small></span></label>
+      <label className="security-rollout-check"><input type="checkbox" checked={form.required} onChange={(event) => updateField("required", event.target.checked)} /><span><b>Require SMS after every customer email-and-password sign-in</b><small>Signup finishes with email verification and then SMS. Password recovery requires the already-verified phone.</small></span></label>
       <div className="security-warning"><b>No Supabase Phone MFA add-on</b><span>This uses MessageBird Verify directly, so Supabase’s separate $75-per-month Phone MFA switch stays disabled. Normal MessageBird usage charges still apply.</span></div>
-      <label>Required rollout reason<textarea rows="3" maxLength="1000" value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} placeholder="Example: MessageBird connection added and reviewed" /></label>
-      {message && <div className="form-message">{message}</div>}
-      <button className="button button-dark" onClick={save} disabled={busy}><Save /> {busy ? "Checking MessageBird and saving…" : "Save MessageBird security"}</button>
-    </section>
+      <label>Required rollout reason<textarea rows="3" maxLength="1000" value={form.reason} onChange={(event) => updateField("reason", event.target.value)} placeholder="Example: MessageBird connection added and reviewed" /></label>
+      {message.text && <div className={`form-message ${message.type}`} role={message.type === "error" ? "alert" : "status"}>{message.text}</div>}
+      <button type="submit" className="button button-dark sms-settings-save" disabled={busy}><Save /> {busy ? "Saving securely…" : "Save SMS security settings"}</button>
+    </form>
   </div>;
 }
 

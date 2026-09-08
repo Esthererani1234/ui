@@ -723,6 +723,18 @@ img { max-width: 100%; display: block; }
 .control-ready, .control-pending { display: inline-flex; align-items: center; gap: 5px; margin-top: 7px; font-size: 9px; }
 .control-ready { color: var(--green); }.control-pending { color: #956710; }.control-ready svg, .control-pending svg { width: 14px; }
 .security-activation-panel { max-width: 900px; }
+.security-activation-panel .panel-title { align-items: flex-start; }
+.sms-connection-state { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 6px; padding: 8px 10px; color: #8b5f0d; background: #fff7df; border: 1px solid #e8cd84; font-size: 9px; font-weight: 900; }
+.sms-connection-state.connected { color: #195d40; background: #eaf7ef; border-color: #b9ddc8; }
+.sms-connection-state svg { width: 14px; height: 14px; }
+.admin-secret-input { display: grid; grid-template-columns: minmax(0, 1fr) auto; margin-top: 6px; border: 1px solid #c5d0d7; background: #fff; }
+.security-activation-panel .admin-secret-input input { min-width: 0; margin: 0; border: 0; }
+.admin-secret-input:focus-within { border-color: var(--navy-700); box-shadow: 0 0 0 2px rgba(17,74,112,.1); }
+.admin-secret-input button { min-width: 58px; border: 0; border-left: 1px solid var(--line); color: var(--navy-800); background: #edf2f5; font-size: 9px; font-weight: 900; }
+.security-activation-panel label > small { display: block; margin-top: 5px; color: var(--muted); font-weight: 500; line-height: 1.45; }
+.sms-settings-save { min-width: 230px; }
+.sms-settings-loading { display: flex; align-items: center; gap: 9px; color: var(--muted); }
+.sms-settings-loading svg { width: 18px; }
 .security-rollout-check { display: flex !important; align-items: flex-start; gap: 11px; padding: 14px; background: #f7f9fa; border: 1px solid var(--line); }
 .security-rollout-check input { flex: 0 0 auto; width: auto; min-height: 0; margin: 3px 0 0; accent-color: var(--navy-800); }
 .security-rollout-check b, .security-rollout-check small { display: block; }.security-rollout-check b { color: var(--navy-900); }.security-rollout-check small { margin-top: 4px; color: var(--muted); font-weight: 500; line-height: 1.5; }

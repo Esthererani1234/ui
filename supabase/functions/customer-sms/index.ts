@@ -137,9 +137,12 @@ Deno.serve(async (request: Request) => {
       const maxAttempts = integer(body.max_attempts, 3, 10, current.maxAttempts);
       const sessionHours = integer(body.session_hours, 1, 2160, current.sessionHours);
       if (!accessKey) return json(request, { error: "Enter the MessageBird access key." }, 400);
+      if (accessKey.length < 20 || /\s/.test(accessKey)) return json(request, { error: "Enter the complete MessageBird access key without spaces." }, 400);
       if (!/^\+?[0-9]{7,15}$/.test(sender.replace(/[ ()-]/g, ""))) return json(request, { error: "Enter the verified MessageBird sender number with country code." }, 400);
       if (reason.length < 3) return json(request, { error: "Enter a reason for this security change." }, 400);
-      await messageBird("/balance", { method: "GET" }, accessKey);
+      // Do not validate against /balance: restricted SMS/Verify keys may be
+      // allowed to send codes while correctly lacking account-balance access.
+      // The first Verify request remains the authoritative provider check.
       const { error: secretError } = await admin.rpc("set_sms_provider_secret", { secret_value: { provider: "messagebird", access_key: accessKey } });
       if (secretError) throw secretError;
       const rows = [

@@ -309,7 +309,7 @@ export function RiskAdminPanel() {
 }
 
 export function SecurityAdminPanel() {
-  const [form, setForm] = useState({ accessKey: "", accessKeyLast4: "", sender: "", configured: false, required: false, codeTtlSeconds: 300, resendSeconds: 30, maxAttempts: 5, sessionHours: 720, reason: "" });
+  const [form, setForm] = useState({ accessKey: "", accessKeyLast4: "", sender: "", configured: false, invalidKeyType: false, required: false, codeTtlSeconds: 300, resendSeconds: 30, maxAttempts: 5, sessionHours: 720, reason: "" });
   const [message, setMessage] = useState({ text: "", type: "" });
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -317,7 +317,7 @@ export function SecurityAdminPanel() {
   const load = async () => {
     try {
       const settings = await smsAdminRequest();
-      setForm((current) => ({ ...current, accessKey: "", accessKeyLast4: settings.access_key_last4 || "", sender: settings.sender || "", configured: Boolean(settings.configured), required: Boolean(settings.required), codeTtlSeconds: settings.codeTtlSeconds || 300, resendSeconds: settings.resendSeconds || 30, maxAttempts: settings.maxAttempts || 5, sessionHours: settings.sessionHours || 720, reason: "" }));
+      setForm((current) => ({ ...current, accessKey: "", accessKeyLast4: settings.access_key_last4 || "", sender: settings.sender || "", configured: Boolean(settings.configured), invalidKeyType: Boolean(settings.invalid_key_type), required: Boolean(settings.required), codeTtlSeconds: settings.codeTtlSeconds || 300, resendSeconds: settings.resendSeconds || 30, maxAttempts: settings.maxAttempts || 5, sessionHours: settings.sessionHours || 720, reason: "" }));
     } catch (error) { setMessage({ text: error.message, type: "error" }); }
     finally { setLoading(false); }
   };
@@ -330,7 +330,7 @@ export function SecurityAdminPanel() {
     setBusy(true); setMessage({ text: "", type: "" });
     try {
       const result = await smsAdminRequest("POST", { access_key: form.accessKey.trim(), sender: form.sender.trim(), required: form.required, code_ttl_seconds: Number(form.codeTtlSeconds), resend_seconds: Number(form.resendSeconds), max_attempts: Number(form.maxAttempts), session_hours: Number(form.sessionHours), reason: form.reason.trim() });
-      setForm((current) => ({ ...current, accessKey: "", accessKeyLast4: result.access_key_last4 || current.accessKeyLast4, configured: true, reason: "" }));
+      setForm((current) => ({ ...current, accessKey: "", accessKeyLast4: result.access_key_last4 || current.accessKeyLast4, configured: true, invalidKeyType: false, reason: "" }));
       setShowAccessKey(false);
       setMessage({ text: form.required ? "Saved. MessageBird SMS is connected and required for customers." : "Saved. MessageBird is connected; customer SMS is not required yet.", type: "success" });
     } catch (error) { setMessage({ text: error.message, type: "error" }); } finally { setBusy(false); }
@@ -342,9 +342,10 @@ export function SecurityAdminPanel() {
       <article><MessageSquareText /><span><small>CUSTOMER IDENTITY</small><h2>MessageBird SMS</h2><p>Every new customer sign-in can require a six-digit code before account, support, order, or checkout data opens.</p><b className={form.required ? "control-ready" : "control-pending"}>{form.required ? <CheckCircle2 /> : <Clock3 />}{form.required ? "Required" : form.configured ? "Connected" : "Needs connection"}</b></span></article>
       <article><MailCheck /><span><small>AUTH EMAIL DELIVERY</small><h2>Supabase + Resend email</h2><p>Supabase continues sending branded account-confirmation and password-recovery email through custom SMTP.</p><b className="control-ready"><CheckCircle2 /> Active</b></span></article>
     </div>
-    <form className="admin-panel security-activation-panel" onSubmit={save}><div className="panel-title"><div><h2>Customer SMS controls</h2><p>MessageBird handles the codes directly. The access key is encrypted in Supabase Vault and is never shown again.</p></div><span className={form.configured ? "sms-connection-state connected" : "sms-connection-state"}>{form.configured ? <><CheckCircle2 /> Connected {form.accessKeyLast4 && `••••${form.accessKeyLast4}`}</> : <><AlertTriangle /> Not connected</>}</span></div>
+    <form className="admin-panel security-activation-panel" onSubmit={save}><div className="panel-title"><div><h2>Customer SMS controls</h2><p>MessageBird handles the codes directly. The access key is encrypted in Supabase Vault and is never shown again.</p></div><span className={form.configured ? "sms-connection-state connected" : "sms-connection-state"}>{form.configured ? <><CheckCircle2 /> Connected {form.accessKeyLast4 && `••••${form.accessKeyLast4}`}</> : <><AlertTriangle /> {form.invalidKeyType ? "Wrong key type" : "Not connected"}</>}</span></div>
+      {form.invalidKeyType && <div className="form-message error" role="alert"><b>The saved 36-character Bird workspace key cannot call MessageBird Verify.</b><br />Replace it below with the live REST API access key beginning with <code>live_</code>.</div>}
       <div className="form-row">
-        <label>MessageBird live access key<div className="admin-secret-input"><input type={showAccessKey ? "text" : "password"} autoComplete="new-password" autoCapitalize="off" spellCheck="false" maxLength="500" placeholder={form.configured ? `Saved securely ••••${form.accessKeyLast4}` : "Paste the complete live access key"} value={form.accessKey} onChange={(event) => updateField("accessKey", event.target.value)} /><button type="button" onClick={() => setShowAccessKey((visible) => !visible)}>{showAccessKey ? "Hide" : "Show"}</button></div><small>{form.configured ? "Leave blank to keep the saved key." : "Use a live key permitted to send MessageBird Verify/SMS messages."}</small></label>
+        <label>MessageBird live REST API key<div className="admin-secret-input"><input type={showAccessKey ? "text" : "password"} autoComplete="new-password" autoCapitalize="off" spellCheck="false" maxLength="500" placeholder={form.configured ? `Saved securely ••••${form.accessKeyLast4}` : "Must begin with live_"} value={form.accessKey} onChange={(event) => updateField("accessKey", event.target.value)} /><button type="button" onClick={() => setShowAccessKey((visible) => !visible)}>{showAccessKey ? "Hide" : "Show"}</button></div><small>{form.configured ? "Leave blank to keep the saved key." : "In MessageBird, open Developers → API access (REST) and copy a live key beginning with live_. Do not use Security → Access Keys."}</small></label>
         <label>Verified sender phone number<input type="tel" inputMode="tel" autoComplete="tel" maxLength="30" placeholder="+12125550100" value={form.sender} onChange={(event) => updateField("sender", event.target.value)} /><small>Include the country code, such as +1 for the United States.</small></label>
       </div>
       <div className="form-row three">

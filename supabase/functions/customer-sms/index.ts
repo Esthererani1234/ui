@@ -35,6 +35,7 @@ const jwtClaims = (token: string) => {
   } catch { return {}; }
 };
 const clean = (value: unknown, maximum = 200) => typeof value === "string" ? value.trim().slice(0, maximum) : "";
+const isMessageBirdRestLiveKey = (value: unknown) => /^live_[A-Za-z0-9_-]{20,}$/.test(String(value || ""));
 const integer = (value: unknown, minimum: number, maximum: number, fallback: number) => {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed >= minimum && parsed <= maximum ? parsed : fallback;
@@ -81,7 +82,7 @@ const providerError = async (response: Response) => {
   const errors = Array.isArray(body.errors) ? body.errors as Array<Record<string, unknown>> : [];
   const detail = String(errors[0]?.description || body.description || "");
   if (response.status === 429) return Object.assign(new Error("Too many code requests. Wait and try again."), { status: 429, detail });
-  if (response.status === 401 || response.status === 403) return Object.assign(new Error("MessageBird needs to be reconnected by an administrator."), { status: 503, detail });
+  if (response.status === 401 || response.status === 403) return Object.assign(new Error("MessageBird rejected the saved key. In Admin Security, use the live REST API key beginning with live_."), { status: 503, detail });
   if (response.status === 422 || /token|attempt|expired|verify/i.test(detail)) return Object.assign(new Error("That security code is incorrect or expired."), { status: 422, detail });
   return Object.assign(new Error("The security text could not be completed. Try again shortly."), { status: 502, detail });
 };
@@ -126,7 +127,12 @@ Deno.serve(async (request: Request) => {
       if (!membership) return json(request, { error: "Administrator access required" }, 403);
       const current = await readSettings(admin);
       const currentSecret = await readSecret(admin).catch(() => null);
-      if (action === "admin_get") return json(request, { ...current, configured: Boolean(currentSecret?.access_key), access_key_last4: currentSecret?.access_key?.slice(-4) || "" });
+      if (action === "admin_get") return json(request, {
+        ...current,
+        configured: isMessageBirdRestLiveKey(currentSecret?.access_key),
+        invalid_key_type: Boolean(currentSecret?.access_key) && !isMessageBirdRestLiveKey(currentSecret?.access_key),
+        access_key_last4: currentSecret?.access_key?.slice(-4) || "",
+      });
 
       const accessKey = clean(body.access_key, 500) || currentSecret?.access_key || "";
       const sender = clean(body.sender, 30);
@@ -137,7 +143,7 @@ Deno.serve(async (request: Request) => {
       const maxAttempts = integer(body.max_attempts, 3, 10, current.maxAttempts);
       const sessionHours = integer(body.session_hours, 1, 2160, current.sessionHours);
       if (!accessKey) return json(request, { error: "Enter the MessageBird access key." }, 400);
-      if (accessKey.length < 20 || /\s/.test(accessKey)) return json(request, { error: "Enter the complete MessageBird access key without spaces." }, 400);
+      if (!isMessageBirdRestLiveKey(accessKey)) return json(request, { error: "Use the MessageBird live REST API key beginning with live_. A 36-character Bird workspace key does not work with Verify." }, 400);
       if (!/^\+?[0-9]{7,15}$/.test(sender.replace(/[ ()-]/g, ""))) return json(request, { error: "Enter the verified MessageBird sender number with country code." }, 400);
       if (reason.length < 3) return json(request, { error: "Enter a reason for this security change." }, 400);
       // Do not validate against /balance: restricted SMS/Verify keys may be
@@ -178,7 +184,7 @@ Deno.serve(async (request: Request) => {
         admin.from("customer_sms_sessions").select("verified_at,expires_at,purpose").eq("user_id", user.id).eq("session_id", sessionId).gt("expires_at", new Date().toISOString()).maybeSingle(),
       ]);
       if (sessionResult.error) throw sessionResult.error;
-      const configured = settings.provider === "messagebird" && settings.providerReady && Boolean(providerSecret?.access_key) && Boolean(settings.sender);
+      const configured = settings.provider === "messagebird" && settings.providerReady && isMessageBirdRestLiveKey(providerSecret?.access_key) && Boolean(settings.sender);
       const required = configured && settings.required;
       const purpose = clean(body.purpose, 20) === "recovery" ? "recovery" : "signin";
       return json(request, {

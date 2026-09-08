@@ -31,18 +31,16 @@ const invokeAdmin = async (body) => {
 };
 
 const smsAdminRequest = async (method = "GET", body) => {
-  const { data } = await supabase.auth.getSession();
-  const response = await fetch("/api/admin/sms-settings", {
-    method,
-    headers: {
-      authorization: `Bearer ${data.session?.access_token || ""}`,
-      ...(body ? { "content-type": "application/json" } : {}),
-    },
-    ...(body ? { body: JSON.stringify(body) } : {}),
+  const { data, error } = await supabase.functions.invoke("customer-sms", {
+    body: { action: method === "GET" ? "admin_get" : "admin_update", ...(body || {}) },
   });
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result.error || "SMS settings are unavailable.");
-  return result;
+  if (error || data?.error) {
+    const errorBody = error?.context?.json
+      ? await error.context.clone().json().catch(() => ({}))
+      : {};
+    throw new Error(data?.error || errorBody?.error || error?.message || "SMS settings are unavailable.");
+  }
+  return data;
 };
 
 const dateTime = (value) =>

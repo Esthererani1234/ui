@@ -21,6 +21,14 @@ const friendlyError = (error) => {
   return "We could not complete that request. Please try again.";
 };
 
+const isEmailSendRateLimit = (error) =>
+  error?.status === 429 || error?.code === "over_email_send_rate_limit" || /email.*rate|rate.*email|request this after/i.test(error?.message || "");
+
+const emailRetrySeconds = (error) => {
+  const seconds = Number((error?.message || "").match(/(?:after|in)\s+(\d+)\s*seconds?/i)?.[1]);
+  return Number.isFinite(seconds) && seconds > 0 ? seconds : 60;
+};
+
 export default function AuthPage() {
   const { user, loading, requiresCustomerMfa, refreshSecurity } = useAuth();
   const [params] = useSearchParams();
@@ -32,6 +40,7 @@ export default function AuthPage() {
   const [form, setForm] = useState(initialForm);
   const [pendingEmail, setPendingEmail] = useState("");
   const [pendingPhone, setPendingPhone] = useState("");
+  const [verifiedUserId, setVerifiedUserId] = useState("");
   const [emailCode, setEmailCode] = useState("");
   const [smsCode, setSmsCode] = useState("");
   const [challengeId, setChallengeId] = useState("");
@@ -43,6 +52,9 @@ export default function AuthPage() {
   const [recoverySmsVerified, setRecoverySmsVerified] = useState(null);
   const rawDestination = params.get("return") || "/account";
   const destination = rawDestination.startsWith("/") && !rawDestination.startsWith("//") ? rawDestination : "/account";
+  const signupDestination = params.has("return") ? destination : "/";
+  const signupEmailRedirect = `${window.location.origin}/login?mode=signup&return=${encodeURIComponent(signupDestination)}`;
+  const signupPhonePath = `/verify-phone?purpose=signup&return=${encodeURIComponent(signupDestination)}`;
 
   useEffect(() => {
     const { data } = supabase.auth.onAuthStateChange((event) => {
@@ -54,7 +66,7 @@ export default function AuthPage() {
   useEffect(() => {
     if (resetSucceeded && mode === "signin") return;
     setMessage(""); setMessageType(""); setStage("details");
-    setEmailCode(""); setSmsCode(""); setResendSeconds(0);
+    setEmailCode(""); setSmsCode(""); setResendSeconds(0); setVerifiedUserId("");
   }, [mode, resetSucceeded]);
 
   useEffect(() => {
@@ -78,6 +90,7 @@ export default function AuthPage() {
     return <div className="page-loader">Checking password-reset security…</div>;
   if (user && mode === "recovery" && !loading && requiresCustomerMfa && !recoverySmsVerified)
     return <Navigate to={`/verify-phone?purpose=recovery&return=${encodeURIComponent("/login?recovery=1")}`} replace />;
+  if (user && mode === "signup" && !loading && stage === "details") return <Navigate to={signupPhonePath} replace />;
   if (user && mode !== "recovery" && !completingSignup) return <Navigate to={destination} replace />;
 
   const validateSignup = () => {
@@ -111,36 +124,73 @@ export default function AuthPage() {
       password: form.password,
       options: {
         data: { first_name: form.firstName.trim(), last_name: form.lastName.trim(), phone },
-        emailRedirectTo: `${window.location.origin}/login?mode=signup`,
+        emailRedirectTo: signupEmailRedirect,
       },
     });
     setBusy(false);
-    if (error) return setMessage(friendlyError(error));
+    if (error) {
+      if (isEmailSendRateLimit(error)) {
+        setPendingEmail(email); setPendingPhone(phone); setEmailCode(""); setVerifiedUserId("");
+        setStage("email-code"); setResendSeconds(emailRetrySeconds(error)); setMessageType("");
+        return setMessage("This email already has a pending signup. Enter the most recent code, or send a fresh code when the timer reaches zero.");
+      }
+      return setMessage(friendlyError(error));
+    }
     if (data.session) {
       await supabase.auth.signOut();
       return setMessage("Email-code confirmation must be enabled before new accounts can be created.");
     }
-    setPendingEmail(email); setPendingPhone(phone); setEmailCode("");
+    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0)
+      return setMessage("We could not start a new signup for this email. If you already verified it, sign in or use Forgot password.");
+    setPendingEmail(email); setPendingPhone(phone); setEmailCode(""); setVerifiedUserId("");
     setStage("email-code"); setResendSeconds(30); setMessageType("success");
-    setMessage(`We sent a six-digit verification code to ${email}.`);
+    setMessage(`We sent a fresh six-digit verification code to ${email}.`);
   };
 
   const verifyEmail = async (event) => {
     event.preventDefault();
-    if (!/^\d{6}$/.test(emailCode)) return setMessage("Enter the complete six-digit email code.");
     setBusy(true); setMessage(""); setMessageType("");
-    const { data, error } = await supabase.auth.verifyOtp({ email: pendingEmail, token: emailCode, type: "signup" });
+    let userId = verifiedUserId;
+    if (!userId) {
+      if (!/^\d{6}$/.test(emailCode)) {
+        setBusy(false);
+        return setMessage("Enter the complete six-digit email code.");
+      }
+      const { data, error } = await supabase.auth.verifyOtp({ email: pendingEmail, token: emailCode, type: "signup" });
+      if (error || !data.session) {
+        setBusy(false);
+        return setMessage(friendlyError(error));
+      }
+      userId = data.session.user.id;
+      setVerifiedUserId(userId);
+    }
+
+    const latestDetails = {
+      first_name: form.firstName.trim(),
+      last_name: form.lastName.trim(),
+      phone: pendingPhone,
+    };
+    const { error: accountError } = await supabase.auth.updateUser({ password: form.password, data: latestDetails });
+    const { error: profileError } = accountError
+      ? { error: null }
+      : await supabase.from("profiles").update(latestDetails).eq("id", userId);
     setBusy(false);
-    if (error || !data.session) return setMessage(friendlyError(error));
-    setStage("sms-ready"); setResendSeconds(0); setMessageType("success");
+    if (accountError || profileError) {
+      setMessage("Your email is verified, but we could not save the latest account details. Select Save details & continue to retry.");
+      return;
+    }
+    setVerifiedUserId(""); setStage("sms-ready"); setResendSeconds(0); setMessageType("success");
     setMessage("Email verified. Now verify your mobile number.");
   };
 
   const resendEmail = async () => {
-    setBusy(true); setMessage("");
-    const { error } = await supabase.auth.resend({ type: "signup", email: pendingEmail, options: { emailRedirectTo: `${window.location.origin}/login?mode=signup` } });
+    setBusy(true); setMessage(""); setMessageType("");
+    const { error } = await supabase.auth.resend({ type: "signup", email: pendingEmail, options: { emailRedirectTo: signupEmailRedirect } });
     setBusy(false);
-    if (error) return setMessage(friendlyError(error));
+    if (error) {
+      if (isEmailSendRateLimit(error)) setResendSeconds(emailRetrySeconds(error));
+      return setMessage(friendlyError(error));
+    }
     setResendSeconds(30); setMessageType("success");
     setMessage(`A new email code was sent to ${pendingEmail}.`);
   };
@@ -165,7 +215,7 @@ export default function AuthPage() {
     try {
       await verifyCustomerSmsCode({ challengeId, code: smsCode });
       await refreshSecurity();
-      navigate(destination, { replace: true });
+      navigate(signupDestination, { replace: true });
     } catch (error) {
       setMessage(friendlyError(error));
     } finally {
@@ -201,7 +251,7 @@ export default function AuthPage() {
 
   const switchMode = (nextMode) => {
     setMode(nextMode); setForm(initialForm); setPendingEmail(""); setPendingPhone("");
-    setChallengeId("");
+    setChallengeId(""); setVerifiedUserId("");
   };
   const signupStep = stage === "details" ? 1 : stage === "email-code" ? 2 : 3;
 
@@ -211,7 +261,7 @@ export default function AuthPage() {
       {!['forgot', 'recovery'].includes(mode) && stage === "details" && <div className="auth-tabs"><button type="button" className={mode === "signin" ? "active" : ""} onClick={() => switchMode("signin")}>Sign in</button><button type="button" className={mode === "signup" ? "active" : ""} onClick={() => switchMode("signup")}>Create account</button></div>}
       {mode === "forgot" ? <><div className="auth-card-heading"><Mail /><h2>Reset your password</h2><p>We will email a one-time secure link.</p></div><form onSubmit={sendReset}><label>Email address<input required type="email" autoComplete="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>{message && <div className={`form-message ${messageType}`}>{message}</div>}<button className="button button-gold full" disabled={busy}>{busy ? "Sending…" : "Send reset link"}</button><button type="button" className="text-button centered" onClick={() => setMode("signin")}>Back to sign in</button></form></>
       : mode === "recovery" ? <><div className="auth-card-heading"><LockKeyhole /><h2>Choose a new password</h2><p>Use a unique password with at least 12 characters.</p></div><form onSubmit={updatePassword}><PasswordField label="New password" value={form.password} show={showPassword} onShow={() => setShowPassword((value) => !value)} onChange={(value) => setForm({ ...form, password: value })} /><PasswordField label="Confirm new password" value={form.confirmPassword} show={showPassword} onShow={() => setShowPassword((value) => !value)} onChange={(value) => setForm({ ...form, confirmPassword: value })} />{message && <div className="form-message error">{message}</div>}<button className="button button-gold full" disabled={busy}>{busy ? "Updating securely…" : "Update password"}</button></form></>
-      : mode === "signup" && stage === "email-code" ? <><button className="auth-back" type="button" onClick={() => { setStage("details"); setMessage(""); }}><ArrowLeft /> Use a different email</button><Progress step={signupStep} /><div className="auth-card-heading"><Mail /><h2>Verify your email</h2><p>Enter the six-digit code sent to <b>{pendingEmail}</b>.</p></div><form onSubmit={verifyEmail}><CodeField label="Six-digit email code" value={emailCode} onChange={setEmailCode} />{message && <div className={`form-message ${messageType || "error"}`}>{message}</div>}<button className="button button-gold full" disabled={busy || emailCode.length !== 6}>{busy ? "Verifying…" : "Verify email"}</button><button type="button" className="text-button centered" disabled={busy || resendSeconds > 0} onClick={resendEmail}>{resendSeconds > 0 ? `Send another email code in ${resendSeconds}s` : "Send another email code"}</button></form></>
+      : mode === "signup" && stage === "email-code" ? <><button className="auth-back" type="button" onClick={() => { setStage("details"); setMessage(""); setVerifiedUserId(""); }}><ArrowLeft /> Use a different email</button><Progress step={signupStep} /><div className="auth-card-heading"><Mail /><h2>{verifiedUserId ? "Finish your account" : "Verify your email"}</h2><p>{verifiedUserId ? "Your email is verified. Save your latest signup details to continue." : <>Enter the six-digit code sent to <b>{pendingEmail}</b>.</>}</p></div><form onSubmit={verifyEmail}>{!verifiedUserId && <CodeField label="Six-digit email code" value={emailCode} onChange={setEmailCode} />}{message && <div className={`form-message ${messageType || "error"}`}>{message}</div>}<button className="button button-gold full" disabled={busy || (!verifiedUserId && emailCode.length !== 6)}>{busy ? verifiedUserId ? "Saving…" : "Verifying…" : verifiedUserId ? "Save details & continue" : "Verify email"}</button>{!verifiedUserId && <button type="button" className="text-button centered" disabled={busy || resendSeconds > 0} onClick={resendEmail}>{resendSeconds > 0 ? `Send another email code in ${resendSeconds}s` : "Send another email code"}</button>}</form></>
       : mode === "signup" && stage === "sms-ready" ? <><Progress step={signupStep} /><div className="auth-card-heading"><Smartphone /><h2>Verify your mobile number</h2><p>Email verified. We’ll text a security code to <b>{formatUsPhone(pendingPhone)}</b>.</p></div>{message && <div className={`form-message ${messageType || "error"}`}>{message}</div>}<button className="button button-gold full" type="button" disabled={busy} onClick={sendSms}><MessageSquareText /> {busy ? "Sending securely…" : "Send Code"}</button><SmsConsentDisclosure /></>
       : mode === "signup" && stage === "sms-code" ? <><Progress step={signupStep} /><div className="auth-card-heading"><MessageSquareText /><h2>Enter your SMS code</h2><p>Enter the six-digit code sent to <b>{formatUsPhone(pendingPhone)}</b>. Your account opens only after this step.</p></div><form onSubmit={verifySms}><CodeField label="Six-digit SMS code" value={smsCode} onChange={setSmsCode} />{message && <div className={`form-message ${messageType || "error"}`}>{message}</div>}<button className="button button-gold full" disabled={busy || smsCode.length !== 6}>{busy ? "Verifying…" : "Verify & finish account"}</button><button type="button" className="text-button centered" disabled={busy || resendSeconds > 0} onClick={sendSms}>{resendSeconds > 0 ? `Send another SMS code in ${resendSeconds}s` : "Send another SMS code"}</button></form></>
       : <><div className="auth-card-heading">{mode === "signup" ? <ShieldCheck /> : <LockKeyhole />}<h2>{mode === "signup" ? "Create your account" : "Sign in"}</h2><p>{mode === "signup" ? "Create your password, then verify both your email and mobile number." : "Use your email and password. We’ll ask for an SMS code next."}</p></div>{mode === "signup" && <Progress step={signupStep} />}<form onSubmit={submitCredentials}>{mode === "signup" && <div className="form-row"><label>First name<input required maxLength="60" autoComplete="given-name" value={form.firstName} onChange={(event) => setForm({ ...form, firstName: event.target.value })} /></label><label>Last name<input required maxLength="60" autoComplete="family-name" value={form.lastName} onChange={(event) => setForm({ ...form, lastName: event.target.value })} /></label></div>}<label>Email address<input required type="email" autoComplete="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>{mode === "signup" && <><label>Re-enter email address<input required type="email" autoComplete="email" value={form.confirmEmail} onChange={(event) => setForm({ ...form, confirmEmail: event.target.value })} /></label><label>Mobile number<span className="phone-input"><span aria-hidden="true">+1</span><input required type="tel" inputMode="tel" autoComplete="tel-national" placeholder="(212) 555-0123" maxLength="14" value={form.phone} onChange={(event) => setForm({ ...form, phone: formatUsPhone(event.target.value) })} /></span><small className="field-help">Used only for account verification and security SMS.</small></label></>}<PasswordField label="Password" value={form.password} show={showPassword} onShow={() => setShowPassword((value) => !value)} onChange={(value) => setForm({ ...form, password: value })} autoComplete={mode === "signup" ? "new-password" : "current-password"} minLength={mode === "signup" ? 12 : 8} />{mode === "signup" && <><PasswordField label="Re-enter password" value={form.confirmPassword} show={showPassword} onShow={() => setShowPassword((value) => !value)} onChange={(value) => setForm({ ...form, confirmPassword: value })} autoComplete="new-password" minLength={12} /><SmsConsentDisclosure /><label className="auth-agreement"><input type="checkbox" checked={form.agree} onChange={(event) => setForm({ ...form, agree: event.target.checked })} /> <span>I agree to the <Link to="/terms">Terms &amp; Conditions</Link> and <Link to="/privacy">Privacy Policy</Link>.</span></label></>}{message && <div className={`form-message ${messageType || "error"}`}>{message}</div>}<button className="button button-gold full" disabled={busy}>{busy ? "Please wait…" : mode === "signup" ? "Continue to verification" : "Sign in securely"}</button>{mode === "signin" && <button type="button" className="text-button centered" onClick={() => setMode("forgot")}>Forgot password?</button>}</form></>}

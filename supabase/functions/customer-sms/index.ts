@@ -58,6 +58,7 @@ const maskPhone = (phone: unknown) => {
 const settingKeys = [
   "sms_provider_name", "sms_sender", "sms_provider_ready", "customer_sms_mfa_required",
   "sms_code_ttl_seconds", "sms_resend_seconds", "sms_max_attempts", "sms_session_hours",
+  "sms_provider_tested_at",
 ];
 
 type AdminClient = ReturnType<typeof createClient>;
@@ -74,6 +75,7 @@ const readSettings = async (admin: AdminClient) => {
     resendSeconds: integer(values.sms_resend_seconds, 30, 180, 30),
     maxAttempts: integer(values.sms_max_attempts, 3, 10, 5),
     sessionHours: integer(values.sms_session_hours, 1, 2160, 720),
+    providerTestedAt: clean(values.sms_provider_tested_at, 40),
   };
 };
 const readSecret = async (admin: AdminClient) => {
@@ -82,17 +84,35 @@ const readSecret = async (admin: AdminClient) => {
   const secret = typeof data === "string" ? JSON.parse(data) : data;
   return secret?.provider === "messagebird" && secret?.access_key ? secret as { provider: string; access_key: string } : null;
 };
-const providerError = async (response: Response) => {
+const providerError = async (response: Response, operation: "send" | "check") => {
   let body: Record<string, unknown> = {};
   try { body = await response.json(); } catch { /* provider returned no JSON */ }
   const errors = Array.isArray(body.errors) ? body.errors as Array<Record<string, unknown>> : [];
-  const detail = String(errors[0]?.description || body.description || "");
+  const nestedError = body.error && typeof body.error === "object" ? body.error as Record<string, unknown> : {};
+  const detail = clean(
+    errors[0]?.description || errors[0]?.message || nestedError.message || body.detail || body.description || body.message || body.title,
+    300,
+  );
+  const reason = clean(errors[0]?.code || nestedError.code || body.reason || body.code, 100);
+  const providerDetail = [reason, detail].filter(Boolean).join(": ");
   if (response.status === 429) return Object.assign(new Error("Too many code requests. Wait and try again."), { status: 429, detail });
-  if (response.status === 401 || response.status === 403) return Object.assign(new Error("Bird rejected the saved access key. Reconnect it in Admin Security."), { status: 503, detail });
-  if (response.status === 422 || /token|attempt|expired|verify/i.test(detail)) return Object.assign(new Error("That security code is incorrect or expired."), { status: 422, detail });
-  return Object.assign(new Error("The security text could not be completed. Try again shortly."), { status: 502, detail });
+  if (response.status === 401 || response.status === 403) return Object.assign(new Error("Bird rejected the saved API key or its Verify permission. Create a Bird key with Verify access and reconnect it in Admin Security."), { status: 503, detail: providerDetail });
+  if (operation === "check" && (response.status === 404 || response.status === 422 || /token|attempt|expired|verify/i.test(providerDetail)))
+    return Object.assign(new Error("That security code is incorrect or expired."), { status: 422, detail: providerDetail });
+  if (operation === "send" && response.status === 422) {
+    if (/noavailablechannel|no available channel|no usable channel|country|destination/i.test(providerDetail))
+      return Object.assign(new Error("Bird has no SMS route enabled for this phone number. Enable United States SMS in Bird Verify country settings, then test again."), { status: 503, detail: providerDetail });
+    if (/balance|credit|fund|payment/i.test(providerDetail))
+      return Object.assign(new Error("Bird could not send because the SMS balance or billing setup is not ready. Add SMS credit in Bird, then test again."), { status: 503, detail: providerDetail });
+    if (/scope|permission|access/i.test(providerDetail))
+      return Object.assign(new Error("The Bird API key does not have permission to use Verify. Create a key with Verify access, then reconnect it."), { status: 503, detail: providerDetail });
+    if (/sender|originator|brand/i.test(providerDetail))
+      return Object.assign(new Error("Bird rejected the SMS sender configuration. Finish the sender setup in Bird Verify, then test again."), { status: 503, detail: providerDetail });
+    return Object.assign(new Error(`Bird rejected the SMS request${providerDetail ? `: ${providerDetail}` : ". Check Bird Verify country and billing settings."}`), { status: 503, detail: providerDetail });
+  }
+  return Object.assign(new Error(`The security text could not be completed${providerDetail ? `: ${providerDetail}` : ". Try again shortly."}`), { status: 502, detail: providerDetail });
 };
-const messageBird = async (path: string, options: RequestInit, accessKey: string) => {
+const messageBird = async (path: string, options: RequestInit, accessKey: string, operation: "send" | "check") => {
   const platform = messageBirdKeyKind(accessKey) === "platform";
   const region = accessKey.startsWith("bk_eu1_") ? "eu1" : "us1";
   const base = platform ? `https://${region}.platform.bird.com` : "https://rest.messagebird.com";
@@ -104,8 +124,36 @@ const messageBird = async (path: string, options: RequestInit, accessKey: string
       ...(options.headers || {}),
     },
   });
-  if (!response.ok) throw await providerError(response);
+  if (!response.ok) throw await providerError(response, operation);
   return response.status === 204 ? null : response.json();
+};
+const startVerification = async (
+  accessKey: string,
+  phone: string,
+  settings: { sender: string; codeTtlSeconds: number; maxAttempts: number },
+) => {
+  const modernProvider = messageBirdKeyKind(accessKey) === "platform";
+  const verification = modernProvider
+    ? await messageBird("/v1/verify/verifications", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        to: { phone_number: phone },
+        options: { code_length: 6, channels: ["sms"] },
+        metadata: { reference: `gots${Date.now()}` },
+      }),
+    }, accessKey, "send") as Record<string, unknown>
+    : await messageBird("/verify", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded;charset=UTF-8" },
+      body: new URLSearchParams({
+        recipient: phone.replace(/^\+/, ""), originator: settings.sender, type: "sms",
+        template: "Your Gold On The Spot security code is %token. It expires soon. Do not share this code. Reply STOP to opt out; HELP for help.",
+        timeout: String(settings.codeTtlSeconds), tokenLength: "6", maxAttempts: String(settings.maxAttempts), reference: `gots${Date.now()}`,
+      }).toString(),
+    }, accessKey, "send") as Record<string, unknown>;
+  if (!verification?.id) throw Object.assign(new Error("Bird accepted the request but did not start a verification."), { status: 502 });
+  return { verification, modernProvider };
 };
 
 Deno.serve(async (request: Request) => {
@@ -143,6 +191,8 @@ Deno.serve(async (request: Request) => {
       if (action === "admin_get") return json(request, {
         ...current,
         configured: isMessageBirdKey(currentSecret?.access_key),
+        provider_ready: current.providerReady && Boolean(current.providerTestedAt),
+        provider_tested_at: current.providerTestedAt,
         invalid_key_type: Boolean(currentSecret?.access_key) && !isMessageBirdKey(currentSecret?.access_key),
         access_key_last4: currentSecret?.access_key?.slice(-4) || "",
       });
@@ -155,13 +205,17 @@ Deno.serve(async (request: Request) => {
       const resendSeconds = integer(body.resend_seconds, 30, 180, current.resendSeconds);
       const maxAttempts = integer(body.max_attempts, 3, 10, current.maxAttempts);
       const sessionHours = integer(body.session_hours, 1, 2160, current.sessionHours);
+      const testPhone = normalizePhone(body.test_phone);
       if (!accessKey) return json(request, { error: "Enter the MessageBird access key." }, 400);
       if (!isMessageBirdKey(accessKey)) return json(request, { error: "Use a current Bird API key (bk_us1_… or bk_eu1_…) or a legacy MessageBird live REST key (live_…)." }, 400);
       if (!/^\+?[0-9]{7,15}$/.test(sender.replace(/[ ()-]/g, ""))) return json(request, { error: "Enter the verified MessageBird sender number with country code." }, 400);
+      if (!testPhone) return json(request, { error: "Enter a valid 10-digit U.S. mobile number for the live SMS test." }, 400);
       if (reason.length < 3) return json(request, { error: "Enter a reason for this security change." }, 400);
-      // Do not validate against /balance: restricted SMS/Verify keys may be
-      // allowed to send codes while correctly lacking account-balance access.
-      // The first Verify request remains the authoritative provider check.
+      // The only authoritative connection test is a real Verify request. It
+      // validates the key, Verify permission, country route, and SMS billing.
+      const testSettings = { sender, codeTtlSeconds, maxAttempts };
+      const { verification: testVerification } = await startVerification(accessKey, testPhone, testSettings);
+      const testedAt = new Date().toISOString();
       const { error: secretError } = await admin.rpc("set_sms_provider_secret", { secret_value: { provider: "messagebird", access_key: accessKey } });
       if (secretError) throw secretError;
       const rows = [
@@ -173,14 +227,23 @@ Deno.serve(async (request: Request) => {
         { key: "sms_resend_seconds", value: resendSeconds, is_public: true },
         { key: "sms_max_attempts", value: maxAttempts, is_public: true },
         { key: "sms_session_hours", value: sessionHours, is_public: false },
+        { key: "sms_provider_tested_at", value: testedAt, is_public: false },
       ];
       const { error: settingsError } = await admin.from("app_settings").upsert(rows);
       if (settingsError) throw settingsError;
       await admin.from("admin_audit_log").insert({
         actor_user_id: user.id, action: "security.customer_sms_updated", target_type: "security", target_id: "messagebird", reason,
-        metadata: { required, sender, code_ttl_seconds: codeTtlSeconds, resend_seconds: resendSeconds, max_attempts: maxAttempts, session_hours: sessionHours, access_key_last4: accessKey.slice(-4) },
+        metadata: { required, sender, code_ttl_seconds: codeTtlSeconds, resend_seconds: resendSeconds, max_attempts: maxAttempts, session_hours: sessionHours, access_key_last4: accessKey.slice(-4), test_phone_last4: testPhone.slice(-4), provider_tested_at: testedAt },
       });
-      return json(request, { success: true, configured: true, access_key_last4: accessKey.slice(-4) });
+      return json(request, {
+        success: true,
+        configured: true,
+        provider_ready: true,
+        provider_tested_at: testedAt,
+        access_key_last4: accessKey.slice(-4),
+        test_phone: maskPhone(testPhone),
+        test_channel: clean(testVerification.last_channel, 20) || "sms",
+      });
     }
 
     const [{ data: profile, error: profileError }, settings] = await Promise.all([
@@ -230,27 +293,14 @@ Deno.serve(async (request: Request) => {
         if (retryAfter > 0) return json(request, { error: `Send another code in ${retryAfter} seconds.`, retry_after: retryAfter }, 429);
       }
       if ((hourResult.count || 0) >= 5 || (dayResult.count || 0) >= 20) return json(request, { error: "Too many security-code requests. Try again later or contact support." }, 429);
-      const modernProvider = messageBirdKeyKind(providerSecret.access_key) === "platform";
-      const verification = modernProvider
-        ? await messageBird("/v1/verify/verifications", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            to: { phone_number: phone },
-            options: { code_length: 6, channels: ["sms"] },
-            metadata: { reference: `gots${Date.now()}` },
-          }),
-        }, providerSecret.access_key) as Record<string, unknown>
-        : await messageBird("/verify", {
-          method: "POST",
-          headers: { "content-type": "application/x-www-form-urlencoded;charset=UTF-8" },
-          body: new URLSearchParams({
-            recipient: phone.replace(/^\+/, ""), originator: settings.sender, type: "sms",
-            template: "Your Gold On The Spot security code is %token. It expires soon. Do not share this code. Reply STOP to opt out; HELP for help.",
-            timeout: String(settings.codeTtlSeconds), tokenLength: "6", maxAttempts: String(settings.maxAttempts), reference: `gots${Date.now()}`,
-          }).toString(),
-        }, providerSecret.access_key) as Record<string, unknown>;
-      if (!verification?.id) throw Object.assign(new Error("MessageBird did not start the verification."), { status: 502 });
+      const { verification, modernProvider } = await startVerification(providerSecret.access_key, phone, settings);
+      if (!settings.providerTestedAt) {
+        const testedAt = new Date().toISOString();
+        await admin.from("app_settings").upsert([
+          { key: "sms_provider_ready", value: true, is_public: true },
+          { key: "sms_provider_tested_at", value: testedAt, is_public: false },
+        ]);
+      }
       const expiresAt = verification.expires_at
         ? new Date(String(verification.expires_at))
         : verification.validUntilDatetime
@@ -260,7 +310,7 @@ Deno.serve(async (request: Request) => {
         user_id: user.id, session_id: sessionId, provider_verify_id: verification.id, phone, purpose, expires_at: expiresAt.toISOString(),
       }).select("id").single();
       if (insertError) {
-        if (!modernProvider) await messageBird(`/verify/${encodeURIComponent(String(verification.id))}`, { method: "DELETE" }, providerSecret.access_key).catch(() => {});
+        if (!modernProvider) await messageBird(`/verify/${encodeURIComponent(String(verification.id))}`, { method: "DELETE" }, providerSecret.access_key, "send").catch(() => {});
         throw insertError;
       }
       return json(request, { challenge_id: challenge.id, phone: maskPhone(phone), expires_in: settings.codeTtlSeconds, resend_after: settings.resendSeconds });
@@ -282,8 +332,8 @@ Deno.serve(async (request: Request) => {
       await admin.from("customer_sms_challenges").update({ attempt_count: challenge.attempt_count + 1 }).eq("id", challenge.id);
       try {
         const verification = messageBirdKeyKind(providerSecret.access_key) === "platform"
-          ? await messageBird("/v1/verify/verifications/check", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ to: { phone_number: challenge.phone }, code }) }, providerSecret.access_key) as Record<string, unknown>
-          : await messageBird(`/verify/${encodeURIComponent(challenge.provider_verify_id)}?token=${encodeURIComponent(code)}`, { method: "GET" }, providerSecret.access_key) as Record<string, unknown>;
+          ? await messageBird("/v1/verify/verifications/check", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ to: { phone_number: challenge.phone }, code }) }, providerSecret.access_key, "check") as Record<string, unknown>
+          : await messageBird(`/verify/${encodeURIComponent(challenge.provider_verify_id)}?token=${encodeURIComponent(code)}`, { method: "GET" }, providerSecret.access_key, "check") as Record<string, unknown>;
         if (messageBirdKeyKind(providerSecret.access_key) === "platform" ? verification?.success !== true : verification?.status !== "verified") throw Object.assign(new Error("That security code is incorrect or expired."), { status: 422 });
       } catch (error) {
         if ((error as { status?: number }).status === 422 && challenge.attempt_count + 1 >= settings.maxAttempts)

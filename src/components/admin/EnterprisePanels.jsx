@@ -325,7 +325,7 @@ export function SecurityAdminPanel() {
   const updateField = (field, value) => setForm((current) => ({ ...current, [field]: value }));
   const save = async (event) => {
     event.preventDefault();
-    if (!form.accessKey && !form.configured) return setMessage({ text: "Enter your MessageBird live access key.", type: "error" });
+    if (!form.accessKey && !form.configured) return setMessage({ text: "Enter your Bird API access key.", type: "error" });
     if (form.reason.trim().length < 3) return setMessage({ text: "Enter a short reason for this security change.", type: "error" });
     setBusy(true); setMessage({ text: "", type: "" });
     try {
@@ -343,9 +343,9 @@ export function SecurityAdminPanel() {
       <article><MailCheck /><span><small>AUTH EMAIL DELIVERY</small><h2>Supabase + Resend email</h2><p>Supabase continues sending branded account-confirmation and password-recovery email through custom SMTP.</p><b className="control-ready"><CheckCircle2 /> Active</b></span></article>
     </div>
     <form className="admin-panel security-activation-panel" onSubmit={save}><div className="panel-title"><div><h2>Customer SMS controls</h2><p>MessageBird handles the codes directly. The access key is encrypted in Supabase Vault and is never shown again.</p></div><span className={form.configured ? "sms-connection-state connected" : "sms-connection-state"}>{form.configured ? <><CheckCircle2 /> Connected {form.accessKeyLast4 && `••••${form.accessKeyLast4}`}</> : <><AlertTriangle /> {form.invalidKeyType ? "Wrong key type" : "Not connected"}</>}</span></div>
-      {form.invalidKeyType && <div className="form-message error" role="alert"><b>The saved 36-character Bird workspace key cannot call MessageBird Verify.</b><br />Replace it below with the live REST API access key beginning with <code>live_</code>.</div>}
+      {form.invalidKeyType && <div className="form-message error" role="alert"><b>The saved key is not a supported Bird API key.</b><br />Use a current key beginning with <code>bk_us1_</code> or <code>bk_eu1_</code>, or a legacy key beginning with <code>live_</code>.</div>}
       <div className="form-row">
-        <label>MessageBird live REST API key<div className="admin-secret-input"><input type={showAccessKey ? "text" : "password"} autoComplete="new-password" autoCapitalize="off" spellCheck="false" maxLength="500" placeholder={form.configured ? `Saved securely ••••${form.accessKeyLast4}` : "Must begin with live_"} value={form.accessKey} onChange={(event) => updateField("accessKey", event.target.value)} /><button type="button" onClick={() => setShowAccessKey((visible) => !visible)}>{showAccessKey ? "Hide" : "Show"}</button></div><small>{form.configured ? "Leave blank to keep the saved key." : "In MessageBird, open Developers → API access (REST) and copy a live key beginning with live_. Do not use Security → Access Keys."}</small></label>
+        <label>Bird API access key<div className="admin-secret-input"><input type={showAccessKey ? "text" : "password"} autoComplete="new-password" autoCapitalize="off" spellCheck="false" maxLength="500" placeholder={form.configured ? `Saved securely ••••${form.accessKeyLast4}` : "bk_us1_… or live_…"} value={form.accessKey} onChange={(event) => updateField("accessKey", event.target.value)} /><button type="button" onClick={() => setShowAccessKey((visible) => !visible)}>{showAccessKey ? "Hide" : "Show"}</button></div><small>{form.configured ? "Leave blank to keep the saved key." : "Paste a current Bird API key beginning with bk_us1_ or bk_eu1_. Legacy live_ keys are also supported."}</small></label>
         <label>Verified sender phone number<input type="tel" inputMode="tel" autoComplete="tel" maxLength="30" placeholder="+12125550100" value={form.sender} onChange={(event) => updateField("sender", event.target.value)} /><small>Include the country code, such as +1 for the United States.</small></label>
       </div>
       <div className="form-row three">

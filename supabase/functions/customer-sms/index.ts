@@ -35,7 +35,13 @@ const jwtClaims = (token: string) => {
   } catch { return {}; }
 };
 const clean = (value: unknown, maximum = 200) => typeof value === "string" ? value.trim().slice(0, maximum) : "";
-const isMessageBirdRestLiveKey = (value: unknown) => /^live_[A-Za-z0-9_-]{20,}$/.test(String(value || ""));
+const messageBirdKeyKind = (value: unknown) => {
+  const key = String(value || "");
+  if (/^live_[A-Za-z0-9_-]{20,}$/.test(key)) return "legacy";
+  if (/^bk_(us1|eu1)_[A-Za-z0-9_-]{10,}$/.test(key)) return "platform";
+  return "";
+};
+const isMessageBirdKey = (value: unknown) => Boolean(messageBirdKeyKind(value));
 const integer = (value: unknown, minimum: number, maximum: number, fallback: number) => {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed >= minimum && parsed <= maximum ? parsed : fallback;
@@ -82,14 +88,21 @@ const providerError = async (response: Response) => {
   const errors = Array.isArray(body.errors) ? body.errors as Array<Record<string, unknown>> : [];
   const detail = String(errors[0]?.description || body.description || "");
   if (response.status === 429) return Object.assign(new Error("Too many code requests. Wait and try again."), { status: 429, detail });
-  if (response.status === 401 || response.status === 403) return Object.assign(new Error("MessageBird rejected the saved key. In Admin Security, use the live REST API key beginning with live_."), { status: 503, detail });
+  if (response.status === 401 || response.status === 403) return Object.assign(new Error("Bird rejected the saved access key. Reconnect it in Admin Security."), { status: 503, detail });
   if (response.status === 422 || /token|attempt|expired|verify/i.test(detail)) return Object.assign(new Error("That security code is incorrect or expired."), { status: 422, detail });
   return Object.assign(new Error("The security text could not be completed. Try again shortly."), { status: 502, detail });
 };
 const messageBird = async (path: string, options: RequestInit, accessKey: string) => {
-  const response = await fetch(`https://rest.messagebird.com${path}`, {
+  const platform = messageBirdKeyKind(accessKey) === "platform";
+  const region = accessKey.startsWith("bk_eu1_") ? "eu1" : "us1";
+  const base = platform ? `https://${region}.platform.bird.com` : "https://rest.messagebird.com";
+  const response = await fetch(`${base}${path}`, {
     ...options,
-    headers: { accept: "application/json", authorization: `AccessKey ${accessKey}`, ...(options.headers || {}) },
+    headers: {
+      accept: "application/json",
+      authorization: platform ? `Bearer ${accessKey}` : `AccessKey ${accessKey}`,
+      ...(options.headers || {}),
+    },
   });
   if (!response.ok) throw await providerError(response);
   return response.status === 204 ? null : response.json();
@@ -129,8 +142,8 @@ Deno.serve(async (request: Request) => {
       const currentSecret = await readSecret(admin).catch(() => null);
       if (action === "admin_get") return json(request, {
         ...current,
-        configured: isMessageBirdRestLiveKey(currentSecret?.access_key),
-        invalid_key_type: Boolean(currentSecret?.access_key) && !isMessageBirdRestLiveKey(currentSecret?.access_key),
+        configured: isMessageBirdKey(currentSecret?.access_key),
+        invalid_key_type: Boolean(currentSecret?.access_key) && !isMessageBirdKey(currentSecret?.access_key),
         access_key_last4: currentSecret?.access_key?.slice(-4) || "",
       });
 
@@ -143,7 +156,7 @@ Deno.serve(async (request: Request) => {
       const maxAttempts = integer(body.max_attempts, 3, 10, current.maxAttempts);
       const sessionHours = integer(body.session_hours, 1, 2160, current.sessionHours);
       if (!accessKey) return json(request, { error: "Enter the MessageBird access key." }, 400);
-      if (!isMessageBirdRestLiveKey(accessKey)) return json(request, { error: "Use the MessageBird live REST API key beginning with live_. A 36-character Bird workspace key does not work with Verify." }, 400);
+      if (!isMessageBirdKey(accessKey)) return json(request, { error: "Use a current Bird API key (bk_us1_… or bk_eu1_…) or a legacy MessageBird live REST key (live_…)." }, 400);
       if (!/^\+?[0-9]{7,15}$/.test(sender.replace(/[ ()-]/g, ""))) return json(request, { error: "Enter the verified MessageBird sender number with country code." }, 400);
       if (reason.length < 3) return json(request, { error: "Enter a reason for this security change." }, 400);
       // Do not validate against /balance: restricted SMS/Verify keys may be
@@ -184,7 +197,7 @@ Deno.serve(async (request: Request) => {
         admin.from("customer_sms_sessions").select("verified_at,expires_at,purpose").eq("user_id", user.id).eq("session_id", sessionId).gt("expires_at", new Date().toISOString()).maybeSingle(),
       ]);
       if (sessionResult.error) throw sessionResult.error;
-      const configured = settings.provider === "messagebird" && settings.providerReady && isMessageBirdRestLiveKey(providerSecret?.access_key) && Boolean(settings.sender);
+      const configured = settings.provider === "messagebird" && settings.providerReady && isMessageBirdKey(providerSecret?.access_key) && Boolean(settings.sender);
       const required = configured && settings.required;
       const purpose = clean(body.purpose, 20) === "recovery" ? "recovery" : "signin";
       return json(request, {
@@ -217,19 +230,37 @@ Deno.serve(async (request: Request) => {
         if (retryAfter > 0) return json(request, { error: `Send another code in ${retryAfter} seconds.`, retry_after: retryAfter }, 429);
       }
       if ((hourResult.count || 0) >= 5 || (dayResult.count || 0) >= 20) return json(request, { error: "Too many security-code requests. Try again later or contact support." }, 429);
-      const form = new URLSearchParams({
-        recipient: phone.replace(/^\+/, ""), originator: settings.sender, type: "sms",
-        template: "Your Gold On The Spot security code is %token. It expires soon. Do not share this code. Reply STOP to opt out; HELP for help.",
-        timeout: String(settings.codeTtlSeconds), tokenLength: "6", maxAttempts: String(settings.maxAttempts), reference: `gots${Date.now()}`,
-      });
-      const verification = await messageBird("/verify", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded;charset=UTF-8" }, body: form.toString() }, providerSecret.access_key) as Record<string, unknown>;
+      const modernProvider = messageBirdKeyKind(providerSecret.access_key) === "platform";
+      const verification = modernProvider
+        ? await messageBird("/v1/verify/verifications", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            to: { phone_number: phone },
+            options: { code_length: 6, channels: ["sms"] },
+            metadata: { reference: `gots${Date.now()}` },
+          }),
+        }, providerSecret.access_key) as Record<string, unknown>
+        : await messageBird("/verify", {
+          method: "POST",
+          headers: { "content-type": "application/x-www-form-urlencoded;charset=UTF-8" },
+          body: new URLSearchParams({
+            recipient: phone.replace(/^\+/, ""), originator: settings.sender, type: "sms",
+            template: "Your Gold On The Spot security code is %token. It expires soon. Do not share this code. Reply STOP to opt out; HELP for help.",
+            timeout: String(settings.codeTtlSeconds), tokenLength: "6", maxAttempts: String(settings.maxAttempts), reference: `gots${Date.now()}`,
+          }).toString(),
+        }, providerSecret.access_key) as Record<string, unknown>;
       if (!verification?.id) throw Object.assign(new Error("MessageBird did not start the verification."), { status: 502 });
-      const expiresAt = verification.validUntilDatetime ? new Date(String(verification.validUntilDatetime)) : new Date(now.getTime() + settings.codeTtlSeconds * 1000);
+      const expiresAt = verification.expires_at
+        ? new Date(String(verification.expires_at))
+        : verification.validUntilDatetime
+          ? new Date(String(verification.validUntilDatetime))
+          : new Date(now.getTime() + settings.codeTtlSeconds * 1000);
       const { data: challenge, error: insertError } = await admin.from("customer_sms_challenges").insert({
         user_id: user.id, session_id: sessionId, provider_verify_id: verification.id, phone, purpose, expires_at: expiresAt.toISOString(),
       }).select("id").single();
       if (insertError) {
-        await messageBird(`/verify/${encodeURIComponent(String(verification.id))}`, { method: "DELETE" }, providerSecret.access_key).catch(() => {});
+        if (!modernProvider) await messageBird(`/verify/${encodeURIComponent(String(verification.id))}`, { method: "DELETE" }, providerSecret.access_key).catch(() => {});
         throw insertError;
       }
       return json(request, { challenge_id: challenge.id, phone: maskPhone(phone), expires_in: settings.codeTtlSeconds, resend_after: settings.resendSeconds });
@@ -250,8 +281,10 @@ Deno.serve(async (request: Request) => {
       if (!providerSecret?.access_key) return json(request, { error: "MessageBird needs to be reconnected by an administrator." }, 503);
       await admin.from("customer_sms_challenges").update({ attempt_count: challenge.attempt_count + 1 }).eq("id", challenge.id);
       try {
-        const verification = await messageBird(`/verify/${encodeURIComponent(challenge.provider_verify_id)}?token=${encodeURIComponent(code)}`, { method: "GET" }, providerSecret.access_key) as Record<string, unknown>;
-        if (verification?.status !== "verified") throw Object.assign(new Error("That security code is incorrect or expired."), { status: 422 });
+        const verification = messageBirdKeyKind(providerSecret.access_key) === "platform"
+          ? await messageBird("/v1/verify/verifications/check", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ to: { phone_number: challenge.phone }, code }) }, providerSecret.access_key) as Record<string, unknown>
+          : await messageBird(`/verify/${encodeURIComponent(challenge.provider_verify_id)}?token=${encodeURIComponent(code)}`, { method: "GET" }, providerSecret.access_key) as Record<string, unknown>;
+        if (messageBirdKeyKind(providerSecret.access_key) === "platform" ? verification?.success !== true : verification?.status !== "verified") throw Object.assign(new Error("That security code is incorrect or expired."), { status: 422 });
       } catch (error) {
         if ((error as { status?: number }).status === 422 && challenge.attempt_count + 1 >= settings.maxAttempts)
           await admin.from("customer_sms_challenges").update({ status: "failed" }).eq("id", challenge.id);

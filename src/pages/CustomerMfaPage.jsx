@@ -5,6 +5,7 @@ import { formatUsPhone, toUsE164 } from "../lib/phone";
 import { getCustomerSmsStatus, sendCustomerSmsCode, verifyCustomerSmsCode } from "../lib/customerSms";
 import { useAuth } from "../state/AuthContext";
 import SmsConsentDisclosure from "../components/SmsConsentDisclosure";
+import { authDestination } from "../lib/signupCompletion";
 
 const friendlySmsError = (error) => {
   if (/incorrect|expired|no longer active/i.test(error?.message || ""))
@@ -18,8 +19,7 @@ export default function CustomerMfaPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const destination = useMemo(() => {
-    const requested = params.get("return") || "/account";
-    return requested.startsWith("/") && !requested.startsWith("//") ? requested : "/account";
+    return authDestination(params.get("return"), params.get("purpose") === "signup" ? "/" : "/account");
   }, [params]);
   const requestedPurpose = params.get("purpose");
   const purpose = ["signup", "signin", "recovery", "enrollment"].includes(requestedPurpose) ? requestedPurpose : "signin";
@@ -69,6 +69,7 @@ export default function CustomerMfaPage() {
   if (!requiresCustomerMfa) return <Navigate to={destination} replace />;
 
   const sendCode = async () => {
+    if (busy || resendSeconds > 0) return;
     setBusy(true);
     setMessage("");
     try {
@@ -114,12 +115,12 @@ export default function CustomerMfaPage() {
     : stage === "blocked" ? null
     : stage === "setup" ? <div className="customer-mfa-form">
       <label>Mobile number<span className="phone-input"><span aria-hidden="true">+1</span><input type="tel" inputMode="tel" autoComplete="tel-national" placeholder="(212) 555-0123" maxLength="14" value={phone} onChange={(event) => setPhone(formatUsPhone(event.target.value))} /></span><small>U.S. mobile number. Standard carrier messaging rates may apply.</small></label>
-      <button className="button button-gold full" onClick={sendCode} disabled={busy}><MessageSquareText /> {busy ? "Sending securely…" : "Send Code"}</button>
+      <button className="button button-gold full" onClick={sendCode} disabled={busy || resendSeconds > 0}><MessageSquareText /> {busy ? "Sending securely…" : resendSeconds > 0 ? `Try again in ${resendSeconds}s` : "Send Code"}</button>
       <SmsConsentDisclosure />
     </div>
     : stage === "send" ? <div className="customer-mfa-form">
       <div className="verified-destination"><MessageSquareText /><span><small>Verification destination</small><b>{maskedPhone || "Your verified phone"}</b></span></div>
-      <button className="button button-gold full" onClick={sendCode} disabled={busy}>{busy ? "Sending securely…" : "Send Code"}</button>
+      <button className="button button-gold full" onClick={sendCode} disabled={busy || resendSeconds > 0}>{busy ? "Sending securely…" : resendSeconds > 0 ? `Try again in ${resendSeconds}s` : "Send Code"}</button>
       <SmsConsentDisclosure />
     </div>
     : <form className="customer-mfa-form" onSubmit={verify}>

@@ -1,3 +1,5 @@
+import { service } from "../_lib/payments.js";
+import { rateLimit, strictObject, securityLog } from "../_lib/security.js";
 import { authenticateCustomer, customerOrder, json, readJson } from "../_lib/payments.js";
 import { createQuote, refreshCardOrder } from "../_lib/quotes.js";
 
@@ -7,7 +9,8 @@ export default async function handler(request, response) {
   if (request.method !== "POST") return json(response, 405, { error: "Method not allowed" });
   try {
     const { user } = await authenticateCustomer(request, { requireSms: true });
-    const body = await readJson(request);
+    await rateLimit(service(), "price_quote", user.id, 20, 600);
+    const body = strictObject(await readJson(request), ['order_id', 'cart']);
     if (body.order_id != null) {
       const orderId = Number(body.order_id);
       if (!Number.isSafeInteger(orderId) || orderId < 1) return json(response, 400, { error: "Invalid order" });
@@ -20,7 +23,7 @@ export default async function handler(request, response) {
     }
     return json(response, 201, await createQuote(user.id, body.cart));
   } catch (error) {
-    console.error("checkout quote failed", error);
+    securityLog("checkout quote failed", error);
     return json(response, error.status || 500, {
       error: error.status ? error.message : "A fresh market quote is temporarily unavailable. Please try again.",
     });

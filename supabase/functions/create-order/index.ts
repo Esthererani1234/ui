@@ -1,6 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.110.6";
 
+import { checkSession, rateLimit, readObject, safeLog } from "../_shared/security.ts";
+
 const allowedOrigins = new Set([
   "https://goldonthespot.com",
   "https://www.goldonthespot.com",
@@ -110,9 +112,11 @@ Deno.serve(async (request: Request) => {
       return json(request, { error: "Checkout request must be valid JSON." }, 400);
     }
 
+    if(Object.keys(body).some(key=>!["quote_id","cart","contact","shipping","payment_method","notes","terms"].includes(key)))
+      return json(request,{error:"Invalid checkout fields."},400);
     const admin = createClient(supabaseUrl, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
     const sessionId = String(jwtPayload(token).session_id || "");
-    const [{ data: risk }, { data: securitySettings }, { data: smsSession }] =
+    const [{ data: risk, error: riskError }, { data: securitySettings, error: settingsError }, { data: smsSession, error: smsError }] =
       await Promise.all([
         admin
           .from("customer_risk_profiles")
@@ -125,8 +129,10 @@ Deno.serve(async (request: Request) => {
           .in("key", ["sms_provider_ready", "customer_sms_mfa_required", "accepting_orders"]),
         sessionId
           ? admin.from("customer_sms_sessions").select("session_id").eq("user_id", user.id).eq("session_id", sessionId).gt("expires_at", new Date().toISOString()).maybeSingle()
-          : Promise.resolve({ data: null }),
+          : Promise.resolve({ data: null, error: null }),
       ]);
+    if (riskError || settingsError || smsError) throw riskError || settingsError || smsError;
+    await checkSession(admin, user.id, sessionId, true);
     if (risk?.status === "blocked" || risk?.checkout_disabled)
       return json(request, { error: "Checkout is disabled for this account. Contact support for review." }, 403);
     const authSettings = Object.fromEntries(
@@ -135,8 +141,7 @@ Deno.serve(async (request: Request) => {
     if (authSettings.accepting_orders === false)
       return json(request, { error: "Checkout is temporarily paused. Your cart is saved; please try again later." }, 503);
     const smsRequired =
-      Boolean(authSettings.sms_provider_ready) &&
-      Boolean(authSettings.customer_sms_mfa_required);
+      authSettings.customer_sms_mfa_required !== false;
     if (smsRequired && !smsSession)
       return json(request, { error: "Verify the SMS code on your account before checkout." }, 403);
 
@@ -214,7 +219,8 @@ Deno.serve(async (request: Request) => {
     }
     return json(request, data, 201);
   } catch (error) {
-    console.error("checkout error", error);
-    return json(request, { error: "Checkout is temporarily unavailable. Please try again." }, 500);
+    safeLog("checkout_error", error);
+    const safe=error as {status?:number;message?:string};
+    return json(request, { error: safe.status && safe.status<500 ? safe.message : "Checkout is temporarily unavailable. Please try again." }, safe.status || 500);
   }
 });

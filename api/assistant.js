@@ -3,9 +3,7 @@ export const config = { runtime: "edge" };
 const OPENAI_API = "https://api.openai.com/v1";
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "https://jwquqphzsnnijopabuhn.supabase.co";
 const SUPABASE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "sb_publishable_UmuOpNm2x13dOqlv1jL3Og_XSQtFuHV";
-const WINDOW_MS = 10 * 60 * 1000;
-const MAX_REQUESTS = 20;
-const rateLimits = new Map();
+const SERVER_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 let catalogCache = { expires: 0, products: [] };
 let marketCache = { expires: 0, market: null };
 
@@ -23,33 +21,22 @@ const clientId = (request) =>
   || request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
   || "anonymous";
 
-function allowedByMemoryRateLimit(request) {
-  const now = Date.now();
-  const key = clientId(request);
-  const current = rateLimits.get(key);
-  if (!current || current.resetAt <= now) {
-    rateLimits.set(key, { count: 1, resetAt: now + WINDOW_MS });
-    return true;
-  }
-  current.count += 1;
-  return current.count <= MAX_REQUESTS;
-}
-
 async function allowedByRateLimit(request) {
+  if (!SERVER_KEY) return false;
   try {
     const raw = `${clientId(request)}|${process.env.AI_RATE_LIMIT_SALT || "goldonthespot-ai-v1"}`;
     const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(raw));
     const clientHash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
     const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_ai_chat_rate_limit`, {
       method: "POST",
-      headers: { apikey: SUPABASE_KEY, "content-type": "application/json" },
+      headers: { apikey: SERVER_KEY, ...(SERVER_KEY.startsWith("eyJ") ? {authorization:`Bearer ${SERVER_KEY}`} : {}), "content-type": "application/json" },
       body: JSON.stringify({ p_client_hash: clientHash }),
     });
     if (response.ok) return Boolean(await response.json());
   } catch {
-    // Fall through to the per-instance limiter if the durable limiter is unavailable.
+    // Fail closed when the durable limiter is unavailable.
   }
-  return allowedByMemoryRateLimit(request);
+  return false;
 }
 
 async function getCatalog() {

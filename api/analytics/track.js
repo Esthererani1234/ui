@@ -1,3 +1,4 @@
+import { rateLimit, securityLog } from "../_lib/security.js";
 import crypto from "node:crypto";
 import { json, readJson, service } from "../_lib/payments.js";
 
@@ -67,6 +68,8 @@ export default async function handler(request, response) {
       return json(response, 202, { accepted: true });
     }
 
+    const ip = String(request.headers["x-vercel-forwarded-for"] || request.socket?.remoteAddress || "unknown").split(",")[0].trim();
+    await rateLimit(service(), "analytics_ip", digest("ip",ip), 60, 60);
     const body = await readJson(request, 50_000);
     if (
       !UUID_PATTERN.test(String(body.visitor_id || "")) ||
@@ -121,7 +124,7 @@ export default async function handler(request, response) {
     if (error) throw error;
     return json(response, 202, { accepted: true, events: rows.length });
   } catch (error) {
-    console.error("analytics tracking failed", error);
+    securityLog("analytics_tracking_failed", error);
     // A telemetry failure must not encourage storefront retries or affect UX.
     return json(response, 202, { accepted: false });
   }

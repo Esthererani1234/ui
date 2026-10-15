@@ -30,8 +30,8 @@ export const json = (response, status, body) => {
 
 export async function readJson(request, maxBytes = 30_000) {
   const raw = await readRaw(request, maxBytes);
-  try { return JSON.parse(raw.toString("utf8")); }
-  catch { throw new Error("Request must contain valid JSON"); }
+  try { const body = JSON.parse(raw.toString("utf8")); if (!body || typeof body!=="object" || Array.isArray(body)) throw new Error(); return body; }
+  catch { throw Object.assign(new Error("Request must contain a JSON object"), {status:400}); }
 }
 
 export async function readRaw(request, maxBytes = 1_000_000) {
@@ -39,7 +39,7 @@ export async function readRaw(request, maxBytes = 1_000_000) {
   let total = 0;
   for await (const chunk of request) {
     total += chunk.length;
-    if (total > maxBytes) throw new Error("Request is too large");
+    if (total > maxBytes) throw Object.assign(new Error("Request is too large"), {status:413});
     chunks.push(chunk);
   }
   return Buffer.concat(chunks);
@@ -67,7 +67,7 @@ export async function customerSmsStatus(userId, token) {
   if (settingsError) throw settingsError;
   if (sessionError) throw sessionError;
   const settings = Object.fromEntries((rows || []).map((row) => [row.key, row.value]));
-  const required = Boolean(settings.sms_provider_ready) && Boolean(settings.customer_sms_mfa_required);
+  const required = settings.customer_sms_mfa_required !== false;
   return { required, verified: !required || Boolean(verified), sessionId, record: verified || null };
 }
 
@@ -79,11 +79,11 @@ export async function authenticateCustomer(request, { requireSms = false } = {})
   const { data: { user }, error } = await client.auth.getUser(authorization.slice(7));
   if (error || !user) throw Object.assign(new Error("Your session expired"), { status: 401 });
   const token = authorization.slice(7);
-  if (requireSms) {
-    const status = await customerSmsStatus(user.id, token);
-    if (!status.verified)
-      throw Object.assign(new Error("Enter the SMS security code before continuing."), { status: 403, code: "sms_verification_required" });
-  }
+  const {data: validSession, error: sessionError} = await service().rpc("check_customer_session", {
+    p_user_id:user.id, p_session_id:authSessionId(token), p_require_sms:requireSms,
+  });
+  if(sessionError) throw Object.assign(new Error("Security checks are temporarily unavailable."),{status:503});
+  if(validSession !== true) throw Object.assign(new Error(requireSms ? "Sign in and verify your SMS code before continuing." : "Your session expired. Please sign in again."),{status:requireSms?403:401});
   return { user, token };
 }
 
@@ -108,7 +108,9 @@ export async function customerOrder(orderId, userId) {
 export function assertPayable(order, method) {
   if (order.payment_method !== method) throw Object.assign(new Error("Payment method does not match this order"), { status: 409 });
   if (["paid", "refunded", "disputed"].includes(order.payment_status)) throw Object.assign(new Error("This order cannot accept another payment"), { status: 409 });
-  if (order.price_locked_until && Date.now() > new Date(order.price_locked_until).getTime()) throw Object.assign(new Error("The price lock expired. Return to your cart for a new live quote."), { status: 409 });
+  if (!["pending_review", "awaiting_payment"].includes(order.status)) throw Object.assign(new Error("This order cannot accept payment."), {status:409});
+  if (!Number.isFinite(Number(order.total)) || Number(order.total)<=0) throw Object.assign(new Error("Invalid order total."), {status:409});
+  if (!order.price_locked_until || !Number.isFinite(new Date(order.price_locked_until).getTime()) || Date.now() >= new Date(order.price_locked_until).getTime()) throw Object.assign(new Error("The price lock expired. Return to your cart for a new live quote."), { status: 409 });
 }
 
 export const safeProviderPayload = (payload) => {
@@ -132,31 +134,29 @@ export async function insertAttempt(order, provider, providerId, status, checkou
     order_id: order.id, provider, provider_payment_id: providerId, status,
     amount: order.total, currency: "USD", checkout_url: checkoutUrl || null,
     expires_at: expiresAt || null, provider_payload: safeProviderPayload(providerPayload), updated_at: new Date().toISOString(),
-  }, { onConflict: "provider,provider_payment_id" });
+  }, { onConflict: "provider,provider_payment_id", ignoreDuplicates: true });
   if (error) throw error;
-  const paid = status === "paid";
-  let orderUpdate = db.from("orders").update({
+  // Establish the provider reference, then let the guarded state machine
+  // handle financial state. A late response cannot reopen a cancelled order.
+  const { error: orderError } = await db.from("orders").update({
     payment_provider: provider, provider_payment_id: providerId || null,
     provider_checkout_url: checkoutUrl || null, payment_due_at: expiresAt || order.price_locked_until,
-    payment_status: paid ? "paid" : provider === "manual_wire" ? "pending" : "unpaid",
-    status: paid ? "payment_received" : "awaiting_payment",
-    ...(paid ? { paid_at: new Date().toISOString() } : {}),
-    updated_at: new Date().toISOString(),
-  }).eq("id", order.id);
-  // A late API response must not downgrade an order that a verified webhook
-  // already moved into a terminal payment state.
-  if (!paid) orderUpdate = orderUpdate.not("payment_status", "in", "(paid,refunded,disputed)");
-  const { error: orderError } = await orderUpdate;
+  }).eq("id", order.id).not("payment_status", "in", "(paid,refunded,disputed)");
   if (orderError) throw orderError;
+  const paymentStatus = status === "paid" ? "paid" : status === "failed" ? "failed" : "pending";
+  const { error: stateError } = await db.rpc("mark_payment_state", {
+    p_order_id:order.id,p_provider:provider,p_provider_payment_id:providerId,p_payment_status:paymentStatus,p_attempt_status:status,
+  });
+  if(stateError) throw stateError;
 }
 
-export async function recordEvent(provider, eventId, orderId, eventType, verified, payload) {
-  const { data, error } = await service().from("payment_events").upsert({
-    provider, provider_event_id: eventId, order_id: orderId || null, event_type: eventType,
-    verified, payload: safeProviderPayload(payload), processed_at: new Date().toISOString(), error_message: null,
-  }, { onConflict: "provider,provider_event_id", ignoreDuplicates: true }).select("id").maybeSingle();
-  if (error) throw error;
-  return Boolean(data);
+export async function applyPaymentEvent(provider,eventId,orderId,eventType,providerId,state,payload) {
+  const {data,error}=await service().rpc("apply_payment_event",{
+    p_provider:provider,p_event_id:eventId,p_order_id:orderId,p_event_type:eventType,
+    p_provider_payment_id:providerId,p_payment_status:state[0],p_attempt_status:state[1],p_payload:safeProviderPayload(payload),
+  });
+  if(error) throw error;
+  return data;
 }
 
 export async function sendPaymentEmail({ to, subject, html }) {

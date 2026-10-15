@@ -60,14 +60,17 @@ export default function AccountPage() {
   useEffect(() => {
     let activeRequest = true;
     setLoading(true);
+    setLoadError("");
     Promise.all([
       supabase.from("orders").select(orderFields).eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("support_tickets").select("id, ticket_number, subject, status, admin_response, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
     ]).then(([orderResult, ticketResult]) => {
       if (!activeRequest) return;
       if (orderResult.error || ticketResult.error) setLoadError("Some account information could not be loaded. Please refresh and try again.");
-      setOrders(orderResult.data || []); setTickets(ticketResult.data || []); setLoading(false);
-    });
+      if (!orderResult.error) setOrders(orderResult.data || []);
+      if (!ticketResult.error) setTickets(ticketResult.data || []);
+      setLoading(false);
+    }).catch(() => { if(activeRequest) { setLoadError("Your account connection was interrupted. Please refresh and try again."); setLoading(false); } });
     return () => { activeRequest = false; };
   }, [user.id]);
   useEffect(() => {

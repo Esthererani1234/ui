@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.110.6";
 
 const allowedOrigins = new Set([
   "https://goldonthespot.com",
@@ -110,8 +110,14 @@ async function rateLimited(req: Request, client: ReturnType<typeof createClient>
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "anonymous";
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${ip}|gots-store-assistant-v1`));
   const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-  const { data, error } = await client.rpc("check_ai_chat_rate_limit", { p_client_hash: hash });
-  return !error && data === false;
+  try {
+    const keys=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}");
+    const key=keys.default || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if(!key) return true;
+    const limiter=createClient(Deno.env.get("SUPABASE_URL") || "",key,{auth:{persistSession:false}});
+    const { data, error } = await limiter.rpc("check_ai_chat_rate_limit", { p_client_hash: hash });
+    return Boolean(error) || data !== true;
+  } catch { return true; }
 }
 
 async function getMarket() {

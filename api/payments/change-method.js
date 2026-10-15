@@ -1,3 +1,4 @@
+import { rateLimit, strictObject, securityLog } from "../_lib/security.js";
 import {
   authenticateCustomer,
   customerOrder,
@@ -16,7 +17,8 @@ export default async function handler(request, response) {
 
   try {
     const { user } = await authenticateCustomer(request, { requireSms: true });
-    const body = await readJson(request);
+    await rateLimit(service(), "payment_change", user.id, 10, 600);
+    const body = strictObject(await readJson(request), ['order_id', 'payment_method']);
     const orderId = Number(body.order_id);
 
     if (!Number.isSafeInteger(orderId) || orderId < 1) {
@@ -72,7 +74,7 @@ export default async function handler(request, response) {
 
     return json(response, 200, data);
   } catch (error) {
-    console.error("change payment method failed", error);
+    securityLog("change payment method failed", error);
     return json(response, error.status || 500, {
       error: error.status
         ? error.message

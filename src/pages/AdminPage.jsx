@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   Boxes,
@@ -24,6 +24,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { invokeFunction } from "../lib/functionRequest";
 import { supabase } from "../lib/supabase";
 import { money, orderStatusLabel, spotAdjustmentLabel } from "../lib/pricing";
 import {
@@ -123,9 +124,14 @@ export default function AdminPage() {
   const [catalogMetal, setCatalogMetal] = useState("all");
   const [catalogStatus, setCatalogStatus] = useState("all");
   const [catalogPage, setCatalogPage] = useState(1);
+  const [loadBusy, setLoadBusy] = useState(false);
+  const loadVersion = useRef(0);
   const [orderFilter, setOrderFilter] = useState("all");
 
   const load = async () => {
+    const version = ++loadVersion.current;
+    setLoadBusy(true);
+    try {
     const [
       { data: productData, error: productError },
       { data: orderData, error: orderError },
@@ -145,9 +151,10 @@ export default function AdminPage() {
         .order("created_at", { ascending: false })
         .limit(100),
     ]);
-    setProducts(productData || []);
-    setOrders(orderData || []);
-    setTickets(ticketData || []);
+    if (version !== loadVersion.current) return;
+    if (!productError) setProducts(productData || []);
+    if (!orderError) setOrders(orderData || []);
+    if (!ticketError) setTickets(ticketData || []);
     const failures = [
       productError && "products",
       orderError && "orders",
@@ -155,10 +162,13 @@ export default function AdminPage() {
     ].filter(Boolean);
     setMessage(
       failures.length
-        ? `${failures.join(", ")} could not be loaded. Refresh and try again.`
+        ? `${failures.join(", ")} could not be refreshed. Your last loaded data is still shown. Retry below.`
         : "",
     );
+    } catch { if (version === loadVersion.current) setMessage("The admin connection was interrupted. Retry loading your data."); }
+    finally { if (version === loadVersion.current) setLoadBusy(false); }
   };
+  useEffect(() => () => { loadVersion.current += 1; }, []);
   useEffect(() => {
     supabase.auth.mfa
       .getAuthenticatorAssuranceLevel()
@@ -199,7 +209,7 @@ export default function AdminPage() {
   const metrics = useMemo(
     () => ({
       revenue: orders
-        .filter((o) => !["cancelled", "pending_review"].includes(o.status))
+        .filter((o) => o.payment_status === "paid" && o.status !== "cancelled")
         .reduce((sum, o) => sum + Number(o.total), 0),
       open: orders.filter((o) => !["completed", "cancelled"].includes(o.status))
         .length,
@@ -306,14 +316,8 @@ export default function AdminPage() {
 
   const saveOrderDetails = async (updates) => {
     setMessage("");
-    const { data, error } = await supabase.functions.invoke(
-      "admin-operations",
-      { body: { action: "update_order", ...updates } },
-    );
-    if (error || data?.error) {
-      setMessage(data?.error || error.message);
-      return false;
-    }
+    try { await invokeFunction(supabase,"admin-operations",{action:"update_order",...updates}); }
+    catch(error) { setMessage(error.message); return false; }
     setSelectedOrder(null);
     await load();
     return true;
@@ -531,7 +535,7 @@ export default function AdminPage() {
             </button>
           )}
         </header>
-        {message && <div className="form-message error">{message}</div>}
+        {message && <div className="form-message error" role="alert">{message} <button type="button" className="text-button" disabled={loadBusy} onClick={load}>{loadBusy ? "Loading…" : "Retry loading"}</button></div>}
         {tab === "overview" && (
           <>
             <div className="metric-grid">
@@ -1544,8 +1548,9 @@ function OrderDetailModal({ order, onClose, onSave }) {
             <h3>Fulfillment controls</h3>
             <div className="form-row">
               <label>Order status<select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}>{statuses.map((status) => <option key={status} value={status}>{orderStatusLabel(status)}</option>)}</select></label>
-              <label>Payment status<select value={form.paymentStatus} onChange={(event) => setForm({ ...form, paymentStatus: event.target.value })}>{["unpaid", "pending", "confirming", "paid", "partially_paid", "expired", "refunded", "failed", "disputed"].map((status) => <option key={status} value={status}>{orderStatusLabel(status)}</option>)}</select></label>
+              <label>Payment status<select disabled={order.payment_method !== "wire" || order.status === "cancelled"} value={form.paymentStatus} onChange={(event) => setForm({ ...form, paymentStatus: event.target.value })}>{["unpaid", "pending", "confirming", "paid", "partially_paid", "expired", "refunded", "failed", "disputed"].map((status) => <option key={status} value={status}>{orderStatusLabel(status)}</option>)}</select></label>
             </div>
+            {order.payment_method !== "wire" && <p className="field-help">Payment status is confirmed by the payment provider. Review flagged orders in the risk center before processing or shipping.</p>}
             <label>Tracking number<input maxLength="200" value={form.trackingNumber} onChange={(event) => setForm({ ...form, trackingNumber: event.target.value })} /></label>
             <label>Private internal notes<textarea rows="5" maxLength="5000" value={form.internalNotes} onChange={(event) => setForm({ ...form, internalNotes: event.target.value })} /></label>
             <label>Required audit reason<textarea required minLength="3" rows="3" maxLength="1000" value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} placeholder="Why are you changing this order?" /></label>

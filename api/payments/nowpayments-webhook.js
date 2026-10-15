@@ -1,5 +1,6 @@
+import { securityLog } from "../_lib/security.js";
 import crypto from "node:crypto";
-import { json, readRaw, recordEvent, service } from "../_lib/payments.js";
+import { json, readRaw, applyPaymentEvent, service } from "../_lib/payments.js";
 
 export const config = { api: { bodyParser: false } };
 
@@ -83,24 +84,13 @@ export default async function handler(request, response) {
 
     const paymentStatus = String(payment.payment_status || "").toLowerCase();
     const eventId = `${paymentId}:${paymentStatus}:${String(payment.actually_paid ?? notification.actually_paid ?? "")}`;
-    const fresh = await recordEvent("nowpayments", eventId, order.id, `payment.${paymentStatus}`, true, payment);
-    if (!fresh) return json(response, 200, { received: true, duplicate: true });
-
     const state = mapped(paymentStatus);
     if (!state) return json(response, 200, { received: true, ignored: true });
-    const [orderPaymentStatus, attemptStatus] = state;
-    const { error } = await service().rpc("mark_payment_state", {
-      p_order_id: order.id,
-      p_provider: "nowpayments",
-      p_provider_payment_id: invoiceId,
-      p_payment_status: orderPaymentStatus,
-      p_attempt_status: attemptStatus,
-      p_paid_at: orderPaymentStatus === "paid" ? new Date().toISOString() : null,
-    });
-    if (error) throw error;
+    const fresh = await applyPaymentEvent("nowpayments", eventId, order.id, `payment.${paymentStatus}`, invoiceId, state, payment);
+    if (!fresh) return json(response, 200, { received: true, duplicate: true });
     return json(response, 200, { received: true });
   } catch (error) {
-    console.error("NOWPayments webhook failed", error);
-    return json(response, 400, { error: "Invalid notification" });
+    securityLog("nowpayments_webhook_failed",error);
+    return json(response, 500, { error: "Payment notification could not be processed" });
   }
 }

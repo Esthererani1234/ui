@@ -1,3 +1,5 @@
+import { service } from "../_lib/payments.js";
+import { rateLimit, strictObject, securityLog, requestHash } from "../_lib/security.js";
 import Stripe from "stripe";
 import {
   assertPayable,
@@ -22,12 +24,14 @@ const safeMessage = (error) => {
 export default async function handler(request, response) {
   if (request.method !== "POST") return json(response, 405, { error: "Method not allowed" });
   let order;
+  let claimHash;
   try {
     if (process.env.STRIPE_ENABLED !== "true" || !process.env.STRIPE_SECRET_KEY) {
       throw Object.assign(new Error("Card payment is temporarily unavailable."), { status: 503 });
     }
     const { user } = await authenticateCustomer(request, { requireSms: true });
-    const body = await readJson(request);
+    await rateLimit(service(), "card_confirm", user.id, 10, 600);
+    const body = strictObject(await readJson(request), ['order_id', 'confirmation_token_id']);
     const orderId = Number(body.order_id);
     const confirmationTokenId = String(body.confirmation_token_id || "");
     if (!Number.isSafeInteger(orderId) || orderId < 1) return json(response, 400, { error: "Invalid order" });
@@ -37,6 +41,10 @@ export default async function handler(request, response) {
 
     order = await customerOrder(orderId, user.id);
     assertPayable(order, "card");
+    claimHash = requestHash(confirmationTokenId);
+    const {data: claimed,error: claimError}=await service().rpc("claim_card_payment",{p_order_id:order.id,p_user_id:user.id,p_request_hash:claimHash,p_expected_total:Number(order.total)});
+    if(claimError) throw claimError;
+    if(!claimed) throw Object.assign(new Error("A payment is already in progress for this order. Check your order before trying again."),{status:409});
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     const intent = await stripe.paymentIntents.create({
       amount: Math.round(Number(order.total) * 100),
@@ -65,7 +73,7 @@ export default async function handler(request, response) {
         intent,
       );
     } catch (recordError) {
-      console.error("Stripe confirmed but local attempt recording failed", intent.id, recordError);
+      securityLog("stripe_attempt_record_failed", recordError);
       if (intent.status !== "succeeded") throw recordError;
     }
 
@@ -76,10 +84,16 @@ export default async function handler(request, response) {
       client_secret: intent.status === "requires_action" ? intent.client_secret : null,
     });
   } catch (error) {
-    console.error("embedded card confirmation failed", error?.type || error?.code || error);
+    securityLog("card_confirmation_failed", error);
     const intent = error?.payment_intent;
-    if (order && intent?.id) {
+    if (order && intent?.id && ["requires_payment_method", "canceled"].includes(intent.status)) {
       await insertAttempt(order, "stripe", intent.id, "failed", null, order.price_locked_until, intent).catch(() => {});
+    }
+    // Release only a definitive declined/cancelled intent. Network timeouts
+    // keep the claim: retrying with a new token could otherwise double-charge.
+    if(order && claimHash && intent?.id && ["requires_payment_method","canceled"].includes(intent.status)) {
+      const {error: releaseError}=await service().rpc("release_card_payment",{p_order_id:order.id,p_request_hash:claimHash});
+      if(releaseError) securityLog("card_claim_release_failed", releaseError);
     }
     const expired = error?.status === 409 && /expired/i.test(error.message || "");
     return json(response, expired ? 409 : (error.status || (error?.type === "StripeCardError" ? 402 : 500)), {

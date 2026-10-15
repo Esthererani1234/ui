@@ -17,18 +17,12 @@ import {
   UserCheck,
   X,
 } from "lucide-react";
+import { invokeFunction } from "../../lib/functionRequest";
 import { supabase } from "../../lib/supabase";
 import { money, orderStatusLabel } from "../../lib/pricing";
 import SalesAnalyticsPanel from "./SalesAnalyticsPanel";
 
-const invokeAdmin = async (body) => {
-  const { data, error } = await supabase.functions.invoke("admin-operations", {
-    body,
-  });
-  if (error || data?.error)
-    throw new Error(data?.error || error?.message || "Admin operation failed");
-  return data;
-};
+const invokeAdmin = (body) => invokeFunction(supabase,"admin-operations",body);
 
 const smsAdminRequest = async (method = "GET", body) => {
   const { data, error } = await supabase.functions.invoke("customer-sms", {
@@ -281,8 +275,8 @@ export function RiskAdminPanel() {
       .order("risk_score", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(500);
-    if (error) setMessage(error.message);
-    setReviews(data || []);
+    if (error) setMessage("The risk queue could not be refreshed. Please try again.");
+    else { setReviews(data || []); setMessage(""); }
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
@@ -372,7 +366,10 @@ const storeDefaults = {
   shipping_flat: 35,
   free_shipping_threshold: 5000,
   card_surcharge_percent: 4,
-  price_lock_minutes: 5,
+  price_lock_minutes: 10,
+  risk_elevated_value: 5000,
+  risk_high_value: 10000,
+  risk_very_high_value: 50000,
   store_announcement: "",
   accepting_orders: true,
 };
@@ -395,6 +392,9 @@ export function StoreAdminPanel() {
     setMessage("");
     try {
       await invokeAdmin({ action: "update_store_settings", settings: {
+        risk_elevated_value:Number(form.risk_elevated_value),
+        risk_high_value:Number(form.risk_high_value),
+        risk_very_high_value:Number(form.risk_very_high_value),
         shipping_flat: Number(form.shipping_flat),
         free_shipping_threshold: Number(form.free_shipping_threshold),
         card_surcharge_percent: Number(form.card_surcharge_percent),
@@ -424,6 +424,8 @@ export function StoreAdminPanel() {
         <label>Card surcharge (%)<input type="number" min="0" max="10" step="0.1" value={form.card_surcharge_percent} onChange={(event) => numberField("card_surcharge_percent", event.target.value)} /></label>
         <label>Price lock (minutes)<input type="number" min="1" max="30" step="1" value={form.price_lock_minutes} onChange={(event) => numberField("price_lock_minutes", event.target.value)} /></label>
       </div>
+      <div className="form-row">{[["risk_elevated_value","Elevated order value ($)"],["risk_high_value","High order value ($)"],["risk_very_high_value","Very high order value ($)"]].map(([key,label])=><label key={key}>{label}<input type="number" min="1" max="10000000" step="1" value={form[key]} onChange={event=>numberField(key,event.target.value)} /></label>)}</div>
+      <p className="field-help">These amounts contribute to risk scoring. Orders flagged for review require approval before fulfillment.</p>
       <label>Store announcement<input maxLength="160" placeholder="Example: Free insured shipping on orders over $5,000" value={form.store_announcement || ""} onChange={(event) => setForm({ ...form, store_announcement: event.target.value })} /><small className="field-help">Leave blank to hide the announcement bar. Maximum 160 characters.</small></label>
       <label>Required change reason<textarea rows="3" maxLength="1000" placeholder="Why are these settings changing?" value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} /></label>
       {message && <div className="form-message">{message}</div>}
@@ -466,14 +468,17 @@ function WireSettingsPanel() {
 
 export function AuditAdminPanel() {
   const [logs, setLogs] = useState([]);
+  const [message, setMessage] = useState("");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const load = async () => {
     setLoading(true);
-    const { data } = await supabase.from("admin_audit_log").select("*").order("created_at", { ascending: false }).limit(500);
-    setLogs(data || []); setLoading(false);
+    const { data, error } = await supabase.from("admin_audit_log").select("*").order("created_at", { ascending: false }).limit(500);
+    if (error) setMessage("Audit history could not be refreshed. Try again.");
+    else { setLogs(data || []); setMessage(""); }
+    setLoading(false);
   };
   useEffect(() => { load(); }, []);
   const filtered = logs.filter((log) => `${log.action} ${log.target_type} ${log.target_id || ""} ${log.reason || ""}`.toLowerCase().includes(query.toLowerCase()));
-  return <section className="admin-panel"><div className="panel-title enterprise-panel-title"><div><h2>Immutable admin activity</h2><p>Sensitive customer, order, fraud, and security-policy actions are recorded here.</p></div><button className="button button-outline" onClick={load}><RefreshCw /> Refresh</button></div><div className="enterprise-toolbar"><label><Search /><input placeholder="Search actions, targets, or reasons…" value={query} onChange={(event) => setQuery(event.target.value)} /></label></div>{loading ? <div className="catalog-loading">Loading audit history…</div> : <div className="audit-timeline">{filtered.map((log) => <article key={log.id}><span className="audit-icon"><ShieldCheck /></span><div><header><b>{log.action.replaceAll(".", " ")}</b><time>{dateTime(log.created_at)}</time></header><p>{log.target_type} {log.target_id && `• ${log.target_id}`}</p>{log.reason && <blockquote>{log.reason}</blockquote>}<small>Actor {log.actor_user_id || "system"}</small></div></article>)}</div>}</section>;
+  return <section className="admin-panel"><div className="panel-title enterprise-panel-title"><div><h2>Immutable admin activity</h2><p>Sensitive customer, order, fraud, and security-policy actions are recorded here.</p></div><button className="button button-outline" onClick={load}><RefreshCw /> Refresh</button></div><div className="enterprise-toolbar"><label><Search /><input placeholder="Search actions, targets, or reasons…" value={query} onChange={(event) => setQuery(event.target.value)} /></label></div>{message && <div className="form-message error" role="alert">{message}</div>}{loading ? <div className="catalog-loading">Loading audit history…</div> : <div className="audit-timeline">{filtered.map((log) => <article key={log.id}><span className="audit-icon"><ShieldCheck /></span><div><header><b>{log.action.replaceAll(".", " ")}</b><time>{dateTime(log.created_at)}</time></header><p>{log.target_type} {log.target_id && `• ${log.target_id}`}</p>{log.reason && <blockquote>{log.reason}</blockquote>}<small>Actor {log.actor_user_id || "system"}</small></div></article>)}</div>}</section>;
 }

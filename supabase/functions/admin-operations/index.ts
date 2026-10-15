@@ -1,6 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.110.6";
 
+import { checkSession, rateLimit, readObject, safeLog } from "../_shared/security.ts";
+
 const allowedOrigins = new Set([
   "https://goldonthespot.com",
   "https://www.goldonthespot.com",
@@ -116,7 +118,9 @@ Deno.serve(async (request: Request) => {
     if (!membership)
       return json(request, { error: "Administrator access required" }, 403);
 
-    const body = await request.json();
+    await checkSession(admin, actor.id, String(claims.session_id || ""));
+    await rateLimit(admin, "admin_action", actor.id, 120, 60);
+    const body = await readObject(request, 30000);
     const action = cleanText(body?.action, 80);
     const audit = async (
       auditAction: string,
@@ -396,7 +400,7 @@ Deno.serve(async (request: Request) => {
         (riskResult.data || []).map((risk) => [risk.user_id, risk]),
       );
       const factors = new Map(
-        (mfaResult.data || []).map((factor) => [factor.user_id, factor]),
+        (mfaResult.data as Array<{user_id:string;has_phone_mfa:boolean;has_any_mfa:boolean}> || []).map((factor) => [factor.user_id, factor]),
       );
       const ordersByUser = new Map<string, Array<Record<string, unknown>>>();
       for (const order of ordersResult.data || []) {
@@ -584,7 +588,18 @@ Deno.serve(async (request: Request) => {
         p_internal_notes: cleanText(body?.internal_notes, 5000),
         p_reason: cleanText(body?.reason, 1000),
       });
-      if (error) throw error;
+      if (error) {
+        const messages: Record<string,string> = {
+          "Payment is required before fulfillment":"Confirm payment before processing or shipping this order.",
+          "Complete the risk review before fulfillment":"Approve this order in the risk center before processing or shipping.",
+          "Invalid fulfillment transition":"Process the order before marking it shipped, and ship it before marking it completed.",
+          "A card payment is unresolved. Reconcile it before changing this order.":"A card payment is still unresolved. Check Stripe before cancelling or changing this order.",
+          "Provider payment state must be reconciled by the payment provider":"Card and crypto payment status must come from the payment provider.",
+          "Shipped orders require a return process":"A shipped order must use the return process; it cannot be cancelled and restocked.",
+        };
+        if(messages[error.message]) return json(request,{error:messages[error.message]},409);
+        throw error;
+      }
       return json(request, data);
     }
 
@@ -632,6 +647,11 @@ Deno.serve(async (request: Request) => {
       const cardSurcharge = Number(settings.card_surcharge_percent);
       const priceLock = Number(settings.price_lock_minutes);
       const announcement = cleanText(settings.store_announcement, 160);
+      const riskElevated=Number(settings.risk_elevated_value ?? 5000);
+      const riskHigh=Number(settings.risk_high_value ?? 10000);
+      const riskVeryHigh=Number(settings.risk_very_high_value ?? 50000);
+      if (![riskElevated,riskHigh,riskVeryHigh].every(x=>Number.isFinite(x) && x>0 && x<=10000000) || riskElevated>=riskHigh || riskHigh>=riskVeryHigh)
+        return json(request,{error:"Risk thresholds must be positive and increase from elevated to very high."},400);
       if (reason.length < 3)
         return json(request, { error: "Enter a reason for this store change" }, 400);
       if (!Number.isFinite(shippingFlat) || shippingFlat < 0 || shippingFlat > 10_000)
@@ -643,6 +663,9 @@ Deno.serve(async (request: Request) => {
       if (!Number.isInteger(priceLock) || priceLock < 1 || priceLock > 30)
         return json(request, { error: "Price lock must be from 1 to 30 minutes" }, 400);
       const rows = [
+        { key: "risk_elevated_value", value:riskElevated, is_public:false },
+        { key: "risk_high_value", value:riskHigh, is_public:false },
+        { key: "risk_very_high_value", value:riskVeryHigh, is_public:false },
         { key: "shipping_flat", value: shippingFlat, is_public: true },
         { key: "free_shipping_threshold", value: freeShipping, is_public: true },
         { key: "card_surcharge_percent", value: cardSurcharge, is_public: true },
@@ -653,6 +676,7 @@ Deno.serve(async (request: Request) => {
       const { error } = await admin.from("app_settings").upsert(rows);
       if (error) throw error;
       await audit("store.settings_updated", "store", "storefront", reason, {
+        risk_elevated_value:riskElevated, risk_high_value:riskHigh, risk_very_high_value:riskVeryHigh,
         shipping_flat: shippingFlat,
         free_shipping_threshold: freeShipping,
         card_surcharge_percent: cardSurcharge,
@@ -665,11 +689,11 @@ Deno.serve(async (request: Request) => {
 
     return json(request, { error: "Unsupported admin action" }, 400);
   } catch (error) {
-    console.error("admin operation failed", error);
+    safeLog("admin_operation_failed", error);
     return json(
       request,
-      { error: error instanceof Error ? error.message : "Admin operation failed" },
-      500,
+      { error: (error as {status?: number}).status && (error as {status:number}).status < 500 ? (error as Error).message : "Admin operation could not be completed. Refresh and try again." },
+      (error as {status?:number}).status || 500,
     );
   }
 });

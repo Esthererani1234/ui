@@ -28,6 +28,8 @@ export function cleanCart(cart) {
   if (!Array.isArray(cart) || cart.length < 1 || cart.length > 25) {
     throw Object.assign(new Error("Your cart is empty or invalid."), { status: 400 });
   }
+  if(cart.some(item=>!item || typeof item!=="object" || Array.isArray(item) || Object.keys(item).some(key=>!["product_id","quantity"].includes(key))))
+    throw Object.assign(new Error("Cart contains invalid fields."),{status:400});
   const clean = cart.map((item) => ({
     product_id: Number(item?.product_id),
     quantity: Number(item?.quantity),
@@ -51,13 +53,14 @@ const recordSpot = async (spot) => {
 };
 
 export async function createQuote(userId, cart) {
+  const validatedCart = cleanCart(cart);
   const spot = await fetchRetailSpot();
   const { data, error } = await service().rpc("create_checkout_quote", {
     p_user_id: userId,
-    p_cart: cleanCart(cart),
+    p_cart: validatedCart,
     p_spot: spot,
   });
-  if (error) throw Object.assign(new Error(error.message), { status: 409 });
+  if (error) throw Object.assign(new Error("The quote could not be updated. A payment may still be in progress; check your order before retrying."), { status: 409 });
   await recordSpot(spot);
   return data;
 }
@@ -68,7 +71,7 @@ export async function refreshCardOrder(orderId) {
     p_order_id: orderId,
     p_spot: spot,
   });
-  if (error) throw Object.assign(new Error(error.message), { status: 409 });
+  if (error) throw Object.assign(new Error("The quote could not be updated. A payment may still be in progress; check your order before retrying."), { status: 409 });
   await recordSpot(spot);
   return data;
 }

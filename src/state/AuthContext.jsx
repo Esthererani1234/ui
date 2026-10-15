@@ -10,7 +10,7 @@ export function AuthProvider({ children }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [securityPolicy, setSecurityPolicy] = useState({
     smsProviderReady: false,
-    customerSmsMfaRequired: false,
+    customerSmsMfaRequired: true,
     brandedEmailReady: false,
   });
   const [aal, setAal] = useState("aal1");
@@ -33,7 +33,7 @@ export function AuthProvider({ children }) {
     );
     setSecurityPolicy({
       smsProviderReady: Boolean(values.sms_provider_ready),
-      customerSmsMfaRequired: Boolean(values.customer_sms_mfa_required),
+      customerSmsMfaRequired: values.customer_sms_mfa_required !== false,
       brandedEmailReady: Boolean(values.branded_email_ready),
     });
   };
@@ -62,6 +62,7 @@ export function AuthProvider({ children }) {
         return;
       }
 
+      try {
       const [
         { data: profileData },
         { data: adminData },
@@ -95,11 +96,16 @@ export function AuthProvider({ children }) {
         setCustomerSmsPhone(smsStatus?.phone || "");
       }
       setLoading(false);
+      } catch {
+        if (!active || version !== hydrateVersion) return;
+        setIsAdmin(false); setCustomerSmsVerified(false); setLoading(false);
+      }
     };
 
-    supabase.auth.getSession().then(({ data }) => hydrate(data.session));
+    supabase.auth.getSession().then(({ data }) => hydrate(data.session)).catch(() => { if(active) setLoading(false); });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      queueMicrotask(() => hydrate(nextSession));
+      // Defer until the auth client releases its session lock.
+      setTimeout(() => hydrate(nextSession), 0);
     });
 
     return () => {
@@ -120,7 +126,6 @@ export function AuthProvider({ children }) {
       customerSmsPhone,
       securityPolicy,
       requiresCustomerMfa:
-        securityPolicy.smsProviderReady &&
         securityPolicy.customerSmsMfaRequired,
       loading,
       signOut: () => supabase.auth.signOut(),

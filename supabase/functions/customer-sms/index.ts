@@ -1,5 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.110.6";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.110.6";
+
+import { checkSession, rateLimit, hashSubject, readObject, safeLog } from "../_shared/security.ts";
 
 const allowedOrigins = new Set([
   "https://goldonthespot.com",
@@ -61,7 +63,7 @@ const settingKeys = [
   "sms_provider_tested_at",
 ];
 
-type AdminClient = ReturnType<typeof createClient>;
+type AdminClient = SupabaseClient;
 const readSettings = async (admin: AdminClient) => {
   const { data, error } = await admin.from("app_settings").select("key,value").in("key", settingKeys);
   if (error) throw error;
@@ -70,7 +72,7 @@ const readSettings = async (admin: AdminClient) => {
     provider: String(values.sms_provider_name || "messagebird").toLowerCase(),
     sender: String(values.sms_sender || "").trim(),
     providerReady: Boolean(values.sms_provider_ready),
-    required: Boolean(values.customer_sms_mfa_required),
+    required: values.customer_sms_mfa_required !== false,
     codeTtlSeconds: integer(values.sms_code_ttl_seconds, 60, 600, 300),
     resendSeconds: integer(values.sms_resend_seconds, 30, 180, 30),
     maxAttempts: integer(values.sms_max_attempts, 3, 10, 5),
@@ -176,10 +178,18 @@ Deno.serve(async (request: Request) => {
     const { data: { user }, error: userError } = await userClient.auth.getUser(token);
     if (userError || !user) return json(request, { error: "Your session expired. Please sign in again." }, 401);
     const admin = createClient(url, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
-    const body = await request.json() as Record<string, unknown>;
+    const body = await readObject(request, 10_000) as Record<string, unknown>;
     const action = clean(body.action, 40);
+    const allowedFields: Record<string,string[]> = {
+      status:["action","purpose"], send:["action","purpose","phone"], verify:["action","challenge_id","code"],
+      password_update:["action","password"], admin_get:["action"],
+      admin_update:["action","access_key","sender","required","reason","code_ttl_seconds","resend_seconds","max_attempts","session_hours","test_phone"],
+    };
+    if (!allowedFields[action] || Object.keys(body).some(key=>!allowedFields[action].includes(key))) return json(request,{error:"Invalid request fields."},400);
     const sessionId = String(jwtClaims(token).session_id || "");
     if (!sessionId) return json(request, { error: "Your session expired. Please sign in again." }, 401);
+
+    await checkSession(admin, user.id, sessionId);
 
     if (action === "admin_get" || action === "admin_update") {
       const claims = jwtClaims(token);
@@ -213,6 +223,7 @@ Deno.serve(async (request: Request) => {
       if (reason.length < 3) return json(request, { error: "Enter a reason for this security change." }, 400);
       // The only authoritative connection test is a real Verify request. It
       // validates the key, Verify permission, country route, and SMS billing.
+      await rateLimit(admin, "sms_admin_test", user.id, 3, 3600);
       const testSettings = { sender, codeTtlSeconds, maxAttempts };
       const { verification: testVerification } = await startVerification(accessKey, testPhone, testSettings);
       const testedAt = new Date().toISOString();
@@ -257,15 +268,15 @@ Deno.serve(async (request: Request) => {
     if (action === "status") {
       const [providerSecret, sessionResult] = await Promise.all([
         readSecret(admin).catch(() => null),
-        admin.from("customer_sms_sessions").select("verified_at,expires_at,purpose").eq("user_id", user.id).eq("session_id", sessionId).gt("expires_at", new Date().toISOString()).maybeSingle(),
+        admin.from("customer_sms_sessions").select("verified_at,expires_at,purpose,phone").eq("user_id", user.id).eq("session_id", sessionId).gt("expires_at", new Date().toISOString()).maybeSingle(),
       ]);
       if (sessionResult.error) throw sessionResult.error;
       const configured = settings.provider === "messagebird" && settings.providerReady && isMessageBirdKey(providerSecret?.access_key) && Boolean(settings.sender);
-      const required = configured && settings.required;
+      const required = settings.required;
       const purpose = clean(body.purpose, 20) === "recovery" ? "recovery" : "signin";
       return json(request, {
         configured, required,
-        verified: !required || Boolean(sessionResult.data && (purpose !== "recovery" || sessionResult.data.purpose === "recovery")),
+        verified: !required || Boolean(phoneVerified && sessionResult.data?.phone === savedPhone && (purpose !== "recovery" || sessionResult.data.purpose === "recovery")),
         phone_enrolled: phoneVerified, phone: maskPhone(savedPhone),
         resend_seconds: settings.resendSeconds, code_ttl_seconds: settings.codeTtlSeconds,
       });
@@ -282,17 +293,13 @@ Deno.serve(async (request: Request) => {
       const phone = phoneVerified ? savedPhone : requestedPhone || savedPhone;
       if (!phone) return json(request, { error: "Enter a valid 10-digit U.S. mobile number." }, 400);
       const now = new Date();
-      const [latestResult, hourResult, dayResult] = await Promise.all([
-        admin.from("customer_sms_challenges").select("created_at").eq("user_id", user.id).eq("session_id", sessionId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
-        admin.from("customer_sms_challenges").select("id", { count: "exact", head: true }).eq("user_id", user.id).gte("created_at", new Date(now.getTime() - 3_600_000).toISOString()),
-        admin.from("customer_sms_challenges").select("id", { count: "exact", head: true }).eq("user_id", user.id).gte("created_at", new Date(now.getTime() - 86_400_000).toISOString()),
-      ]);
-      if (latestResult.error || hourResult.error || dayResult.error) throw latestResult.error || hourResult.error || dayResult.error;
-      if (latestResult.data) {
-        const retryAfter = settings.resendSeconds - Math.floor((now.getTime() - new Date(latestResult.data.created_at).getTime()) / 1000);
-        if (retryAfter > 0) return json(request, { error: `Send another code in ${retryAfter} seconds.`, retry_after: retryAfter }, 429);
-      }
-      if ((hourResult.count || 0) >= 5 || (dayResult.count || 0) >= 20) return json(request, { error: "Too many security-code requests. Try again later or contact support." }, 429);
+      // Reserve limits BEFORE calling the paid provider, including failed sends.
+      await rateLimit(admin, "sms_cooldown", user.id, 1, settings.resendSeconds);
+      await rateLimit(admin, "sms_hour", user.id, 5, 3600);
+      await rateLimit(admin, "sms_day", user.id, 20, 86400);
+      const phoneHash = await hashSubject(phone);
+      await rateLimit(admin, "sms_phone_hour", phoneHash, 5, 3600);
+      await rateLimit(admin, "sms_phone_day", phoneHash, 20, 86400);
       const { verification, modernProvider } = await startVerification(providerSecret.access_key, phone, settings);
       if (!settings.providerTestedAt) {
         const testedAt = new Date().toISOString();
@@ -307,7 +314,7 @@ Deno.serve(async (request: Request) => {
           ? new Date(String(verification.validUntilDatetime))
           : new Date(now.getTime() + settings.codeTtlSeconds * 1000);
       const { data: challenge, error: insertError } = await admin.from("customer_sms_challenges").insert({
-        user_id: user.id, session_id: sessionId, provider_verify_id: verification.id, phone, purpose, expires_at: expiresAt.toISOString(),
+        user_id: user.id, session_id: sessionId, provider_verify_id: verification.id, phone, purpose, expires_at: new Date(Math.min(Number.isFinite(expiresAt.getTime()) ? expiresAt.getTime() : now.getTime(), now.getTime() + settings.codeTtlSeconds * 1000)).toISOString(),
       }).select("id").single();
       if (insertError) {
         if (!modernProvider) await messageBird(`/verify/${encodeURIComponent(String(verification.id))}`, { method: "DELETE" }, providerSecret.access_key, "send").catch(() => {});
@@ -317,41 +324,37 @@ Deno.serve(async (request: Request) => {
     }
 
     if (action === "verify") {
-      const challengeId = clean(body.challenge_id, 36);
-      const code = clean(body.code, 6);
-      if (!/^[0-9a-f-]{36}$/i.test(challengeId) || !/^\d{6}$/.test(code)) return json(request, { error: "Enter the complete six-digit security code." }, 400);
-      const { data: challenge, error: challengeError } = await admin.from("customer_sms_challenges").select("*").eq("id", challengeId).eq("user_id", user.id).eq("session_id", sessionId).eq("status", "pending").maybeSingle();
+      const challengeId = typeof body.challenge_id === "string" ? body.challenge_id.trim() : "";
+      const code = typeof body.code === "string" ? body.code.trim() : "";
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(challengeId) || !/^\d{6}$/.test(code)) return json(request, { error: "Enter the complete six-digit security code." }, 400);
+      const { data: challenge, error: challengeError } = await admin.rpc("claim_sms_attempt", {
+        p_challenge_id: challengeId, p_user_id: user.id, p_session_id: sessionId, p_max_attempts: settings.maxAttempts,
+      });
       if (challengeError) throw challengeError;
-      if (!challenge) return json(request, { error: "That security code request is no longer active. Send a new code." }, 410);
-      if (new Date(challenge.expires_at) <= new Date()) {
-        await admin.from("customer_sms_challenges").update({ status: "expired" }).eq("id", challenge.id);
-        return json(request, { error: "That security code expired. Send a new code." }, 410);
-      }
+      if (!challenge) return json(request, { error: "That code is expired or has too many attempts. Send a new code." }, 410);
       const providerSecret = await readSecret(admin);
       if (!providerSecret?.access_key) return json(request, { error: "MessageBird needs to be reconnected by an administrator." }, 503);
-      await admin.from("customer_sms_challenges").update({ attempt_count: challenge.attempt_count + 1 }).eq("id", challenge.id);
       try {
         const verification = messageBirdKeyKind(providerSecret.access_key) === "platform"
           ? await messageBird("/v1/verify/verifications/check", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ to: { phone_number: challenge.phone }, code }) }, providerSecret.access_key, "check") as Record<string, unknown>
           : await messageBird(`/verify/${encodeURIComponent(challenge.provider_verify_id)}?token=${encodeURIComponent(code)}`, { method: "GET" }, providerSecret.access_key, "check") as Record<string, unknown>;
         if (messageBirdKeyKind(providerSecret.access_key) === "platform" ? verification?.success !== true : verification?.status !== "verified") throw Object.assign(new Error("That security code is incorrect or expired."), { status: 422 });
       } catch (error) {
-        if ((error as { status?: number }).status === 422 && challenge.attempt_count + 1 >= settings.maxAttempts)
-          await admin.from("customer_sms_challenges").update({ status: "failed" }).eq("id", challenge.id);
+        if ((error as { status?: number }).status === 422 && challenge.attempt_count >= settings.maxAttempts)
+          await admin.from("customer_sms_challenges").update({ status: "failed" }).eq("id", challenge.id).eq("status", "pending");
         throw error;
       }
-      const verifiedAt = new Date();
-      const expiresAt = new Date(verifiedAt.getTime() + settings.sessionHours * 3_600_000);
-      const [sessionResult, profileResult, challengeResult] = await Promise.all([
-        admin.from("customer_sms_sessions").upsert({ session_id: sessionId, user_id: user.id, phone: challenge.phone, purpose: challenge.purpose, verified_at: verifiedAt.toISOString(), expires_at: expiresAt.toISOString() }, { onConflict: "session_id" }),
-        admin.from("profiles").update({ phone: challenge.phone, phone_verified_at: verifiedAt.toISOString() }).eq("id", user.id),
-        admin.from("customer_sms_challenges").update({ status: "verified", verified_at: verifiedAt.toISOString() }).eq("id", challenge.id),
-      ]);
-      if (sessionResult.error || profileResult.error || challengeResult.error) throw sessionResult.error || profileResult.error || challengeResult.error;
+      const { data: completed, error: completeError } = await admin.rpc("complete_sms_challenge", {
+        p_challenge_id: challenge.id, p_user_id: user.id, p_session_id: sessionId, p_session_hours: settings.sessionHours,
+      });
+      if (completeError) throw completeError;
+      if (!completed) return json(request, { error: "That code is no longer active. Send a new code." }, 410);
       return json(request, { verified: true });
     }
 
     if (action === "password_update") {
+      await checkSession(admin, user.id, sessionId, true);
+      await rateLimit(admin, "password_update", user.id, 5, 3600);
       const password = typeof body.password === "string" ? body.password : "";
       if (password.length < 12 || password.length > 200) return json(request, { error: "Use a password from 12 to 200 characters." }, 400);
       const { data: smsSession, error: sessionError } = await admin.from("customer_sms_sessions").select("session_id").eq("user_id", user.id).eq("session_id", sessionId).eq("purpose", "recovery").gt("expires_at", new Date().toISOString()).maybeSingle();
@@ -364,8 +367,8 @@ Deno.serve(async (request: Request) => {
     }
     return json(request, { error: "Invalid action" }, 400);
   } catch (error) {
-    const safe = error as { status?: number; message?: string; detail?: string };
-    console.error("customer SMS failed", safe.detail || safe.message || safe);
-    return json(request, { error: safe.status ? safe.message : "SMS security is temporarily unavailable." }, safe.status || 500);
+    const safe = error as { status?: number; message?: string; retry_after?: number };
+    safeLog("customer_sms_failed", error);
+    return json(request, { error: safe.status && safe.status < 500 ? safe.message : "SMS security is temporarily unavailable. Please try again shortly.", ...(safe.retry_after ? { retry_after: safe.retry_after } : {}) }, safe.status || 500);
   }
 });

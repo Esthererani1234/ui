@@ -1,6 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.110.6";
 
+import { checkSession, rateLimit, readObject, safeLog } from "../_shared/security.ts";
+
 const allowedOrigins = new Set(["https://goldonthespot.com", "https://www.goldonthespot.com", "http://localhost:5173"]);
 const vercelOrigin = /^https:\/\/ui-[a-z0-9-]+-esther-eranis-projects\.vercel\.app$/;
 const originAllowed = (origin: string) => allowedOrigins.has(origin) || vercelOrigin.test(origin);
@@ -38,7 +40,9 @@ Deno.serve(async (req: Request) => {
     if (userError || !user) return json(req, { error: "Session expired" }, 401);
     const adminClient = createClient(url, secret, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data: adminMembership } = await adminClient.from("admin_users").select("user_id").eq("user_id", user.id).maybeSingle();
-    const body = await req.json();
+    await checkSession(adminClient, user.id, String(jwtClaims(auth.slice(7)).session_id || ""));
+    await rateLimit(adminClient, "support_action", user.id, 20, 600);
+    const body = await readObject(req, 15000);
     const action = clean(body.action, 30);
     const ticketId = Number(body.ticket_id);
     if (!Number.isSafeInteger(ticketId) || ticketId <= 0) return json(req, { error: "Invalid ticket" }, 400);
@@ -48,17 +52,7 @@ Deno.serve(async (req: Request) => {
     if (adminMembership && !isAdmin) return json(req, { error: "Admin two-factor verification required" }, 403);
     if (!isAdmin && ticket.user_id !== user.id) return json(req, { error: "Access denied" }, 403);
     if (!isAdmin) {
-      const claims = jwtClaims(auth.slice(7));
-      const sessionId = String(claims.session_id || "");
-      const [{ data: settingsRows }, { data: smsSession }] = await Promise.all([
-        adminClient.from("app_settings").select("key,value").in("key", ["sms_provider_ready", "customer_sms_mfa_required"]),
-        sessionId
-          ? adminClient.from("customer_sms_sessions").select("session_id").eq("user_id", user.id).eq("session_id", sessionId).gt("expires_at", new Date().toISOString()).maybeSingle()
-          : Promise.resolve({ data: null }),
-      ]);
-      const settings = Object.fromEntries((settingsRows || []).map((row) => [row.key, row.value]));
-      if (Boolean(settings.sms_provider_ready) && Boolean(settings.customer_sms_mfa_required) && !smsSession)
-        return json(req, { error: "SMS verification required" }, 403);
+      await checkSession(adminClient, user.id, String(jwtClaims(auth.slice(7)).session_id || ""), true);
     }
     if (action === "reply") {
       const message = clean(body.message);
@@ -84,7 +78,8 @@ Deno.serve(async (req: Request) => {
     }
     return json(req, { error: "Invalid action" }, 400);
   } catch (error) {
-    console.error(error);
-    return json(req, { error: "Support request could not be completed" }, 500);
+    safeLog("support_error", error);
+    const safe = error as {status?: number; message?: string};
+    return json(req, { error: safe.status && safe.status < 500 ? safe.message : "Support request could not be completed" }, safe.status || 500);
   }
 });

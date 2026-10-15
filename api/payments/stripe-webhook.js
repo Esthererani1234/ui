@@ -1,37 +1,42 @@
 import Stripe from "stripe";
-import { json, readRaw, recordEvent, service } from "../_lib/payments.js";
-
+import { json, readRaw, applyPaymentEvent, service } from "../_lib/payments.js";
+import { securityLog, stripeState, stripeMatchesOrder } from "../_lib/security.js";
 export const config = { api: { bodyParser: false } };
-
-const stateFor = (type, object) => {
-  if (["checkout.session.completed", "checkout.session.async_payment_succeeded"].includes(type) && object.payment_status === "paid") return ["paid", "paid"];
-  if (type === "payment_intent.succeeded") return ["paid", "paid"];
-  if (["checkout.session.async_payment_failed", "payment_intent.payment_failed"].includes(type)) return ["failed", "failed"];
-  if (type === "checkout.session.expired") return ["expired", "expired"];
-  if (type === "charge.refunded") return ["refunded", "refunded"];
-  if (type === "charge.dispute.created") return ["disputed", "disputed"];
-  return ["pending", "pending"];
-};
-
-export default async function handler(request, response) {
-  if (request.method !== "POST") return json(response, 405, { error: "Method not allowed" });
+export default async function handler(request,response) {
+  if(request.method!=="POST") return json(response,405,{error:"Method not allowed"});
+  if(!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) return json(response,503,{error:"Payment notifications unavailable"});
+  const stripe=new Stripe(process.env.STRIPE_SECRET_KEY);
+  let event;
+  try { event=stripe.webhooks.constructEvent(await readRaw(request),request.headers["stripe-signature"],process.env.STRIPE_WEBHOOK_SECRET); }
+  catch { return json(response,400,{error:"Invalid webhook"}); }
   try {
-    if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) throw new Error("Stripe webhook is not configured");
-    const raw = await readRaw(request);
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-    const event = stripe.webhooks.constructEvent(raw, request.headers["stripe-signature"], process.env.STRIPE_WEBHOOK_SECRET);
-    const object = event.data.object;
-    const orderId = Number(object.metadata?.order_id || object.payment_intent?.metadata?.order_id);
-    if (!Number.isSafeInteger(orderId)) return json(response, 200, { received: true, ignored: true });
-    const fresh = await recordEvent("stripe", event.id, orderId, event.type, true, object);
-    if (!fresh) return json(response, 200, { received: true, duplicate: true });
-    const [paymentStatus, attemptStatus] = stateFor(event.type, object);
-    const providerId = object.object === "checkout.session" ? object.id : (object.payment_intent || object.id);
-    const { error } = await service().rpc("mark_payment_state", { p_order_id: orderId, p_provider: "stripe", p_provider_payment_id: providerId, p_payment_status: paymentStatus, p_attempt_status: attemptStatus, p_paid_at: paymentStatus === "paid" ? new Date().toISOString() : null });
-    if (error) throw error;
-    return json(response, 200, { received: true });
-  } catch (error) {
-    console.error("stripe webhook failed", error);
-    return json(response, 400, { error: "Invalid webhook" });
+    const object=event.data.object;
+    const state=stripeState(event.type,object);
+    if(!state) return json(response,200,{received:true,ignored:true});
+    const intentId=object.object==="payment_intent" ? object.id : typeof object.payment_intent==="string" ? object.payment_intent : object.payment_intent?.id;
+    if(!intentId) return json(response,200,{received:true,ignored:true});
+    const intent=await stripe.paymentIntents.retrieve(intentId);
+    const orderId=Number(intent.metadata?.order_id);
+    if(!Number.isSafeInteger(orderId) || orderId<1) return json(response,200,{received:true,ignored:true});
+    const {data:order,error}=await service().from("orders").select("id,user_id,total,payment_provider,provider_payment_id").eq("id",orderId).maybeSingle();
+    if(error) throw error;
+    if(!order || !stripeMatchesOrder(intent,order)) throw new Error("Payment reconciliation mismatch");
+    let providerId=intent.id;
+    // Existing hosted sessions are supported alongside embedded PaymentIntents.
+    if(order.provider_payment_id?.startsWith("cs_")) {
+      const session=await stripe.checkout.sessions.retrieve(order.provider_payment_id);
+      if(session.payment_intent!==intent.id || session.amount_total!==intent.amount || session.currency!=="usd") throw new Error("Checkout reconciliation mismatch");
+      providerId=session.id;
+    }
+    if(order.payment_provider!=="stripe" || order.provider_payment_id!==providerId) throw new Error("Payment reference not yet reconciled");
+    // A delayed failure callback must not override a subsequently successful intent.
+    const currentState=intent.status==="succeeded" && ["failed","expired"].includes(state[0]) ? ["paid","paid"] : state;
+    if(currentState[0]==="paid" && (intent.status!=="succeeded" || intent.amount_received!==intent.amount)) throw new Error("Payment not settled");
+    const fresh=await applyPaymentEvent("stripe",event.id,orderId,event.type,providerId,currentState,object);
+    return json(response,200,{received:true,duplicate:!fresh});
+  } catch(error) {
+    securityLog("stripe_webhook_failed",error);
+    // Stripe retries transient failures. Failed work is never marked processed.
+    return json(response,500,{error:"Payment notification could not be processed"});
   }
 }

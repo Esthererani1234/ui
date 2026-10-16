@@ -43,3 +43,13 @@ test('admin displays safe server rejection rather than opaque transport error',a
  const client={functions:{invoke:async()=>({error:{context:new Response(JSON.stringify({error:'Approve this order in the risk center.'}),{status:409})}})}};
  await assert.rejects(invokeFunction(client,'admin-operations',{}),{message:'Approve this order in the risk center.',status:409});
 });
+
+test('tracking form omits unchanged status/payment and explains shipment prerequisites',async()=>{
+ const {orderChanges,orderStatusBlock}=await import('../src/lib/adminOrder.js');
+ const row={id:1,status:'awaiting_payment',payment_status:'pending',tracking_number:'',internal_notes:'',risk_decision:'pending'};
+ assert.deepEqual(orderChanges(row,{status:row.status,paymentStatus:row.payment_status,trackingNumber:'TRACK',internalNotes:'',reason:' tracking added '}),{order_id:1,tracking_number:'TRACK',reason:'tracking added'});
+ assert.match(orderStatusBlock(row,'shipped','pending'),/payment/);
+ assert.match(orderStatusBlock(row,'shipped','paid'),/Risk center/);
+ assert.equal(orderStatusBlock({...row,risk_decision:'approved'},'shipped','paid'),'');
+ assert.equal(orderStatusBlock(row,'cancelled','pending'),'');
+});

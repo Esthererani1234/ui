@@ -25,6 +25,7 @@ import {
   X,
 } from "lucide-react";
 import { invokeFunction } from "../lib/functionRequest";
+import { orderChanges, orderStatusBlock } from "../lib/adminOrder";
 import { supabase } from "../lib/supabase";
 import { money, orderStatusLabel, spotAdjustmentLabel } from "../lib/pricing";
 import {
@@ -316,8 +317,7 @@ export default function AdminPage() {
 
   const saveOrderDetails = async (updates) => {
     setMessage("");
-    try { await invokeFunction(supabase,"admin-operations",{action:"update_order",...updates}); }
-    catch(error) { setMessage(error.message); return false; }
+    await invokeFunction(supabase,"admin-operations",{action:"update_order",...updates});
     setSelectedOrder(null);
     await load();
     return true;
@@ -325,17 +325,11 @@ export default function AdminPage() {
 
   const openOrderDetails = async (order) => {
     setMessage("");
-    const { data, error } = await supabase.functions.invoke(
-      "admin-operations",
-      { body: { action: "get_order_details", order_id: order.id } },
-    );
-    if (error || data?.error || !data?.order) {
-      setMessage(
-        data?.error || error?.message || "The order details could not be loaded.",
-      );
-      return;
-    }
-    setSelectedOrder(data.order);
+    try {
+      const data = await invokeFunction(supabase, "admin-operations", { action: "get_order_details", order_id: order.id });
+      if (!data?.order) throw new Error("The order details could not be loaded.");
+      setSelectedOrder(data.order);
+    } catch (error) { setMessage(error.message); }
   };
 
   const uploadProductImages = async (event) => {
@@ -1227,7 +1221,9 @@ export default function AdminPage() {
       )}
       {selectedOrder && (
         <OrderDetailModal
+          key={selectedOrder.id}
           order={selectedOrder}
+          onReview={() => { setSelectedOrder(null); setTab("risk"); }}
           onClose={() => setSelectedOrder(null)}
           onSave={saveOrderDetails}
         />
@@ -1503,7 +1499,7 @@ function OrderTable({ orders, onOpen, detailed = false }) {
   );
 }
 
-function OrderDetailModal({ order, onClose, onSave }) {
+function OrderDetailModal({ order, onClose, onSave, onReview }) {
   const [form, setForm] = useState({
     status: order.status,
     paymentStatus: order.payment_status,
@@ -1512,27 +1508,27 @@ function OrderDetailModal({ order, onClose, onSave }) {
     reason: "",
   });
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const address = order.shipping_address || {};
+  const blocked = orderStatusBlock(order, form.status, form.paymentStatus);
+  const changed = Object.keys(orderChanges(order, form)).length > 2;
   const submit = async (event) => {
     event.preventDefault();
-    if (form.reason.trim().length < 3) return;
+    if (saving || !changed) return;
+    setError("");
+    if (form.reason.trim().length < 3) return setError("Enter a short reason for this change.");
+    if (blocked) return setError(blocked);
     setSaving(true);
-    const saved = await onSave({
-      order_id: order.id,
-      status: form.status,
-      payment_status: form.paymentStatus,
-      tracking_number: form.trackingNumber,
-      internal_notes: form.internalNotes,
-      reason: form.reason,
-    });
-    if (!saved) setSaving(false);
+    try { await onSave(orderChanges(order, form)); }
+    catch (error) { setError(error.message || "Could not save this order. Try again."); }
+    finally { setSaving(false); }
   };
   return (
     <div className="modal-backdrop">
       <form className="order-detail-modal" onSubmit={submit} role="dialog" aria-modal="true">
         <header>
           <div><small>ORDER OPERATIONS</small><h2>{order.order_number}</h2><span>{new Date(order.created_at).toLocaleString()}</span></div>
-          <button type="button" className="icon-button" onClick={onClose}><X /></button>
+          <button type="button" className="icon-button" onClick={onClose} disabled={saving}><X /></button>
         </header>
         <div className="order-detail-scroll">
           <div className="order-detail-facts">
@@ -1547,17 +1543,23 @@ function OrderDetailModal({ order, onClose, onSave }) {
           <section className="order-admin-controls">
             <h3>Fulfillment controls</h3>
             <div className="form-row">
-              <label>Order status<select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}>{statuses.map((status) => <option key={status} value={status}>{orderStatusLabel(status)}</option>)}</select></label>
-              <label>Payment status<select disabled={order.payment_method !== "wire" || order.status === "cancelled"} value={form.paymentStatus} onChange={(event) => setForm({ ...form, paymentStatus: event.target.value })}>{["unpaid", "pending", "confirming", "paid", "partially_paid", "expired", "refunded", "failed", "disputed"].map((status) => <option key={status} value={status}>{orderStatusLabel(status)}</option>)}</select></label>
+              <label>Order status<select disabled={saving} value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}>{statuses.map((status) => <option key={status} value={status} disabled={Boolean(orderStatusBlock(order, status, form.paymentStatus))}>{orderStatusLabel(status)}</option>)}</select></label>
+              <label>Payment status<select disabled={saving || order.payment_method !== "wire" || order.status === "cancelled"} value={form.paymentStatus} onChange={(event) => setForm({ ...form, paymentStatus: event.target.value, status: event.target.value === "paid" && ["pending_review", "awaiting_payment"].includes(form.status) ? "payment_received" : form.status })}>{["unpaid", "pending", "confirming", "paid", "partially_paid", "expired", "refunded", "failed", "disputed"].map((status) => <option key={status} value={status}>{orderStatusLabel(status)}</option>)}</select></label>
             </div>
             {order.payment_method !== "wire" && <p className="field-help">Payment status is confirmed by the payment provider. Review flagged orders in the risk center before processing or shipping.</p>}
-            <label>Tracking number<input maxLength="200" value={form.trackingNumber} onChange={(event) => setForm({ ...form, trackingNumber: event.target.value })} /></label>
-            <label>Private internal notes<textarea rows="5" maxLength="5000" value={form.internalNotes} onChange={(event) => setForm({ ...form, internalNotes: event.target.value })} /></label>
-            <label>Required audit reason<textarea required minLength="3" rows="3" maxLength="1000" value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} placeholder="Why are you changing this order?" /></label>
-            {form.status === "cancelled" && order.status !== "cancelled" && <div className="form-message error">Cancelling will safely return all order quantities to inventory. Cancelled orders cannot be reopened automatically.</div>}
+            <p className="field-help">Tracking and notes can be saved without changing order or payment status. Add a short audit reason, then save.</p>
+            {form.paymentStatus !== "paid" && <p className="field-help">Shipping is locked until payment is confirmed. {order.payment_method === "wire" ? "For a received wire, set Payment status to Paid." : "Card and crypto payments must be confirmed by the provider."}</p>}
+            {order.risk_decision && order.risk_decision !== "approved" && <p className="field-help">Risk review: {orderStatusLabel(order.risk_decision)}. <button type="button" className="text-button" disabled={saving} onClick={onReview}>Open Risk center</button> to approve before shipping.</p>}
+            {form.status === "shipped" && order.status !== "processing" && <p className="field-help">Saving will record processing and shipment together after checking payment and risk approval.</p>}
+            <label>Tracking number<input disabled={saving} maxLength="200" value={form.trackingNumber} onChange={(event) => setForm({ ...form, trackingNumber: event.target.value })} /></label>
+            <label>Private internal notes<textarea disabled={saving} rows="5" maxLength="5000" value={form.internalNotes} onChange={(event) => setForm({ ...form, internalNotes: event.target.value })} /></label>
+            <label>Required audit reason<textarea disabled={saving} required minLength="3" rows="3" maxLength="1000" value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} placeholder="Why are you changing this order?" /></label>
+            {form.status === "cancelled" && order.status !== "cancelled" && <div className="form-message error">Cancellation returns reserved quantities to inventory. It does not refund a payment. Cancelled orders cannot be reopened automatically.</div>}
           </section>
         </div>
-        <footer><button type="button" className="button button-outline" onClick={onClose}>Close</button><button className="button button-gold" disabled={saving || form.reason.trim().length < 3}>{saving ? "Saving securely…" : "Save audited changes"}</button></footer>
+        {error && <div className="form-message error" role="alert">{error}</div>}
+        {blocked && <div className="form-message error" role="alert">{blocked}</div>}
+        <footer><button type="button" className="button button-outline" onClick={onClose} disabled={saving}>Close</button><button className="button button-gold" disabled={saving || !changed || Boolean(blocked)}>{saving ? "Saving securely…" : "Save audited changes"}</button></footer>
       </form>
     </div>
   );

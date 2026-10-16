@@ -151,7 +151,9 @@ Deno.serve(async (request: Request) => {
         .maybeSingle();
       if (error) throw error;
       if (!order) return json(request, { error: "Order not found" }, 404);
-      return json(request, { order });
+      const { data: review, error: reviewError } = await admin.from("order_risk_reviews").select("decision").eq("order_id", orderId).maybeSingle();
+      if (reviewError) throw reviewError;
+      return json(request, { order: { ...order, risk_decision: review?.decision || null } });
     }
 
     if (action === "sales_report") {
@@ -579,20 +581,32 @@ Deno.serve(async (request: Request) => {
     }
 
     if (action === "update_order") {
+      const limits: Record<string,number> = { status:30, payment_status:30, tracking_number:200, internal_notes:5000, reason:1000 };
+      if (!Number.isSafeInteger(body.order_id) || Number(body.order_id) < 1 ||
+          Object.keys(body).some(key => !["action","order_id",...Object.keys(limits)].includes(key)) ||
+          Object.entries(limits).some(([key,limit]) => body[key] !== undefined && (typeof body[key] !== "string" || String(body[key]).length > limit)) ||
+          typeof body.reason !== "string" || body.reason.trim().length < 3)
+        return json(request, { error: "Enter valid order changes and a short audit reason." }, 400);
+      const optionalText = (key: string) => body[key] === undefined ? null : cleanText(body[key], limits[key]);
       const { data, error } = await admin.rpc("admin_update_order", {
         p_actor_user_id: actor.id,
         p_order_id: Number(body?.order_id),
-        p_status: cleanText(body?.status, 30),
-        p_payment_status: cleanText(body?.payment_status, 30),
-        p_tracking_number: cleanText(body?.tracking_number, 200),
-        p_internal_notes: cleanText(body?.internal_notes, 5000),
+        p_status: optionalText("status"),
+        p_payment_status: optionalText("payment_status"),
+        p_tracking_number: optionalText("tracking_number"),
+        p_internal_notes: optionalText("internal_notes"),
         p_reason: cleanText(body?.reason, 1000),
       });
       if (error) {
         const messages: Record<string,string> = {
           "Payment is required before fulfillment":"Confirm payment before processing or shipping this order.",
           "Complete the risk review before fulfillment":"Approve this order in the risk center before processing or shipping.",
-          "Invalid fulfillment transition":"Process the order before marking it shipped, and ship it before marking it completed.",
+          "Invalid fulfillment transition":"Ship the order before marking it completed.",
+          "Fulfillment cannot be moved backwards":"This order has already advanced. Refresh its details before making another change.",
+          "Cancelled orders cannot be reopened automatically":"Cancelled orders cannot be reopened.",
+          "Cancelled orders cannot be reopened":"Cancelled orders cannot be reopened.",
+          "Cancelled orders cannot accept manual payment":"A cancelled order cannot be marked paid manually.",
+          "A settled payment cannot be downgraded":"A settled payment cannot be changed to unpaid or pending.",
           "A card payment is unresolved. Reconcile it before changing this order.":"A card payment is still unresolved. Check Stripe before cancelling or changing this order.",
           "Provider payment state must be reconciled by the payment provider":"Card and crypto payment status must come from the payment provider.",
           "Shipped orders require a return process":"A shipped order must use the return process; it cannot be cancelled and restocked.",

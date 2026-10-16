@@ -56,6 +56,7 @@ before(async()=>{
  create table order_items(order_id bigint,product_id bigint,quantity integer);
  create table admin_audit_log(actor_user_id uuid,action text,target_type text,target_id text,reason text,metadata jsonb);`);
  await db.exec(await readFile(new URL('../supabase/migrations/20261015162128_fraud_review_and_admin_auditing.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261016141000_admin_order_partial_updates.sql',import.meta.url),'utf8'));
  await db.exec(`create trigger profiles_clear_changed_phone_verification before update of phone on profiles for each row execute function private.clear_changed_phone_verification();`);
 });
 after(()=>db?.close());
@@ -183,4 +184,54 @@ test('wire paid action is permitted only for admin and is audited',()=>tx(async(
 test('stale server order snapshot cannot start payment at a previous total',()=>tx(async()=>{
  await db.exec('update orders set total=101 where id=1');
  assert.equal(await scalar('select claim_card_payment(1,$1,$2,100)',[U,'a'.repeat(64)]),false);
+}));
+
+// Admin order edits must preserve payment state and remain transactional.
+test('tracking-only edits preserve current status, payment and private notes',()=>tx(async()=>{
+ await db.exec(`insert into admin_users values('${U}');update orders set payment_status='paid',status='payment_received',internal_notes='existing note' where id=1`);
+ await db.query(`select admin_update_order($1,1,null,null,'TRACK-123',null,'add tracking')`,[U]);
+ const row=(await db.query('select status,payment_status,internal_notes,tracking_number from orders where id=1')).rows[0];
+ assert.deepEqual(row,{status:'payment_received',payment_status:'paid',internal_notes:'existing note',tracking_number:'TRACK-123'});
+}));
+test('pending and awaiting orders can cancel and restock exactly once',()=>tx(async()=>{
+ await db.exec(`insert into admin_users values('${U}');insert into products values(10,5);insert into order_items values(1,10,2),(2,10,1);update orders set status='pending_review' where id=2`);
+ for(const id of [1,2]) {
+  await db.query(`select admin_update_order($1,$2,'cancelled',null,null,null,'customer cancelled')`,[U,id]);
+  await db.query(`select admin_update_order($1,$2,null,null,'TRACK',null,'record reference')`,[U,id]);
+ }
+ assert.equal(await scalar('select inventory_count from products where id=10'),8);
+ assert.equal(await scalar("select count(*)::int from orders where status='cancelled'"),2);
+}));
+test('paid approved pre-fulfillment orders can be shipped in one audited action',()=>tx(async()=>{
+ await db.exec(`insert into admin_users values('${U}');update orders set payment_status='paid' where id=1;insert into order_risk_reviews(order_id,decision) values(1,'approved')`);
+ await db.query(`select admin_update_order($1,1,'shipped',null,'TRACK-123',null,'parcel handed to carrier')`,[U]);
+ assert.equal(await scalar('select status from orders where id=1'),'shipped');
+ assert.equal(await scalar('select tracking_number from orders where id=1'),'TRACK-123');
+ assert.equal(await scalar("select metadata->>'previous_status' from admin_audit_log"),'awaiting_payment');
+}));
+test('shipment shortcut cannot bypass payment or risk review',()=>tx(async()=>{
+ await db.exec(`insert into admin_users values('${U}')`);
+ await db.exec('savepoint unpaid');
+ await assert.rejects(db.query(`select admin_update_order($1,1,'shipped',null,'TRACK',null,'attempt shipment')`,[U]),/Payment is required/);
+ await db.exec('rollback to savepoint unpaid');
+ await db.exec(`update orders set payment_status='paid' where id=1;insert into order_risk_reviews(order_id,decision) values(1,'pending');savepoint review`);
+ await assert.rejects(db.query(`select admin_update_order($1,1,'shipped',null,'TRACK',null,'attempt shipment')`,[U]),/risk review/);
+ await db.exec('rollback to savepoint review');
+ assert.equal(await scalar('select status from orders where id=1'),'awaiting_payment');
+ assert.equal(await scalar('select tracking_number from orders where id=1'),null);
+}));
+test('shipped order cannot move backwards or restock through cancellation',()=>tx(async()=>{
+ await db.exec(`insert into admin_users values('${U}');update orders set payment_status='paid' where id=1`);
+ await db.query(`select admin_update_order($1,1,'shipped',null,null,null,'shipped parcel')`,[U]);
+ for(const state of ['awaiting_payment','cancelled']) {
+  await db.exec('savepoint blocked');
+  await assert.rejects(db.query(`select admin_update_order($1,1,$2,null,null,null,'invalid change')`,[U,state]),/backwards|return process/);
+  await db.exec('rollback to savepoint blocked');
+ }
+}));
+test('tracking edit on paid wire does not repeat the payment-received audit',()=>tx(async()=>{
+ await db.exec(`insert into admin_users values('${U}');update orders set payment_method='wire' where id=1`);
+ await db.query(`select admin_update_order($1,1,'payment_received','paid',null,null,'verified wire')`,[U]);
+ await db.query(`select admin_update_order($1,1,null,null,'TRACK',null,'add tracking')`,[U]);
+ assert.equal(await scalar("select count(*)::int from admin_audit_log where action='wire.manually_marked_paid'"),1);
 }));

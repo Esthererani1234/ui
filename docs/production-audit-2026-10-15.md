@@ -1,6 +1,6 @@
 # Production audit, 2026-10-15
 
-Status: implementation and verification in progress. This is not a certification that every attack path is closed.
+Status: scoped fixes merged and deployed to production on 2026-10-15 via PR #34, application commit `30ec9f46ba3915ed78dd0b63a10f28a10dba13bf`. Vercel deployment `dpl_CMh1QwMzC6G8k4K1HdpbCxvpRBjn` is READY and assigned to goldonthespot.com and www.goldonthespot.com. All four migrations below and five updated Edge functions are deployed. The complete production-readiness goal remains open for the gaps below; this is not a security certification.
 Baseline: main 4f148c592e89cd0beec3fee356807b6ac9a38db8, Supabase jwquqphzsnnijopabuhn.
 
 ## Confirmed findings and fixes
@@ -30,7 +30,22 @@ Automated PostgreSQL/PGlite regression fixtures cover IDOR, revoked/banned/wrong
 
 Node tests cover strict JSON/cart/payment payloads, invalid/expired/cancelled order payment guards, exact Stripe amount/identity matching, unknown notifications and partial refunds, and fail-closed rate errors. Existing signup completion/search checks and Vite production build pass.
 
-Deno type checking uses exact source copies with only the JSR runtime type-only import removed because the local JSR host is unreachable; npm Supabase imports and shared security modules are checked. Live Edge deploy bundling must also succeed.
+Deno type checking uses exact source copies with only the JSR runtime type-only import removed because the local JSR host is unreachable; npm Supabase imports and shared security modules are checked. Live deployment bundling succeeded for customer-sms v6, create-order v15, support-operations v6, admin-operations v9 and store-assistant v12.
+
+### Final verification evidence
+
+- All 37 automated tests pass (9 signup, 28 API/database), product-search check passes, Vite production build passes. Final npm audit reports zero known vulnerabilities across production and development dependencies.
+- All 10 admin navigation sections render with synthetic API fixtures; mobile Orders renders; no uncaught browser errors. These checks do not authenticate to production or test every admin mutation.
+- Production read-only SQL with existing administrator session claims successfully reads the nine orders, profile and support query shapes. No customer identities or order contents are included in this report.
+- Every public table has RLS. Customer direct order UPDATE is denied; order payment fields are readable through RLS; private notes remain hidden. AI limiter execution is denied to anon/authenticated and granted only to service_role.
+- Public homepage and a Buffalo product detail page render from live production HTTP responses with the deployed CSP; all visible homepage images load and no console/page errors were observed. Browser HTTP requests were relayed through the allowed network proxy; analytics writes were stubbed, not sent.
+- Live cart addition survives full reload; the cart has no horizontal overflow at 390px width. Signed-out /admin redirects to /login. No uncaught page or console errors were observed in these checks.
+- All six active products have images. All 16 unique product image URLs return HTTP 200 with image content types.
+- Live metals returns HTTP 200 with all four metal prices. Homepage serves the new bundle and retains CSP, HSTS and nosniff headers.
+- Signed-out quote, card-confirm, checkout creation and bank-setting requests return 401. Unsigned Stripe webhook returns 400. Crypto webhook returns 503 because that provider is not configured; no crypto payment was tested.
+- Vercel post-release error-log inspection found the four expected entries from the deliberate unauthenticated probes, with sanitized diagnostic fields; no other errors appeared in that narrow window. This is not long-term monitoring coverage.
+- Supabase security advisor has no ERROR findings. Remaining WARN: [leaked-password protection disabled](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection). Eleven INFO notices concern deliberately server-only tables with RLS and no customer policies; adding public policies would weaken those boundaries. [RLS advisory explanation](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy).
+- No critical-severity exploit was conclusively established during this scoped pass; this does not establish their absence. Confirmed high/medium findings are listed above.
 
 ## Remaining release/operational gaps
 
@@ -46,9 +61,9 @@ Deno type checking uses exact source copies with only the JSR runtime type-only 
 
 ## Deployment order
 
-1. Scoped order-read grant (already applied).
-2. Authentication/payment guard migration; fraud/audit migration.
-3. Customer SMS, create-order, support/admin and store-assistant Edge functions.
-4. Vercel application commit (matching shared security code).
-5. AI limiter grant restriction after both server callers use service credentials.
-6. Verify grants/RLS/advisors, unsigned payment and unauthenticated API rejection, public catalog/images/pricing, deployed commit.
+1. Scoped order-read grant — applied.
+2. Authentication/payment guard migration; fraud/audit migration — applied.
+3. Customer SMS, create-order, support/admin and store-assistant Edge functions — deployed.
+4. Vercel application commit (matching shared security code) — deployed and domain assigned.
+5. AI limiter grant restriction after both server callers use service credentials — applied and verified.
+6. Grants/RLS/advisors, unsigned payment and unauthenticated API rejection, public catalog/images/pricing and deployed commit — verified within the limits above.

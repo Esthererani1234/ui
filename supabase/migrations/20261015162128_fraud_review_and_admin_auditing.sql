@@ -176,4 +176,3 @@ begin
   return jsonb_build_object('success', true, 'order_id', p_order_id);
 end;
 $$;
-

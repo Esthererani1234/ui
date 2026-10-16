@@ -111,7 +111,10 @@ const prepareProductEditor = (product) => {
 };
 
 export default function AdminPage() {
-  const [tab, setTab] = useState("overview");
+  const [tab, setTab] = useState(() => {
+    const requested = new URLSearchParams(window.location.search).get("tab");
+    return Object.hasOwn(tabTitles, requested) ? requested : "overview";
+  });
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [tickets, setTickets] = useState([]);
@@ -323,12 +326,12 @@ export default function AdminPage() {
     return true;
   };
 
-  const openOrderDetails = async (order) => {
+  const openOrderDetails = async (order, intent = "manage") => {
     setMessage("");
     try {
       const data = await invokeFunction(supabase, "admin-operations", { action: "get_order_details", order_id: order.id });
       if (!data?.order) throw new Error("The order details could not be loaded.");
-      setSelectedOrder(data.order);
+      setSelectedOrder({ ...data.order, admin_intent: intent });
     } catch (error) { setMessage(error.message); }
   };
 
@@ -787,7 +790,7 @@ export default function AdminPage() {
             <div className="panel-title">
               <div>
                 <h2>All orders</h2>
-                <p>Review payment and fulfillment before changing status.</p>
+                <p>Use the action buttons on each order to change status, add tracking, or cancel.</p>
               </div>
               <select
                 className="admin-order-filter"
@@ -1436,72 +1439,38 @@ function AdminTicket({ ticket, onSave }) {
   );
 }
 
-function OrderTable({ orders, onOpen, detailed = false }) {
+function OrderTable({ orders, onOpen }) {
   return (
-    <div className="admin-table-wrap">
-      <table className="admin-table">
-        <thead>
-          <tr>
-            <th>Order</th>
-            <th>Customer</th>
-            <th>Total</th>
-            {detailed && <th>Payment</th>}
-            <th>Status</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {orders.map((order) => (
-            <tr key={order.id}>
-              <td>
-                <b>{order.order_number}</b>
-                <small>{new Date(order.created_at).toLocaleString()}</small>
-              </td>
-              <td>
-                <b>
-                  {order.first_name} {order.last_name}
-                </b>
-                <small>{order.email}</small>
-              </td>
-              <td>
-                <b>{money(order.total)}</b>
-                <small>{order.order_items?.length || 0} lines</small>
-              </td>
-              {detailed && (
-                <td>
-                  <b>{orderStatusLabel(order.payment_method)}</b>
-                  <small>{order.payment_status}</small>
-                </td>
-              )}
-              <td>
-                <span className={`status-pill ${order.status}`}>
-                  {orderStatusLabel(order.status)}
-                </span>
-              </td>
-              <td>
-                <button
-                  className="button button-outline"
-                  onClick={() => onOpen(order)}
-                >
-                  Details
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {!orders.length && (
-        <div className="empty-state compact">
-          <h3>No orders yet</h3>
-        </div>
-      )}
+    <div className="admin-order-list">
+      {orders.map((order) => (
+        <article className="admin-order-row" key={order.id}>
+          <header>
+            <div><b>{order.order_number}</b><small>{new Date(order.created_at).toLocaleString()}</small></div>
+            <span className={`status-pill ${order.status}`}>{order.status === "completed" ? "Delivered / completed" : orderStatusLabel(order.status)}</span>
+          </header>
+          <div className="admin-order-summary">
+            <div><small>Customer</small><b>{order.first_name} {order.last_name}</b><span>{order.email}</span></div>
+            <div><small>Total</small><b>{money(order.total)}</b><span>{order.order_items?.length || 0} item lines</span></div>
+            <div><small>Payment</small><b>{orderStatusLabel(order.payment_method)}</b><span>{orderStatusLabel(order.payment_status)}</span></div>
+            {order.tracking_number && <div><small>Tracking</small><b>{order.tracking_number}</b></div>}
+          </div>
+          <div className="admin-order-actions" aria-label={`Actions for ${order.order_number}`}>
+            <button type="button" className="button button-dark" onClick={() => onOpen(order)}>Manage order</button>
+            <button type="button" className="button button-outline" onClick={() => onOpen(order, "tracking")}>Add / edit tracking</button>
+            {!["shipped", "completed", "cancelled"].includes(order.status) && <button type="button" className="button button-outline" onClick={() => onOpen(order, "shipped")}>Mark shipped</button>}
+            {!["completed", "cancelled"].includes(order.status) && <button type="button" className="button button-outline" disabled={order.status !== "shipped"} title={order.status === "shipped" ? "Record delivery" : "Mark the order shipped before recording delivery"} onClick={() => onOpen(order, "completed")}>Mark delivered</button>}
+            {!["shipped", "completed", "cancelled"].includes(order.status) && <button type="button" className="button button-outline danger-text" onClick={() => onOpen(order, "cancelled")}>Cancel order</button>}
+          </div>
+        </article>
+      ))}
+      {!orders.length && <div className="empty-state compact"><h3>No orders yet</h3></div>}
     </div>
   );
 }
 
 function OrderDetailModal({ order, onClose, onSave, onReview }) {
   const [form, setForm] = useState({
-    status: order.status,
+    status: ["shipped", "completed", "cancelled"].includes(order.admin_intent) ? order.admin_intent : order.status,
     paymentStatus: order.payment_status,
     trackingNumber: order.tracking_number || "",
     internalNotes: order.internal_notes || "",
@@ -1525,12 +1494,28 @@ function OrderDetailModal({ order, onClose, onSave, onReview }) {
   };
   return (
     <div className="modal-backdrop">
-      <form className="order-detail-modal" onSubmit={submit} role="dialog" aria-modal="true">
+      <form className="order-detail-modal" onSubmit={submit} role="dialog" aria-modal="true" aria-labelledby="admin-order-title">
         <header>
-          <div><small>ORDER OPERATIONS</small><h2>{order.order_number}</h2><span>{new Date(order.created_at).toLocaleString()}</span></div>
+          <div><small>ORDER OPERATIONS</small><h2 id="admin-order-title">{order.order_number}</h2><span>{new Date(order.created_at).toLocaleString()}</span></div>
           <button type="button" className="icon-button" onClick={onClose} disabled={saving}><X /></button>
         </header>
         <div className="order-detail-scroll">
+          <section className="order-admin-controls">
+            <h3>Update status & tracking</h3>
+            <div className="form-row">
+              <label>Order status<select disabled={saving} value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}>{statuses.map((status) => <option key={status} value={status} disabled={Boolean(orderStatusBlock(order, status, form.paymentStatus))}>{status === "completed" ? "Delivered / completed" : orderStatusLabel(status)}</option>)}</select></label>
+              <label>Payment status<select disabled={saving || order.payment_method !== "wire" || order.status === "cancelled"} value={form.paymentStatus} onChange={(event) => setForm({ ...form, paymentStatus: event.target.value, status: event.target.value === "paid" && ["pending_review", "awaiting_payment"].includes(form.status) ? "payment_received" : form.status })}>{["unpaid", "pending", "confirming", "paid", "partially_paid", "expired", "refunded", "failed", "disputed"].map((status) => <option key={status} value={status}>{orderStatusLabel(status)}</option>)}</select></label>
+            </div>
+            {order.payment_method !== "wire" && <p className="field-help">Payment status is confirmed by the payment provider. Review flagged orders in the risk center before processing or shipping.</p>}
+            <p className="field-help">Tracking and notes can be saved without changing order or payment status. Add a short audit reason, then save.</p>
+            {form.paymentStatus !== "paid" && <p className="field-help">Shipping is locked until payment is confirmed. {order.payment_method === "wire" ? "For a received wire, set Payment status to Paid." : "Card and crypto payments must be confirmed by the provider."}</p>}
+            {order.risk_decision && order.risk_decision !== "approved" && <p className="field-help">Risk review: {orderStatusLabel(order.risk_decision)}. <button type="button" className="text-button" disabled={saving} onClick={onReview}>Open Risk center</button> to approve before shipping.</p>}
+            {form.status === "shipped" && order.status !== "processing" && <p className="field-help">Saving will record processing and shipment together after checking payment and risk approval.</p>}
+            <label>Tracking number<input autoFocus={order.admin_intent === "tracking"} disabled={saving} maxLength="200" value={form.trackingNumber} onChange={(event) => setForm({ ...form, trackingNumber: event.target.value })} /></label>
+            <label>Private internal notes<textarea disabled={saving} rows="5" maxLength="5000" value={form.internalNotes} onChange={(event) => setForm({ ...form, internalNotes: event.target.value })} /></label>
+            <label>Required audit reason<textarea disabled={saving} required minLength="3" rows="3" maxLength="1000" value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} placeholder="Why are you changing this order?" /></label>
+            {form.status === "cancelled" && order.status !== "cancelled" && <div className="form-message error">Cancellation returns reserved quantities to inventory. It does not refund a payment. Cancelled orders cannot be reopened automatically.</div>}
+          </section>
           <div className="order-detail-facts">
             <div><span>Customer</span><b>{order.first_name} {order.last_name}</b><small>{order.email}<br />{order.phone}</small></div>
             <div><span>Shipping address</span><b>{address.address_line_1}</b><small>{[address.address_line_2, address.city, address.state, address.postal_code, address.country].filter(Boolean).join(", ")}</small></div>
@@ -1540,22 +1525,7 @@ function OrderDetailModal({ order, onClose, onSave, onReview }) {
           <section className="order-detail-lines"><h3>Order items</h3>{(order.order_items || []).map((item) => <div key={item.id}><span><b>{item.quantity} × {item.product_name}</b><small>{item.sku} • {item.metal_weight_oz} oz {item.metal}</small></span><strong>{money(item.line_total)}</strong></div>)}</section>
           {order.customer_notes && <section className="order-customer-note"><h3>Customer note</h3><p>{order.customer_notes}</p></section>}
           <section className="order-customer-note"><h3>Payment contract</h3><p>Reference: {order.payment_reference || "Not recorded"}<br />Terms: {order.terms_version || "Legacy order"} • accepted {order.terms_accepted_at ? new Date(order.terms_accepted_at).toLocaleString() : "not recorded"}<br />Provider payment: {order.provider_payment_id || "Not created"}</p></section>
-          <section className="order-admin-controls">
-            <h3>Fulfillment controls</h3>
-            <div className="form-row">
-              <label>Order status<select disabled={saving} value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}>{statuses.map((status) => <option key={status} value={status} disabled={Boolean(orderStatusBlock(order, status, form.paymentStatus))}>{orderStatusLabel(status)}</option>)}</select></label>
-              <label>Payment status<select disabled={saving || order.payment_method !== "wire" || order.status === "cancelled"} value={form.paymentStatus} onChange={(event) => setForm({ ...form, paymentStatus: event.target.value, status: event.target.value === "paid" && ["pending_review", "awaiting_payment"].includes(form.status) ? "payment_received" : form.status })}>{["unpaid", "pending", "confirming", "paid", "partially_paid", "expired", "refunded", "failed", "disputed"].map((status) => <option key={status} value={status}>{orderStatusLabel(status)}</option>)}</select></label>
-            </div>
-            {order.payment_method !== "wire" && <p className="field-help">Payment status is confirmed by the payment provider. Review flagged orders in the risk center before processing or shipping.</p>}
-            <p className="field-help">Tracking and notes can be saved without changing order or payment status. Add a short audit reason, then save.</p>
-            {form.paymentStatus !== "paid" && <p className="field-help">Shipping is locked until payment is confirmed. {order.payment_method === "wire" ? "For a received wire, set Payment status to Paid." : "Card and crypto payments must be confirmed by the provider."}</p>}
-            {order.risk_decision && order.risk_decision !== "approved" && <p className="field-help">Risk review: {orderStatusLabel(order.risk_decision)}. <button type="button" className="text-button" disabled={saving} onClick={onReview}>Open Risk center</button> to approve before shipping.</p>}
-            {form.status === "shipped" && order.status !== "processing" && <p className="field-help">Saving will record processing and shipment together after checking payment and risk approval.</p>}
-            <label>Tracking number<input disabled={saving} maxLength="200" value={form.trackingNumber} onChange={(event) => setForm({ ...form, trackingNumber: event.target.value })} /></label>
-            <label>Private internal notes<textarea disabled={saving} rows="5" maxLength="5000" value={form.internalNotes} onChange={(event) => setForm({ ...form, internalNotes: event.target.value })} /></label>
-            <label>Required audit reason<textarea disabled={saving} required minLength="3" rows="3" maxLength="1000" value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} placeholder="Why are you changing this order?" /></label>
-            {form.status === "cancelled" && order.status !== "cancelled" && <div className="form-message error">Cancellation returns reserved quantities to inventory. It does not refund a payment. Cancelled orders cannot be reopened automatically.</div>}
-          </section>
+
         </div>
         {error && <div className="form-message error" role="alert">{error}</div>}
         {blocked && <div className="form-message error" role="alert">{blocked}</div>}

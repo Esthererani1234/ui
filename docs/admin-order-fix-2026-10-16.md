@@ -13,3 +13,9 @@ Changes:
 Verification: 44 automated tests pass (9 signup and 35 API/database), search checks and production build pass. New database cases cover partial edits, one-time restocking, paid shipment, payment/risk rejection, backward transitions and wire audit behavior. Browser fixture checks cover tracking payload, modal error visibility, retry, cancellation and mobile shipment. Admin Edge source type check and deployed bundling pass. No production orders were mutated for verification.
 
 This fixes the editing workflow; it does not authorize unpaid shipment or replace the unresolved payment-provider/recovery work documented in the broader production audit. Cancellation does not automatically refund a payment.
+
+## Follow-up: make the actions visible
+
+Replaced the horizontally scrolling order table with responsive order cards and explicit Manage order, Add/edit tracking, Mark shipped, Mark delivered and Cancel order controls. The edit window now starts with status and tracking fields. Delivered maps to the existing completed state. Added /admin?tab=orders for direct access.
+
+Browser testing reproduced a mobile grid expanding to 1102px on a 390px viewport because of the navigation's intrinsic width. Constrained the navigation/grid minimum width; all order buttons now fit within the viewport. Browser fixtures passed visible-button checks, delivery action, direct Orders navigation, tracking retry and shipment; no production order changes were made. Production build passed. Payment, review and cancellation enforcement are unchanged.

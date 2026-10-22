@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Ban,
@@ -265,40 +265,63 @@ export function RiskAdminPanel() {
   const [reason, setReason] = useState("");
   const [notes, setNotes] = useState("");
   const [message, setMessage] = useState("");
+  const [loadError, setLoadError] = useState("");
+  const [decisionError, setDecisionError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const loadVersion = useRef(0);
 
   const load = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("order_risk_reviews")
-      .select("*, orders(order_number, total, status, created_at, first_name, last_name, email)")
-      .order("risk_score", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(500);
-    if (error) setMessage("The risk queue could not be refreshed. Please try again.");
-    else { setReviews(data || []); setMessage(""); }
-    setLoading(false);
+    const version = ++loadVersion.current;
+    setLoading(true); setLoadError("");
+    try {
+      const { data, error } = await supabase.from("order_risk_reviews")
+        .select("*, orders(order_number, total, status, payment_status, created_at, first_name, last_name, email)")
+        .order("risk_score", { ascending: false }).order("created_at", { ascending: false }).limit(500);
+      if (error) throw error;
+      if (version === loadVersion.current) setReviews(data || []);
+      return data || [];
+    } catch {
+      if (version === loadVersion.current) setLoadError("The risk queue could not be refreshed. Try Refresh queue again.");
+      return null;
+    } finally { if (version === loadVersion.current) setLoading(false); }
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); return () => { loadVersion.current++; }; }, []);
   const filtered = reviews.filter((review) => filter === "all" || review.decision === filter);
+  const openReview = (review) => { setSelected(review); setNotes(review.admin_notes || ""); setReason(""); setDecisionError(""); };
 
   const decide = async (decision) => {
-    if (!selected || reason.trim().length < 3) return setMessage("Enter a reason for the review decision.");
+    if (!selected || savingRef.current) return;
+    if (reason.trim().length < 3) return setDecisionError("Enter a reason of at least three characters before saving.");
+    savingRef.current = true; setSaving(true); setDecisionError(""); setMessage("");
     try {
-      await invokeAdmin({ action: "review_order", order_id: selected.order_id, decision, reason, admin_notes: notes });
-      setMessage("Risk decision saved to the audit log.");
-      setSelected(null); setReason(""); setNotes(""); await load();
-    } catch (error) { setMessage(error.message); }
+      const result = await invokeAdmin({ action: "review_order", order_id: selected.order_id, decision, reason: reason.trim(), admin_notes: notes,
+        expected_decision: selected.decision, expected_reviewed_at: selected.reviewed_at || null });
+      if (!result?.success || !result.review) throw new Error("The decision could not be confirmed. Refresh the queue before trying again.");
+      setReviews((current) => current.map((row) => row.order_id === selected.order_id ? { ...row, ...result.review } : row));
+      setMessage(`Order ${selected.orders?.order_number || selected.order_id}: review ${decision}. The decision and audit record are saved.`);
+      setSelected(null); setReason(""); setNotes("");
+    } catch (error) { setDecisionError(error.message); }
+    finally { savingRef.current = false; setSaving(false); }
+  };
+  const refreshReview = async () => {
+    const latest = await load();
+    if (!latest) return setDecisionError("Unable to refresh this review. Your notes have been kept; try again.");
+    const row = latest.find((review) => review.order_id === selected?.order_id);
+    if (!row) return setDecisionError("This review is no longer available. Close the dialog and refresh the queue.");
+    setSelected(row); setDecisionError("Latest decision loaded. Check it before saving your decision.");
   };
 
   return <div className="enterprise-admin-stack">
     <section className="admin-panel">
-      <div className="panel-title enterprise-panel-title"><div><h2>Order risk center</h2><p>Automatic signals prioritize orders for human review. Scores assist decisions; they do not replace judgment.</p></div><select value={filter} onChange={(event) => setFilter(event.target.value)}><option value="pending">Pending review</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="all">All decisions</option></select></div>
-      {message && <div className="form-message">{message}</div>}
-      {loading ? <div className="catalog-loading">Calculating risk queue…</div> : <div className="risk-review-grid">{filtered.map((review) => <article key={review.order_id} className={`risk-review-card ${review.risk_level}`}><header><span className={`risk-score ${review.risk_level}`}>{review.risk_score}</span><div><small>{review.orders?.order_number}</small><h3>{review.orders?.first_name} {review.orders?.last_name}</h3><span>{review.orders?.email}</span></div><b>{money(review.orders?.total)}</b></header><div className="risk-signals">{(review.signals || []).map((signal, index) => <span key={`${signal.code}-${index}`}><AlertTriangle /> {signal.label}</span>)}</div><footer><span className={riskClass(review.decision)}>{review.decision}</span><button className="button button-outline" onClick={() => { setSelected(review); setNotes(review.admin_notes || ""); }}>Review</button></footer></article>)}</div>}
-      {!loading && !filtered.length && <div className="empty-state compact"><CheckCircle2 /><h3>No orders in this queue</h3></div>}
+      <div className="panel-title enterprise-panel-title"><div><h2>Order risk center</h2><p>Review flagged orders before fulfillment. Approval does not confirm payment; rejection holds fulfillment without cancelling or refunding an order.</p></div><div className="risk-queue-controls"><select aria-label="Risk decision filter" value={filter} onChange={(event) => setFilter(event.target.value)}><option value="pending">Pending review</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="all">All decisions</option></select><button className="button button-outline" disabled={loading || saving} onClick={load}><RefreshCw /> Refresh queue</button></div></div>
+      {message && <div className="form-message success" role="status">{message}</div>}
+      {loadError && <div className="form-message error" role="alert">{loadError}</div>}
+      {loading ? <div className="catalog-loading">Loading risk queue…</div> : <div className="risk-review-grid">{filtered.map((review) => <article key={review.order_id} className={`risk-review-card ${review.risk_level}`}><header><span className={`risk-score ${review.risk_level}`}>{review.risk_score}</span><div><small>{review.orders?.order_number || `Order ${review.order_id}`}</small><h3>{review.orders?.first_name} {review.orders?.last_name}</h3><span>{review.orders?.email}</span></div><b>{money(review.orders?.total)}</b></header><div className="risk-signals">{(Array.isArray(review.signals) ? review.signals : []).map((signal, index) => <span key={`${signal.code}-${index}`}><AlertTriangle /> {signal.label}</span>)}</div><footer><span className={riskClass(review.decision)}>{review.decision}</span><button className="button button-outline" onClick={() => openReview(review)}>Review decision</button></footer></article>)}</div>}
+      {!loading && !loadError && !filtered.length && <div className="empty-state compact"><CheckCircle2 /><h3>No orders in this queue</h3><p>Use the decision filter to see approved or rejected orders.</p></div>}
     </section>
-    {selected && <div className="modal-backdrop"><div className="risk-decision-modal" role="dialog" aria-modal="true"><header><div><small>ORDER RISK REVIEW</small><h2>{selected.orders?.order_number}</h2></div><button className="icon-button" onClick={() => setSelected(null)}><X /></button></header><div><div className="risk-decision-score"><ShieldAlert /><span><b>{selected.risk_score}/100</b><small>{selected.risk_level} risk</small></span></div><label>Private review notes<textarea rows="5" maxLength="5000" value={notes} onChange={(event) => setNotes(event.target.value)} /></label><label>Required decision reason<textarea rows="3" maxLength="1000" value={reason} onChange={(event) => setReason(event.target.value)} /></label></div><footer><button className="button button-outline" onClick={() => decide("rejected")}>Reject</button><button className="button button-dark" onClick={() => decide("pending")}>Keep pending</button><button className="button button-gold" onClick={() => decide("approved")}>Approve review</button></footer></div></div>}
+    {selected && <div className="modal-backdrop"><div className="risk-decision-modal" role="dialog" aria-modal="true" aria-labelledby="risk-decision-title"><header><div><small>ORDER RISK REVIEW</small><h2 id="risk-decision-title">{selected.orders?.order_number || `Order ${selected.order_id}`}</h2></div><button className="icon-button" aria-label="Close risk review" disabled={saving} onClick={() => setSelected(null)}><X /></button></header><div><div className="risk-decision-score"><ShieldAlert /><span><b>{selected.risk_score}/100</b><small>{selected.risk_level} risk · {selected.decision}</small></span></div><p className="field-help">Approve releases the risk hold only. Cleared payment is still required before shipping. Reject holds fulfillment; it does not cancel the order or issue a refund.</p><label>Required decision reason<textarea autoFocus rows="3" maxLength="1000" disabled={saving} value={reason} onChange={(event) => setReason(event.target.value)} /></label><label>Private review notes<textarea rows="4" maxLength="5000" disabled={saving} value={notes} onChange={(event) => setNotes(event.target.value)} /></label>{decisionError && <div className="form-message error" role="alert">{decisionError}<button type="button" className="text-button" disabled={saving || loading} onClick={refreshReview}>Refresh this review</button></div>}</div><footer><button type="button" className="button button-outline" disabled={saving || loading} onClick={() => decide("rejected")}>Reject</button><button type="button" className="button button-dark" disabled={saving || loading} onClick={() => decide("pending")}>Keep pending</button><button type="button" className="button button-gold" disabled={saving || loading} onClick={() => decide("approved")}>{saving ? "Saving decision…" : "Approve review"}</button></footer></div></div>}
   </div>;
 }
 

@@ -22,3 +22,13 @@ Production schema grants verified; existing ticket count preserved. `support-ope
 ## Recovery
 
 Pause customer email updates to stop enqueueing/sending. Retain ticket and outbox histories. Do not restore broad legacy grants or bypass server verification as a rollback. The additive schema can remain installed if rolling back presentation code.
+
+## Customer submission follow-up
+
+Submission feedback previously appeared only in the history section below the form, and successful submission awaited additional reads. Short inputs could also be stopped by browser validation without a persistent explanation beside the button. The form now validates trimmed values with visible, accessible errors, shows saving progress, retains failed drafts and request IDs, and bounds support requests to 25 seconds. Server validation and authorization are unchanged.
+
+A committed server response immediately shows a focused **Ticket received** receipt with reference, subject, status and **Track this ticket** link. Slow or stale history reads cannot overwrite the receipt. The link reopens the private conversation after reload/sign-in; refresh updates both ticket status and messages. Email copy distinguishes a queued confirmation from unavailable delivery. No emails are claimed sent when the sender is disconnected.
+
+Email settings reads and sending operations now use separate rate-limit counters: six refreshes no longer prevent connecting the sender, while the sixth send in ten minutes is still rejected.
+
+Validation: all 93 automated tests, product search checks and production build passed. Browser fixtures passed inline validation, visible submission errors, retained draft/request ID on retry, focused receipt, tracking after reload, admin status/replies and mobile layouts. Live read-only checks passed homepage/product images, product page, cart add/reload, mobile width and signed-out admin redirect without console errors. Production dependency audit reported zero known vulnerabilities. No real customer tickets, orders or emails were changed by tests. Sender activation and actual inbox delivery remain unverified until the owner connects a Resend sending key in Admin → Security → Customer email updates.

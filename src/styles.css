@@ -22,6 +22,20 @@
   text-rendering: optimizeLegibility;
 }
 
+.support-receipt { padding: 20px; border: 1px solid #b8d5c5; background: #f1f8f4; overflow-wrap: anywhere; }
+.support-receipt:focus { outline: 2px solid var(--green); outline-offset: 4px; }
+.support-receipt > svg { width: 28px; height: 28px; color: var(--green); }
+.support-receipt h3 { margin: 12px 0; color: var(--navy-900); font: 700 24px Georgia, serif; }
+.support-receipt p, .support-submit-progress { font-size: 13px; line-height: 1.6; }
+.support-receipt dl { margin: 18px 0; }
+.support-receipt dt { margin-top: 12px; font-size: 11px; color: var(--muted); text-transform: uppercase; }
+.support-receipt dd { margin: 4px 0 0; font-size: 14px; font-weight: 700; }
+.support-receipt .text-button { display: block; margin: 16px auto 0; }
+.support-contact-card .form-message { margin: 14px 0; font-size: 13px; line-height: 1.6; }
+.support-contact-card .form-message a { display: block; margin-top: 8px; text-decoration: underline; }
+.support-contact-card label > small { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
+.support-contact-card [aria-invalid="true"] { border-color: var(--red); }
+
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body { margin: 0; min-width: 320px; background: var(--paper); }

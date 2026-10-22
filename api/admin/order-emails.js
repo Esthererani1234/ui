@@ -11,7 +11,7 @@ export default async function handler(request,response) {
  try {
   const actor=await requireAdmin(request);
   const db=service();
-  await rateLimit(db,'order_email_admin',actor.id,request.method==='GET'?60:5,600);
+  await rateLimit(db,request.method==='GET'?'order_email_admin_read':'order_email_admin_send',actor.id,request.method==='GET'?60:5,600);
   const {data:saved,error}=await db.rpc('get_order_email_secret');
   if(error) throw error;
   if(request.method==='GET') {

@@ -32,3 +32,8 @@ A committed server response immediately shows a focused **Ticket received** rece
 Email settings reads and sending operations now use separate rate-limit counters: six refreshes no longer prevent connecting the sender, while the sixth send in ten minutes is still rejected.
 
 Validation: all 93 automated tests, product search checks and production build passed. Browser fixtures passed inline validation, visible submission errors, retained draft/request ID on retry, focused receipt, tracking after reload, admin status/replies and mobile layouts. Live read-only checks passed homepage/product images, product page, cart add/reload, mobile width and signed-out admin redirect without console errors. Production dependency audit reported zero known vulnerabilities. No real customer tickets, orders or emails were changed by tests. Sender activation and actual inbox delivery remain unverified until the owner connects a Resend sending key in Admin → Security → Customer email updates.
+
+
+## Subsequent launch update
+
+The owner connected and enabled the Resend sender on 22 October 2026. Shipping was restored to $35 during launch preparation. Earlier activation and $0-shipping notes above describe the implementation-time state. Actual inbox delivery remains unverified. See `launch-readiness-2026-10-22.md` for current gates and recovery procedures.

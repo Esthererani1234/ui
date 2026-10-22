@@ -12,13 +12,14 @@ const userId = '10000000-0000-4000-8000-000000000001';
 const challengeId = '30000000-0000-4000-8000-000000000001';
 const token = ['{}', JSON.stringify({ session_id: '20000000-0000-4000-8000-000000000001' }), '{}'].map(x => Buffer.from(x).toString('base64url')).join('.');
 
-function harness({ available = true, completeError = null, enrolled = false } = {}) {
+function harness({ available = true, completeError = null, enrolled = false, recovery = false } = {}) {
   let handler, sends = 0;
   const calls = [];
   const client = {
-    auth: { getUser: async () => ({ data: { user: { id: userId } } }) },
+    auth: { getUser: async () => ({ data: { user: { id: userId } } }), admin:{updateUserById:async()=>{calls.push({name:'update_password'});return {error:null}},signOut:async(jwt,scope)=>{calls.push({name:'revoke_sessions',scope});return {error:null}}} },
     rpc: async (name, args) => {
       calls.push({ name, args });
+      if (name === 'consume_recovery_sms') return {data:recovery};
       if (name === 'check_customer_session') return { data: true };
       if (name === 'consume_security_rate_limit') return { data: 0 };
       if (name === 'can_enroll_customer_phone') return { data: available };
@@ -31,7 +32,7 @@ function harness({ available = true, completeError = null, enrolled = false } = 
       const result = table === 'profiles' ? { phone: '+12025550123', phone_verified_at: enrolled ? '2026-01-01' : null }
         : table === 'app_settings' ? Object.entries({ sms_provider_name: 'messagebird', sms_provider_ready: true, customer_sms_mfa_required: true, sms_sender: 'GoldOnTheSpot', sms_provider_tested_at: '2026-01-01' }).map(([key, value]) => ({ key, value }))
         : { id: challengeId };
-      const chain = { select: () => chain, eq: () => chain, in: () => chain, insert: () => chain, single: () => chain, maybeSingle: () => chain, then: resolve => Promise.resolve({ data: result }).then(resolve) };
+      const chain = { delete:()=>{calls.push({name:'delete_sms',table});return chain}, select: () => chain, eq: () => chain, in: () => chain, insert: () => chain, single: () => chain, maybeSingle: () => chain, then: resolve => Promise.resolve({ data: result }).then(resolve) };
       return chain;
     },
   };
@@ -75,3 +76,6 @@ test('available phone still completes normal signup', async () => {
   const response = await app.request({ action: 'verify', challenge_id: challengeId, code: '123456' });
   assert.deepEqual(await response.json(), { verified: true });
 });
+
+test('password reset consumes a fresh recovery grant before changing password and revokes sessions',async()=>{const app=harness({enrolled:true,recovery:true});const res=await app.request({action:'password_update',password:'Fixture-new-password-123'});assert.equal(res.status,200);assert.ok(app.calls.findIndex(c=>c.name==='consume_recovery_sms')<app.calls.findIndex(c=>c.name==='update_password'));assert.equal(app.calls.find(c=>c.name==='revoke_sessions').scope,'global');assert.ok(app.calls.some(c=>c.name==='delete_sms'))});
+test('missing, stale or consumed recovery grant cannot update the password',async()=>{const app=harness({enrolled:true,recovery:false});const res=await app.request({action:'password_update',password:'Fixture-new-password-123'});assert.equal(res.status,403);assert.equal(app.calls.some(c=>c.name==='update_password'),false)});

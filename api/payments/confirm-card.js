@@ -1,6 +1,7 @@
 import { service } from "../_lib/payments.js";
 import { rateLimit, strictObject, securityLog, requestHash } from "../_lib/security.js";
 import Stripe from "stripe";
+import { reconcileCardIntent } from "../_lib/cardCapture.js";
 import {
   assertPayable,
   authenticateCustomer,
@@ -41,6 +42,8 @@ export default async function handler(request, response) {
 
     order = await customerOrder(orderId, user.id);
     assertPayable(order, "card");
+    const {data:captureSetting,error:captureSettingError}=await service().from('app_settings').select('value').eq('key','card_manual_capture_enabled').maybeSingle();
+    if(captureSettingError)throw Object.assign(new Error('Payment security checks are temporarily unavailable.'),{status:503});
     claimHash = requestHash(confirmationTokenId);
     const {data: claimed,error: claimError}=await service().rpc("claim_card_payment",{p_order_id:order.id,p_user_id:user.id,p_request_hash:claimHash,p_expected_total:Number(order.total)});
     if(claimError) throw claimError;
@@ -52,6 +55,7 @@ export default async function handler(request, response) {
       confirm: true,
       confirmation_token: confirmationTokenId,
       payment_method_types: ["card"],
+      capture_method: captureSetting?.value===true ? 'manual' : 'automatic',
       description: `GoldOnTheSpot order ${order.order_number}`,
       receipt_email: order.email,
       return_url: `${process.env.SITE_URL || "https://goldonthespot.com"}/account?tab=orders&order=${encodeURIComponent(order.order_number)}&payment=return`,
@@ -77,10 +81,18 @@ export default async function handler(request, response) {
       if (intent.status !== "succeeded") throw recordError;
     }
 
+    let finalStatus=intent.status;
+    if(intent.capture_method==='manual' && intent.status==='requires_capture') {
+      const currentOrder=await customerOrder(order.id,user.id);
+      const result=await reconcileCardIntent({db:service(),stripe,order:currentOrder,intent});
+      if(result.expired)throw Object.assign(new Error('The price lock expired before payment could complete.'),{status:409});
+      finalStatus=result.status;
+    }
+
     return json(response, 200, {
       order_id: order.id,
       order_number: order.order_number,
-      status: intent.status,
+      status: finalStatus,
       client_secret: intent.status === "requires_action" ? intent.client_secret : null,
     });
   } catch (error) {

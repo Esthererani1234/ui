@@ -250,6 +250,7 @@ export default function AuthPage() {
       await supabase.auth.signOut();
       window.location.assign("/login?reset=success");
     } catch (error) {
+      if(error.status===403)setRecoverySmsVerified(false);
       setMessage(friendlyError(error));
     } finally {
       setBusy(false);

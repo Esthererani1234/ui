@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { metalSymbol } from "../lib/pricing";
 import { productImageSrcSet, productImageUrl } from "../lib/productImages";
+import ProductImage from "./ProductImage";
 
 export default function ProductGallery({ product, images }) {
   const gallery = [...new Set((images || []).filter(Boolean))];
@@ -106,7 +107,7 @@ export default function ProductGallery({ product, images }) {
               onClick={openLightbox}
               aria-label={`Magnify ${product.name}`}
             >
-              <img
+              <ProductImage
                 src={productImageUrl(activeImage, 1100, 84)}
                 srcSet={productImageSrcSet(activeImage, [640, 880, 1100])}
                 sizes="(max-width: 760px) 94vw, 48vw"
@@ -176,7 +177,7 @@ export default function ProductGallery({ product, images }) {
                   aria-label={`View product picture ${index + 1}`}
                   aria-pressed={index === currentIndex}
                 >
-                  <img
+                  <ProductImage
                     src={productImageUrl(url, 180, 76)}
                     alt=""
                     width="180"
@@ -231,7 +232,7 @@ export default function ProductGallery({ product, images }) {
                 <ChevronLeft />
               </button>
             )}
-            <img
+            <ProductImage
               src={productImageUrl(activeImage, 1600, 88)}
               alt={`${product.name}, picture ${currentIndex + 1}`}
               width="1600"

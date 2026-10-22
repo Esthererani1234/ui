@@ -469,19 +469,54 @@ function WireSettingsPanel() {
   const [form, setForm] = useState(empty);
   const [configured, setConfigured] = useState(false);
   const [message, setMessage] = useState("");
+  const [saveError, setSaveError] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const saving = useRef(false);
+
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      const response = await fetch("/api/payments/wire-settings", { headers: { authorization: `Bearer ${data.session?.access_token || ""}` } });
-      const result = await response.json().catch(() => ({}));
-      if (response.ok && result.settings) {
-        setConfigured(true);
-        setForm((current) => ({ ...current, ...result.settings, account_number: "" }));
+    let active = true;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+    setLoading(true);
+    setLoadError("");
+    async function load() {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error || !data.session?.access_token) throw new Error("Sign in again to load bank-wire instructions.");
+        const response = await fetch("/api/payments/wire-settings", {
+          headers: { authorization: `Bearer ${data.session.access_token}` },
+          signal: controller.signal,
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || "Bank-wire instructions could not be loaded.");
+        if (typeof result.configured !== "boolean" || (result.configured && (!result.settings || typeof result.settings !== "object"))) {
+          throw new Error("The server returned incomplete bank-wire settings. Please retry.");
+        }
+        if (!active) return;
+        setConfigured(result.configured);
+        // Never populate the account field with a masked value or send read-only metadata back.
+        setForm(Object.fromEntries(Object.keys(empty).map(key => [key,
+          key === "account_number" || key === "reason" ? "" : typeof result.settings?.[key] === "string" ? result.settings[key] : "",
+        ])));
+      } catch (error) {
+        if (active) setLoadError(controller.signal.aborted ? "Loading bank-wire instructions timed out. Please retry." : error.message || "Bank-wire instructions could not be loaded. Please retry.");
+      } finally {
+        clearTimeout(timeout);
+        if (active) setLoading(false);
       }
-    });
-  }, []);
+    }
+    load();
+    return () => { active = false; clearTimeout(timeout); controller.abort(); };
+  }, [loadAttempt]);
+
   const save = async (event) => {
-    event.preventDefault(); setBusy(true); setMessage("");
+    event.preventDefault();
+    if (saving.current || loading || loadError) return;
+    saving.current = true;
+    setBusy(true); setMessage(""); setSaveError(false);
     try {
       const { data } = await supabase.auth.getSession();
       const response = await fetch("/api/payments/wire-settings", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${data.session?.access_token || ""}` }, body: JSON.stringify(form) });
@@ -489,10 +524,33 @@ function WireSettingsPanel() {
       if (!response.ok) throw new Error(result.error);
       setConfigured(true); setForm((current) => ({ ...current, account_number: "", reason: "" }));
       setMessage(`Encrypted wire instructions saved. Account ending ${result.account_last4}.`);
-    } catch (error) { setMessage(error.message || "Wire settings could not be saved."); }
-    finally { setBusy(false); }
+    } catch (error) { setSaveError(true); setMessage(error.message || "Wire settings could not be saved."); }
+    finally { saving.current = false; setBusy(false); }
   };
-  return <form className="admin-panel store-settings-panel" onSubmit={save}><div className="panel-title"><div><h2>Encrypted bank-wire instructions</h2><p>{configured ? "Instructions are configured. Enter the full account number only when replacing them." : "Configure the instructions customers receive after placing a wire order."}</p></div><KeyRound /></div><div className="form-row"><label>Bank name<input required value={form.bank_name} onChange={(event) => setForm({ ...form, bank_name: event.target.value })} /></label><label>Beneficiary / business name<input required value={form.beneficiary_name} onChange={(event) => setForm({ ...form, beneficiary_name: event.target.value })} /></label></div><div className="form-row"><label>Routing number<input required inputMode="numeric" autoComplete="off" value={form.routing_number} onChange={(event) => setForm({ ...form, routing_number: event.target.value })} /></label><label>Full account number<input required type="password" autoComplete="new-password" value={form.account_number} onChange={(event) => setForm({ ...form, account_number: event.target.value })} placeholder={configured ? "Enter full number to replace" : "Account number"} /></label></div><div className="form-row"><label>SWIFT / BIC (optional)<input autoComplete="off" value={form.swift_code} onChange={(event) => setForm({ ...form, swift_code: event.target.value })} /></label><label>Bank address (optional)<input value={form.bank_address} onChange={(event) => setForm({ ...form, bank_address: event.target.value })} /></label></div><label>Customer instructions (optional)<textarea rows="3" maxLength="500" value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} /></label><label>Required audit reason<textarea required minLength="3" rows="3" maxLength="1000" value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} /></label>{message && <div className="form-message">{message}</div>}<button className="button button-dark" disabled={busy}><Save />{busy ? " Encrypting…" : " Encrypt and save wire instructions"}</button></form>;
+
+  return <form className="admin-panel store-settings-panel" onSubmit={save}>
+    <div className="panel-title"><div><h2>Encrypted bank-wire instructions</h2><p>{loading || loadError ? "Load the current instructions before making changes." : configured ? "Instructions are configured. Enter the full account number only when replacing them." : "Configure the instructions customers receive after placing a wire order."}</p></div><KeyRound /></div>
+    {loading && <p role="status">Loading bank-wire instructions…</p>}
+    {loadError && <div className="form-message error" role="alert"><p>{loadError}</p><button type="button" className="button button-outline" onClick={() => setLoadAttempt(attempt => attempt + 1)}>Retry loading bank instructions</button></div>}
+    <fieldset className="wire-settings-fields" disabled={busy || loading || Boolean(loadError)}>
+      <div className="form-row">
+        <label>Bank name<input required value={form.bank_name} onChange={event => setForm({ ...form, bank_name: event.target.value })} /></label>
+        <label>Beneficiary / business name<input required value={form.beneficiary_name} onChange={event => setForm({ ...form, beneficiary_name: event.target.value })} /></label>
+      </div>
+      <div className="form-row">
+        <label>Domestic wire ABA<input required inputMode="numeric" autoComplete="off" aria-describedby="wire-routing-help" value={form.routing_number} onChange={event => setForm({ ...form, routing_number: event.target.value })} /><small id="wire-routing-help" className="field-help">Use the bank’s domestic wire routing number; it can differ from its ACH routing number.</small></label>
+        <label>Full account number<input required type="password" autoComplete="new-password" value={form.account_number} onChange={event => setForm({ ...form, account_number: event.target.value })} placeholder={configured ? "Enter full number to replace" : "Account number"} /></label>
+      </div>
+      <div className="form-row">
+        <label>SWIFT / BIC (optional, international wires)<input autoComplete="off" value={form.swift_code} onChange={event => setForm({ ...form, swift_code: event.target.value })} /></label>
+        <label>Bank address (optional)<input value={form.bank_address} onChange={event => setForm({ ...form, bank_address: event.target.value })} /></label>
+      </div>
+      <label>Customer instructions (optional)<textarea rows="3" maxLength="500" value={form.notes} onChange={event => setForm({ ...form, notes: event.target.value })} /></label>
+      <label>Required audit reason<textarea required minLength="3" rows="3" maxLength="1000" value={form.reason} onChange={event => setForm({ ...form, reason: event.target.value })} /></label>
+    </fieldset>
+    {message && <div className={`form-message ${saveError ? "error" : "success"}`} role={saveError ? "alert" : "status"}>{message}</div>}
+    <button className="button button-dark" disabled={busy || loading || Boolean(loadError)}><Save />{busy ? " Encrypting…" : " Encrypt and save wire instructions"}</button>
+  </form>;
 }
 
 export function AuditAdminPanel() {

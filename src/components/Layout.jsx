@@ -25,7 +25,7 @@ export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  useEffect(() => { setMenuOpen(false); window.scrollTo({ top: 0, behavior: "auto" }); }, [location.pathname]);
+  useEffect(() => { setMenuOpen(false); window.scrollTo({ top: 0, behavior: "auto" }); }, [location.pathname, location.search]);
   useEffect(() => {
     const activeQuery =
       location.pathname === "/shop"

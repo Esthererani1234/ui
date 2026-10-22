@@ -1,6 +1,8 @@
 import Stripe from "stripe";
 import { json, readRaw, applyPaymentEvent, service } from "../lib/payments.js";
 import { securityLog, stripeState, stripeMatchesOrder } from "../lib/security.js";
+import {bindCardIntent} from '../lib/cardRecovery.js';
+import {reconcileCardIntent} from '../lib/cardCapture.js';
 export const config = { api: { bodyParser: false } };
 export default async function handler(request,response) {
   if(request.method!=="POST") return json(response,405,{error:"Method not allowed"});
@@ -12,15 +14,18 @@ export default async function handler(request,response) {
   try {
     const object=event.data.object;
     const state=stripeState(event.type,object);
-    if(!state) return json(response,200,{received:true,ignored:true});
+    const authorizationEvent=event.type==='payment_intent.amount_capturable_updated';
+    if(!state && !authorizationEvent) return json(response,200,{received:true,ignored:true});
     const intentId=object.object==="payment_intent" ? object.id : typeof object.payment_intent==="string" ? object.payment_intent : object.payment_intent?.id;
     if(!intentId) return json(response,200,{received:true,ignored:true});
     const intent=await stripe.paymentIntents.retrieve(intentId);
     const orderId=Number(intent.metadata?.order_id);
     if(!Number.isSafeInteger(orderId) || orderId<1) return json(response,200,{received:true,ignored:true});
-    const {data:order,error}=await service().from("orders").select("id,user_id,total,payment_provider,provider_payment_id").eq("id",orderId).maybeSingle();
+    const {data:storedOrder,error}=await service().from("orders").select("id,user_id,total,payment_method,payment_status,status,price_locked_until,payment_provider,provider_payment_id").eq("id",orderId).maybeSingle();
+    let order=storedOrder;
     if(error) throw error;
     if(!order || !stripeMatchesOrder(intent,order)) throw new Error("Payment reconciliation mismatch");
+    if(intent.metadata?.payment_claim)order=await bindCardIntent({db:service(),order,intent});
     let providerId=intent.id;
     // Existing hosted sessions are supported alongside embedded PaymentIntents.
     if(order.provider_payment_id?.startsWith("cs_")) {
@@ -29,6 +34,10 @@ export default async function handler(request,response) {
       providerId=session.id;
     }
     if(order.payment_provider!=="stripe" || order.provider_payment_id!==providerId) throw new Error("Payment reference not yet reconciled");
+    if(authorizationEvent) {
+      await reconcileCardIntent({db:service(),stripe,order,intent});
+      return json(response,200,{received:true});
+    }
     // A delayed failure callback must not override a subsequently successful intent.
     const currentState=intent.status==="succeeded" && ["failed","expired"].includes(state[0]) ? ["paid","paid"] : state;
     if(currentState[0]==="paid" && (intent.status!=="succeeded" || intent.amount_received!==intent.amount)) throw new Error("Payment not settled");

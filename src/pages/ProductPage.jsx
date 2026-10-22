@@ -23,6 +23,8 @@ export default function ProductPage() {
   const { slug } = useParams();
   const { add, items, lastAdded } = useCart();
   const [product, setProduct] = useState(() => findCachedProduct(slug));
+  const [loadError, setLoadError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [spot, setSpot] = useState(null);
   const [quantity, setQuantity] = useState("1");
   const receivePrices = useCallback((next) => setSpot(next), []);
@@ -30,6 +32,7 @@ export default function ProductPage() {
   useEffect(() => {
     const cached = findCachedProduct(slug);
     setProduct(cached);
+    setLoadError(false);
     setQuantity("1");
     let mounted = true;
     fetchActiveProducts()
@@ -40,12 +43,12 @@ export default function ProductPage() {
           );
       })
       .catch(() => {
-        if (mounted && !cached) setProduct(false);
+        if (mounted) setLoadError(true);
       });
     return () => {
       mounted = false;
     };
-  }, [slug]);
+  }, [slug, loadAttempt]);
 
   useEffect(() => {
     if (!product?.id) return;
@@ -56,6 +59,15 @@ export default function ProductPage() {
     });
   }, [product?.id, product?.slug]);
 
+  if (loadError && !product)
+    return (
+      <div className="empty-state standalone" role="alert">
+        <h1>Product details temporarily unavailable</h1>
+        <p>We couldn’t load this product. Please try again.</p>
+        <button type="button" className="button button-dark" onClick={() => setLoadAttempt((attempt) => attempt + 1)}>Try again</button>
+        <Link className="button button-outline" to="/shop">Back to shop</Link>
+      </div>
+    );
   if (product === false)
     return (
       <div className="empty-state standalone">
@@ -113,6 +125,7 @@ export default function ProductPage() {
       </div>
       <section className="section product-detail-section">
         <div className="container">
+          {loadError && <div className="form-message error" role="alert"><p>Product details could not be refreshed. Showing the last loaded details.</p><button type="button" className="button button-outline" onClick={() => setLoadAttempt((attempt) => attempt + 1)}>Try again</button></div>}
           <div className="breadcrumbs">
             <Link to="/shop">Shop</Link>
             <span>/</span>

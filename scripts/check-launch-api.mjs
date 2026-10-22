@@ -2,9 +2,10 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {Readable} from 'node:stream';
 process.env.SUPABASE_SECRET_KEY='fixture-server-only';
-const {default:complete}=await import('../api/payments/complete-card.js');
+const {default:complete}=await import('../server/payments/complete-card.js');
 const {default:health}=await import('../api/admin/launch-health.js');
 const {default:reconcile}=await import('../api/operations/reconcile-payments.js');
+const {default:paymentRoute,config:routeConfig}=await import('../api/payments/[action].js');
 const uid='10000000-0000-4000-8000-000000000001';
 function request(method,body={},aal='aal2'){
  const token=[{}, {sub:uid,aal,session_id:'20000000-0000-4000-8000-000000000001'},'fixture'].map(x=>Buffer.from(JSON.stringify(x)).toString('base64url')).join('.');
@@ -41,4 +42,19 @@ test('operations health rejects normal users and AAL1 admins before private diag
 });
 test('reconciliation endpoint rejects missing and forged worker tokens without claiming work',async()=>{
  const f=fixture();try{for(const token of [undefined,'f'.repeat(64)]){const req=request('POST');if(token)req.headers['x-reconciliation-token']=token;const res=response();await reconcile(req,res);assert.equal(res.statusCode,401);}assert.ok(!f.calls.some(x=>x.u.pathname.endsWith('/rpc/claim_payment_reconciliations')));}finally{f.restore()}
+});
+test('payment router preserves authorization and rejects unknown paths or query overrides',async()=>{
+ for(const [url,status] of [['/api/payments/complete-card',401],['/api/payments/wire-settings',401],['/api/payments/unknown?action=config',404],['/api/payments/constructor',404]]){
+  const req=request('POST');req.url=url;req.headers={};const res=response();await paymentRoute(req,res);assert.equal(res.statusCode,status);
+ }
+});
+test('payment router preserves raw signed webhook payload and rejects forged signature',async()=>{
+ const {default:Stripe}=await import('stripe');
+ process.env.STRIPE_SECRET_KEY='sk_test_fixture';process.env.STRIPE_WEBHOOK_SECRET='whsec_fixture';
+ assert.equal(routeConfig.api.bodyParser,false);
+ const raw='{ "id":"evt_fixture", "type":"unhandled.fixture", "data":{"object":{}} }';
+ for(const valid of [true,false]){
+  const req=Object.assign(Readable.from([Buffer.from(raw)]),{method:'POST',url:'/api/payments/stripe-webhook',headers:{'stripe-signature':valid?Stripe.webhooks.generateTestHeaderString({payload:raw,secret:'whsec_fixture'}):'forged'}});
+  const res=response();await paymentRoute(req,res);assert.equal(res.statusCode,valid?200:400);
+ }
 });

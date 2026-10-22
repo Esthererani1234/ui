@@ -1,6 +1,6 @@
-import { rateLimit, securityLog } from "../_lib/security.js";
+import { rateLimit, securityLog } from "../../server/lib/security.js";
 import crypto from "node:crypto";
-import { json, readJson, service } from "../_lib/payments.js";
+import { json, readJson, service } from "../../server/lib/payments.js";
 
 export const config = { api: { bodyParser: false } };
 

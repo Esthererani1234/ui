@@ -1,4 +1,4 @@
-import { json, wireSettings } from "../_lib/payments.js";
+import { json, wireSettings } from "../lib/payments.js";
 
 const paymentDatabaseReady = Boolean(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY);
 

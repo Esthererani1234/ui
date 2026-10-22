@@ -1,4 +1,4 @@
-import { authenticateCustomer, customerOrder, json, wireSettings } from "../_lib/payments.js";
+import { authenticateCustomer, customerOrder, json, wireSettings } from "../lib/payments.js";
 
 export default async function handler(request, response) {
   if (request.method !== "GET") return json(response, 405, { error: "Method not allowed" });

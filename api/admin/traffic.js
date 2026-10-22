@@ -2,7 +2,7 @@ import {
   json,
   requireAdmin,
   service,
-} from "../_lib/payments.js";
+} from "../../server/lib/payments.js";
 
 export default async function handler(request, response) {
   if (request.method !== "GET") {

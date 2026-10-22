@@ -1,7 +1,7 @@
-import { service } from "../_lib/payments.js";
-import { rateLimit, strictObject, securityLog, requestHash } from "../_lib/security.js";
+import { service } from "../lib/payments.js";
+import { rateLimit, strictObject, securityLog, requestHash } from "../lib/security.js";
 import Stripe from "stripe";
-import { reconcileCardIntent } from "../_lib/cardCapture.js";
+import { reconcileCardIntent } from "../lib/cardCapture.js";
 import {
   assertPayable,
   authenticateCustomer,
@@ -9,7 +9,7 @@ import {
   insertAttempt,
   json,
   readJson,
-} from "../_lib/payments.js";
+} from "../lib/payments.js";
 
 export const config = { api: { bodyParser: false } };
 

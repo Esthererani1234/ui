@@ -1,5 +1,5 @@
-import { rateLimit, strictObject, securityLog } from "../_lib/security.js";
-import { json, readJson, requireAdmin, saveWireSettings, service, wireSettings } from "../_lib/payments.js";
+import { rateLimit, strictObject, securityLog } from "../lib/security.js";
+import { json, readJson, requireAdmin, saveWireSettings, service, wireSettings } from "../lib/payments.js";
 
 export const config = { api: { bodyParser: false } };
 

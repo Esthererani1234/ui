@@ -1,7 +1,7 @@
-import { service } from "../_lib/payments.js";
-import { rateLimit, strictObject, securityLog } from "../_lib/security.js";
-import { authenticateCustomer, customerOrder, json, readJson } from "../_lib/payments.js";
-import { createQuote, refreshCardOrder } from "../_lib/quotes.js";
+import { service } from "../../server/lib/payments.js";
+import { rateLimit, strictObject, securityLog } from "../../server/lib/security.js";
+import { authenticateCustomer, customerOrder, json, readJson } from "../../server/lib/payments.js";
+import { createQuote, refreshCardOrder } from "../../server/lib/quotes.js";
 
 export const config = { api: { bodyParser: false } };
 

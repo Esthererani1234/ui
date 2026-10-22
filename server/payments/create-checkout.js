@@ -1,6 +1,6 @@
-import { service } from "../_lib/payments.js";
-import { rateLimit, strictObject, securityLog } from "../_lib/security.js";
-import { assertPayable, authenticateCustomer, customerOrder, escapeHtml, insertAttempt, json, nextWirePaymentDeadline, readJson, sendPaymentEmail, wireSettings } from "../_lib/payments.js";
+import { service } from "../lib/payments.js";
+import { rateLimit, strictObject, securityLog } from "../lib/security.js";
+import { assertPayable, authenticateCustomer, customerOrder, escapeHtml, insertAttempt, json, nextWirePaymentDeadline, readJson, sendPaymentEmail, wireSettings } from "../lib/payments.js";
 
 export const config = { api: { bodyParser: false } };
 

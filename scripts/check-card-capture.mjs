@@ -1,5 +1,5 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
-import {reconcileCardIntent} from '../api/_lib/cardCapture.js';
+import {reconcileCardIntent} from '../server/lib/cardCapture.js';
 const order={id:1,user_id:'u',total:100,payment_method:'card',payment_provider:'stripe',provider_payment_id:'pi_test',status:'awaiting_payment',price_locked_until:new Date(Date.now()+600000).toISOString()};
 const intent={id:'pi_test',amount:10000,currency:'usd',metadata:{order_id:'1',user_id:'u'},capture_method:'manual',status:'requires_capture'};
 function harness({allowed=true,dbError=false,captureError=false}={}){const calls=[];return {calls,db:{rpc:async(name,args)=>{calls.push({name,args});return name==='authorize_card_capture'?{data:allowed,error:dbError?{}:null}:{error:null}}},stripe:{paymentIntents:{capture:async(id,args,options)=>{calls.push({name:'capture',id,args,options});if(captureError)throw new Error('timeout');return {...intent,status:'succeeded',amount_received:10000}},cancel:async(id,args,options)=>{calls.push({name:'cancel',id,args,options});return {...intent,status:'canceled'}}}}}}

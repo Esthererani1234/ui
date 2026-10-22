@@ -1,7 +1,7 @@
 import Stripe from 'stripe';
-import {json,service} from '../_lib/payments.js';
-import {securityLog} from '../_lib/security.js';
-import {reconcileCardIntent} from '../_lib/cardCapture.js';
+import {json,service} from '../../server/lib/payments.js';
+import {securityLog} from '../../server/lib/security.js';
+import {reconcileCardIntent} from '../../server/lib/cardCapture.js';
 export const maxDuration=60;
 export default async function handler(request,response) {
  if(request.method!=='POST')return json(response,405,{error:'Method not allowed'});

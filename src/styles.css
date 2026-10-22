@@ -1445,3 +1445,13 @@ img { max-width: 100%; display: block; }
 .checkout-form .terms-check input { width:16px; min-height:16px; margin:0 8px 0 0; vertical-align:middle; }
 
 .wire-agreement .checkout-check input,.terms-check input { flex-shrink:0; }
+
+@media (max-width: 360px) {
+  .site-header .header-main { grid-template-columns: minmax(0,1fr) auto; column-gap: 8px; }
+  .site-header .brand { gap: 7px; min-width: 0; }
+  .site-header .brand-mark { width: 32px; height: 32px; flex-shrink: 0; }
+  .site-header .brand-copy b { font-size: 14px; }
+  .site-header .header-action { min-width: 38px; min-height: 40px; align-content: center; }
+  .site-header .menu-button { min-width: 32px; min-height: 40px; padding: 4px; }
+  .site-header .header-search { min-width: 0; }
+}

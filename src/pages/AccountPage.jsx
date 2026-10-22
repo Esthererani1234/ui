@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { CheckCircle2, Headphones, LockKeyhole, LogOut, MapPin, Package, ShieldCheck, UserRound } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Headphones, LockKeyhole, LogOut, Mail, MapPin, Package, Plus, RefreshCw, ShieldCheck, Smartphone, UserRound } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { money, orderStatusLabel } from "../lib/pricing";
@@ -8,17 +8,19 @@ import { useAuth } from "../state/AuthContext";
 import { useCart } from "../state/CartContext";
 import OrderReceipt, { OrderItems } from "../components/OrderReceipt";
 import OrderStatus from "../components/OrderStatus";
+import CustomerAccountNav from "../components/CustomerAccountNav";
 import { clearCheckoutRecovery, readCheckoutRecovery } from "../lib/checkoutRecovery";
+import "../styles/customerAccount.css";
 
 const orderFields = "id, order_number, user_id, first_name, last_name, email, phone, status, payment_status, payment_method, payment_provider, provider_checkout_url, payment_reference, payment_due_at, subtotal, payment_surcharge, shipping_amount, insurance_amount, total, spot_snapshot, price_locked_until, shipping_address, customer_notes, tracking_number, created_at, updated_at, order_items(*, products(image_url, image_urls, slug, category))";
-const tabs = [
-  ["orders", Package, "Orders"],
-  ["profile", UserRound, "Profile"],
-  ["security", ShieldCheck, "Security"],
-  ["support", Headphones, "Support"],
-];
+const tabs = ["orders", "profile", "security", "support"];
 
-const emptyProfile = { first_name: "", last_name: "", phone: "", address_line_1: "", address_line_2: "", city: "", state: "", postal_code: "", marketing_opt_in: false };
+const emptyProfile = { first_name: "", last_name: "", address_line_1: "", address_line_2: "", city: "", state: "", postal_code: "", marketing_opt_in: false };
+
+const profileForm = (profile) => Object.fromEntries(Object.keys(emptyProfile).map(key => [key,
+  key === "marketing_opt_in" ? Boolean(profile?.[key]) : typeof profile?.[key] === "string" ? profile[key] : "",
+]));
+const ticketStatuses = { open: "Awaiting support", in_progress: "Being reviewed", resolved: "Answered", closed: "Closed" };
 
 export default function AccountPage() {
   const {
@@ -28,6 +30,7 @@ export default function AccountPage() {
     signOut,
     refreshProfile,
     customerSmsVerified,
+    customerSmsPhone,
     requiresCustomerMfa,
   } = useAuth();
   const [params] = useSearchParams();
@@ -36,15 +39,27 @@ export default function AccountPage() {
   const completePurchaseRef = useRef(completePurchase);
   const requestedTab = params.get("tab");
   const paymentResult = params.get("payment");
-  const [active, setActive] = useState(tabs.some(([id]) => id === requestedTab) ? requestedTab : "orders");
+  const active = tabs.includes(requestedTab) ? requestedTab : "orders";
   const [orders, setOrders] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshCount, setRefreshCount] = useState(0);
   const [loadError, setLoadError] = useState("");
-  const [form, setForm] = useState(emptyProfile);
-  const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [ticketsLoading, setTicketsLoading] = useState(true);
+  const [ticketsError, setTicketsError] = useState("");
+  const [ticketRefreshCount, setTicketRefreshCount] = useState(0);
+  const ownedProfile = profile?.id === user.id ? profile : null;
+  const [form, setForm] = useState(() => profileForm(ownedProfile));
+  const [profileNotice, setProfileNotice] = useState(null);
+  const [profileBusy, setProfileBusy] = useState(false);
+  const [securityNotice, setSecurityNotice] = useState(null);
+  const [securityBusy, setSecurityBusy] = useState(false);
+  const [signOutError, setSignOutError] = useState("");
+  const [signingOut, setSigningOut] = useState(false);
+  const currentUser = useRef(user.id), mounted = useRef(true), dirty = useRef(false);
+  const profileRequest = useRef(null), securityRequest = useRef(null), signOutRequest = useRef(null);
+  currentUser.current = user.id;
+  const isCurrent = owner => mounted.current && currentUser.current === owner;
   const highlightedOrder = params.get("order");
   const autoShowWire = params.get("wire") === "show";
   const [paymentState, setPaymentState] = useState(
@@ -52,33 +67,64 @@ export default function AccountPage() {
   );
 
   useEffect(() => {
-    setActive(tabs.some(([id]) => id === requestedTab) ? requestedTab : "orders");
-  }, [requestedTab]);
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
   useEffect(() => {
     completePurchaseRef.current = completePurchase;
   }, [completePurchase]);
   useEffect(() => {
-    setForm({ ...emptyProfile, ...(profile || {}) });
-  }, [profile]);
+    dirty.current = false;
+    setForm(profileForm(ownedProfile));
+    setProfileNotice(null); setSecurityNotice(null); setSignOutError("");
+    setProfileBusy(false); setSecurityBusy(false); setSigningOut(false);
+    profileRequest.current = null; securityRequest.current = null; signOutRequest.current = null;
+    setOrders([]); setTickets([]);
+  }, [user.id]);
+  useEffect(() => {
+    if (profile?.id === user.id && !dirty.current) setForm(profileForm(profile));
+  }, [profile, user.id]);
   useEffect(() => {
     let activeRequest = true;
-    setLoading(true);
-    setLoadError("");
-    Promise.all([
-      supabase.from("orders").select(orderFields).eq("user_id", user.id).order("created_at", { ascending: false }),
-      supabase.from("support_tickets").select("id, ticket_number, subject, status, admin_response, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
-    ]).then(([orderResult, ticketResult]) => {
-      if (!activeRequest) return;
-      if (orderResult.error || ticketResult.error) setLoadError("Some account information could not be loaded. Please refresh and try again.");
-      if (!orderResult.error) setOrders((current) => (orderResult.data || []).map((row) => {
-        const prior = current.find((item) => item.id === row.id);
-        return prior && new Date(prior.updated_at) > new Date(row.updated_at) ? prior : row;
-      }));
-      if (!ticketResult.error) setTickets(ticketResult.data || []);
-      setLoading(false);
-    }).catch(() => { if(activeRequest) { setLoadError("Your account connection was interrupted. Please refresh and try again."); setLoading(false); } });
+    const owner = user.id;
+    setLoading(true); setLoadError("");
+    async function loadOrders() {
+      try {
+        const { data, error } = await supabase.from("orders").select(orderFields).eq("user_id", owner).order("created_at", { ascending: false });
+        if (!activeRequest || !isCurrent(owner)) return;
+        if (error) throw error;
+        setOrders(current => (data || []).map(row => {
+          const prior = current.find(item => item.id === row.id);
+          return prior && new Date(prior.updated_at) > new Date(row.updated_at) ? prior : row;
+        }));
+      } catch {
+        if (activeRequest && isCurrent(owner)) setLoadError("Your orders could not be loaded. Please try again.");
+      } finally {
+        if (activeRequest && isCurrent(owner)) setLoading(false);
+      }
+    }
+    loadOrders();
     return () => { activeRequest = false; };
   }, [user.id, refreshCount]);
+  useEffect(() => {
+    let activeRequest = true;
+    const owner = user.id;
+    setTicketsLoading(true); setTicketsError("");
+    async function loadTickets() {
+      try {
+        const { data, error } = await supabase.from("support_tickets").select("id,ticket_number,subject,status,created_at,updated_at").eq("user_id", owner).order("updated_at", { ascending: false }).limit(5);
+        if (!activeRequest || !isCurrent(owner)) return;
+        if (error) throw error;
+        setTickets(data || []);
+      } catch {
+        if (activeRequest && isCurrent(owner)) setTicketsError("Your support requests could not be loaded. Please try again.");
+      } finally {
+        if (activeRequest && isCurrent(owner)) setTicketsLoading(false);
+      }
+    }
+    loadTickets();
+    return () => { activeRequest = false; };
+  }, [user.id, ticketRefreshCount]);
   useEffect(() => {
     if (paymentResult !== "return" || !highlightedOrder) { setPaymentState("none"); return undefined; }
     let activeRequest = true;
@@ -120,29 +166,76 @@ export default function AccountPage() {
     };
   }, [paymentResult, highlightedOrder, user.id, refreshCount]);
 
-  const totals = useMemo(() => ({ orders: orders.length, open: orders.filter((order) => !["completed", "cancelled"].includes(order.status)).length, tickets: tickets.filter((ticket) => !["resolved", "closed"].includes(ticket.status)).length }), [orders, tickets]);
-
-  const selectTab = (tab) => {
-    setActive(tab); setMessage("");
-    navigate(`/account?tab=${tab}`, { replace: true });
+  const changeField = (name, value) => {
+    dirty.current = true;
+    setForm(current => ({ ...current, [name]: value }));
+    setProfileNotice(null);
   };
   const saveProfile = async (event) => {
     event.preventDefault();
-    if (!form.first_name.trim() || !form.last_name.trim()) return setMessage("First and last name are required.");
-    setBusy(true); setMessage("");
-    const payload = { first_name: form.first_name.trim(), last_name: form.last_name.trim(), phone: form.phone.trim() || null, address_line_1: form.address_line_1.trim() || null, address_line_2: form.address_line_2.trim() || null, city: form.city.trim() || null, state: form.state.trim().toUpperCase() || null, postal_code: form.postal_code.trim() || null, marketing_opt_in: Boolean(form.marketing_opt_in) };
-    const { error } = await supabase.from("profiles").update(payload).eq("id", user.id);
-    setBusy(false);
-    setMessage(error ? "We could not save your profile. Please check the fields and try again." : "Profile and delivery preferences saved.");
-    if (!error) await refreshProfile();
+    if (profileRequest.current || !ownedProfile) return;
+    if (!form.first_name.trim() || !form.last_name.trim()) {
+      setProfileNotice({ error: true, text: "First and last name are required." });
+      event.currentTarget.elements.namedItem(!form.first_name.trim() ? "first_name" : "last_name")?.focus();
+      return;
+    }
+    const owner = user.id, operation = Symbol("profile-save");
+    profileRequest.current = operation;
+    setProfileBusy(true); setProfileNotice(null);
+    // Phone enrollment is separate. Saving a name/address must never replace it.
+    const payload = { first_name: form.first_name.trim(), last_name: form.last_name.trim(), address_line_1: form.address_line_1.trim() || null, address_line_2: form.address_line_2.trim() || null, city: form.city.trim() || null, state: form.state.trim().toUpperCase() || null, postal_code: form.postal_code.trim() || null, marketing_opt_in: Boolean(form.marketing_opt_in) };
+    try {
+      const { data, error } = await supabase.from("profiles").update(payload).eq("id", owner).select("id").maybeSingle();
+      if (!isCurrent(owner)) return;
+      if (error || data?.id !== owner) throw new Error("Profile save was not confirmed.");
+      dirty.current = false;
+      setForm(profileForm(payload));
+      setProfileNotice({ text: "Your profile and delivery address are saved." });
+      try { await refreshProfile(); }
+      catch { if (isCurrent(owner)) setProfileNotice({ text: "Your changes are saved. Refresh the page to reload your account details." }); }
+    } catch {
+      if (isCurrent(owner)) setProfileNotice({ error: true, text: "We couldn’t save your profile. Your changes are still here. Please try again." });
+    } finally {
+      if (isCurrent(owner) && profileRequest.current === operation) { profileRequest.current = null; setProfileBusy(false); }
+    }
+  };
+  const reloadProfile = async () => {
+    if (profileRequest.current) return;
+    const owner = user.id, operation = Symbol("profile-reload");
+    profileRequest.current = operation; setProfileBusy(true); setProfileNotice(null);
+    try { await refreshProfile(); }
+    catch { if (isCurrent(owner)) setProfileNotice({ error: true, text: "Your profile could not be loaded. Please try again." }); }
+    finally { if (isCurrent(owner) && profileRequest.current === operation) { profileRequest.current = null; setProfileBusy(false); } }
   };
   const sendPasswordReset = async () => {
-    setBusy(true); setMessage("");
-    const { error } = await supabase.auth.resetPasswordForEmail(user.email, { redirectTo: `${window.location.origin}/login?recovery=1` });
-    setBusy(false);
-    setMessage(error ? "We could not send the reset link. Wait a few minutes and try again." : "A secure password-reset link was sent to your email.");
+    if (securityRequest.current) return;
+    const owner = user.id, operation = Symbol("password-reset");
+    securityRequest.current = operation; setSecurityBusy(true); setSecurityNotice(null);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(user.email, { redirectTo: `${window.location.origin}/login?recovery=1` });
+      if (!isCurrent(owner)) return;
+      if (error) throw error;
+      setSecurityNotice({ text: "A password-reset link was sent to your email. Check your inbox to continue." });
+    } catch {
+      if (isCurrent(owner)) setSecurityNotice({ error: true, text: "We couldn’t send the reset link. Please wait a moment and try again." });
+    } finally {
+      if (isCurrent(owner) && securityRequest.current === operation) { securityRequest.current = null; setSecurityBusy(false); }
+    }
   };
-  const doSignOut = async () => { await signOut(); navigate("/"); };
+  const doSignOut = async () => {
+    if (signOutRequest.current) return;
+    const owner = user.id, operation = Symbol("sign-out");
+    signOutRequest.current = operation; setSigningOut(true); setSignOutError("");
+    try {
+      const result = await signOut();
+      if (result?.error) throw result.error;
+      if (isCurrent(owner)) navigate("/");
+    } catch {
+      if (isCurrent(owner)) setSignOutError("We couldn’t sign you out. Please try again.");
+    } finally {
+      if (isCurrent(owner) && signOutRequest.current === operation) { signOutRequest.current = null; setSigningOut(false); }
+    }
+  };
 
   if (highlightedOrder && active === "orders") {
     const order = orders.find((item) => item.order_number === highlightedOrder);
@@ -158,17 +251,44 @@ export default function AccountPage() {
     </div></section>;
   }
 
-  return <section className="section account-section"><div className="container">
-    <div className="account-header"><div><span className="eyebrow dark">CUSTOMER ACCOUNT</span><h1>Welcome{profile?.first_name ? `, ${profile.first_name}` : ""}</h1><p>{user.email}</p></div><div>{isAdmin && <Link className="button button-dark" to="/admin">Open admin dashboard</Link>}<button className="button button-outline" onClick={doSignOut}><LogOut /> Sign out</button></div></div>
-    <div className="account-snapshot"><div><b>{totals.orders}</b><span>Total orders</span></div><div><b>{totals.open}</b><span>Open orders</span></div><div><b>{totals.tickets}</b><span>Open support requests</span></div><div><b>{user.email_confirmed_at ? "Verified" : "Pending"}</b><span>Email status</span></div></div>
-    {loadError && <div className="form-message error">{loadError}</div>}
-    <div className="account-layout"><aside className="account-nav">{tabs.map(([id, Icon, label]) => <button key={id} className={active === id ? "active" : ""} onClick={() => selectTab(id)}><Icon /> {label}</button>)}</aside>
-      <div className="account-content">
-        {active === "orders" && <OrdersPanel orders={orders} loading={loading} highlightedOrder={highlightedOrder} autoShowWire={autoShowWire} />}
-        {active === "profile" && <div><div className="account-panel-heading"><div><h2>Profile and delivery</h2><p>Keep your contact and default shipping details ready for checkout.</p></div><MapPin /></div><form className="profile-form" onSubmit={saveProfile}><div className="form-row"><label>First name<input required maxLength="60" autoComplete="given-name" value={form.first_name} onChange={(event) => setForm({ ...form, first_name: event.target.value })} /></label><label>Last name<input required maxLength="60" autoComplete="family-name" value={form.last_name} onChange={(event) => setForm({ ...form, last_name: event.target.value })} /></label></div><div className="form-row"><label>Phone<input type="tel" maxLength="30" autoComplete="tel" value={form.phone || ""} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label><label>Verified email<input disabled value={user.email} /></label></div><div className="profile-address"><h3>Default insured-delivery address</h3><label>Street address<input maxLength="160" autoComplete="address-line1" value={form.address_line_1 || ""} onChange={(event) => setForm({ ...form, address_line_1: event.target.value })} /></label><label>Apartment, suite, etc.<input maxLength="100" autoComplete="address-line2" value={form.address_line_2 || ""} onChange={(event) => setForm({ ...form, address_line_2: event.target.value })} /></label><div className="form-row three"><label>City<input maxLength="80" autoComplete="address-level2" value={form.city || ""} onChange={(event) => setForm({ ...form, city: event.target.value })} /></label><label>State<input maxLength="2" autoComplete="address-level1" value={form.state || ""} onChange={(event) => setForm({ ...form, state: event.target.value.toUpperCase() })} /></label><label>ZIP code<input maxLength="10" autoComplete="postal-code" value={form.postal_code || ""} onChange={(event) => setForm({ ...form, postal_code: event.target.value })} /></label></div></div><label className="profile-check"><input type="checkbox" checked={Boolean(form.marketing_opt_in)} onChange={(event) => setForm({ ...form, marketing_opt_in: event.target.checked })} /> Send occasional inventory and market updates</label>{message && <div className="form-message">{message}</div>}<button className="button button-gold" disabled={busy}>{busy ? "Saving…" : "Save profile"}</button></form></div>}
-        {active === "security" && <div><div className="account-panel-heading"><div><h2>Account security</h2><p>Protect access to order and delivery information.</p></div><ShieldCheck /></div><div className="security-card"><LockKeyhole /><div><b>Password</b><p>Use a unique password with at least 12 characters. A reset link is sent only to your verified email.</p><button className="button button-dark" onClick={sendPasswordReset} disabled={busy}>{busy ? "Sending…" : "Send password-reset link"}</button></div></div><div className="security-facts"><div><span>Email verification</span><b>{user.email_confirmed_at ? "Verified" : "Confirmation required"}</b></div><div><span>SMS identity protection</span><b>{customerSmsVerified ? "Verified for this sign-in" : requiresCustomerMfa ? "Required" : "Rollout pending"}</b></div><div><span>Last sign-in</span><b>{user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleString() : "Not available"}</b></div><div><span>Account identifier</span><b>{user.id.slice(0, 8).toUpperCase()}</b></div></div>{requiresCustomerMfa && !customerSmsVerified && <Link className="button button-gold" to="/verify-phone?return=/account?tab=security">Set up SMS security</Link>}{message && <div className="form-message">{message}</div>}<div className="security-warning"><b>GoldOnTheSpot will never ask for your password or security code.</b><span>Do not send card numbers, banking passwords, or verification codes through chat, email, or support tickets.</span></div></div>}
-        {active === "support" && <div><div className="account-panel-heading"><div><h2>Private support</h2><p>Your latest requests and replies.</p></div><Headphones /></div>{tickets.length ? <div className="account-ticket-list">{tickets.map((ticket) => <article key={ticket.id}><div><small>{ticket.ticket_number}</small><b>{ticket.subject}</b><span>{new Date(ticket.created_at).toLocaleDateString()}</span></div><span className={`ticket-status ${ticket.status}`}>{ticket.status.replace("_", " ")}</span>{ticket.admin_response && <p><b>Response:</b> {ticket.admin_response}</p>}</article>)}</div> : <div className="empty-state compact"><h3>No support requests yet</h3><p>Use private support when you need help with a product, payment, shipment, or account.</p></div>}<Link className="button button-gold" to="/support">Open support center</Link></div>}
-      </div>
+  return <section className="customer-account"><div className="container">
+    <header className="customer-account-header"><div><span className="eyebrow dark">GOLD ON THE SPOT</span><h1>Your account</h1><p>Orders, personal details, and help when you need it.</p></div><div className="customer-account-actions"><Link to="/shop"><ArrowLeft size={16} aria-hidden="true" /> Back to shop</Link>{isAdmin && <Link to="/admin">Admin dashboard</Link>}<button type="button" onClick={doSignOut} disabled={signingOut}><LogOut size={16} aria-hidden="true" /> {signingOut ? "Signing out…" : "Sign out"}</button></div></header>
+    {signOutError && <div className="form-message error" role="alert">{signOutError}</div>}
+    <CustomerAccountNav active={active} />
+    <div className="customer-account-panel">
+      {active === "orders" && <>
+        <div className="customer-account-toolbar"><span>Order history</span><button type="button" className="customer-account-refresh" disabled={loading} onClick={() => setRefreshCount(count => count + 1)}><RefreshCw size={15} aria-hidden="true" /> {loading ? "Refreshing…" : "Refresh orders"}</button></div>
+        {loadError && <div className="form-message error" role="alert">{loadError}<button type="button" className="text-button" disabled={loading} onClick={() => setRefreshCount(count => count + 1)}>Try again</button></div>}
+        {(!loadError || orders.length > 0 || loading) && <OrdersPanel orders={orders} loading={loading} highlightedOrder={highlightedOrder} autoShowWire={autoShowWire} />}
+      </>}
+      {active === "profile" && <>
+        <header className="customer-panel-heading"><h2>Your details</h2><p>Keep your name and delivery address ready for your next order.</p></header>
+        {!ownedProfile && <div className="form-message error" role="alert">Your profile could not be loaded. Reload it before making changes.<button type="button" className="text-button" disabled={profileBusy} onClick={reloadProfile}>{profileBusy ? "Loading…" : "Reload profile"}</button></div>}
+        <div className="customer-profile-layout">
+          <form className="profile-form" onSubmit={saveProfile} noValidate aria-busy={profileBusy}>
+            <fieldset disabled={profileBusy || !ownedProfile} className="customer-profile-fields">
+              <section className="customer-profile-section" aria-labelledby="profile-personal-heading"><h3 id="profile-personal-heading"><UserRound size={18} aria-hidden="true" /> Personal details</h3><div className="form-row"><label>First name<input name="first_name" required maxLength={60} autoComplete="given-name" value={form.first_name} onChange={event => changeField("first_name", event.target.value)} /></label><label>Last name<input name="last_name" required maxLength={60} autoComplete="family-name" value={form.last_name} onChange={event => changeField("last_name", event.target.value)} /></label></div></section>
+              <section className="customer-profile-section" aria-labelledby="profile-address-heading"><h3 id="profile-address-heading"><MapPin size={18} aria-hidden="true" /> Default delivery address</h3><p>Used to prefill checkout. Existing orders keep their original delivery address.</p><label>Street address<input maxLength={160} autoComplete="address-line1" value={form.address_line_1} onChange={event => changeField("address_line_1", event.target.value)} /></label><label>Apartment, suite, etc. <span>(optional)</span><input maxLength={100} autoComplete="address-line2" value={form.address_line_2} onChange={event => changeField("address_line_2", event.target.value)} /></label><div className="form-row three"><label>City<input maxLength={80} autoComplete="address-level2" value={form.city} onChange={event => changeField("city", event.target.value)} /></label><label>State<input maxLength={2} autoComplete="address-level1" value={form.state} onChange={event => changeField("state", event.target.value.toUpperCase())} /></label><label>ZIP code<input maxLength={10} autoComplete="postal-code" value={form.postal_code} onChange={event => changeField("postal_code", event.target.value)} /></label></div></section>
+              <label className="profile-check"><input type="checkbox" checked={form.marketing_opt_in} onChange={event => changeField("marketing_opt_in", event.target.checked)} /><span>Send occasional inventory and market updates</span></label>
+            </fieldset>
+            {profileNotice && <div className={`form-message ${profileNotice.error ? "error" : "success"}`} role={profileNotice.error ? "alert" : "status"}>{profileNotice.text}</div>}
+            <div className="customer-profile-save"><button type="submit" className="button button-gold" disabled={profileBusy || !ownedProfile}>{profileBusy ? "Saving…" : "Save changes"}</button><span>Changes apply to this account.</span></div>
+          </form>
+          <aside className="customer-contact-panel" aria-labelledby="profile-contact-heading"><h3 id="profile-contact-heading">Contact & sign-in</h3><dl><div><dt><Mail size={15} aria-hidden="true" /> Email address</dt><dd>{user.email}</dd><small>{user.email_confirmed_at ? "Verified email" : "Email confirmation required"}</small></div><div><dt><Smartphone size={15} aria-hidden="true" /> Mobile number</dt><dd>{customerSmsPhone || ownedProfile?.phone || "Not added"}</dd><small>Your security phone is managed separately from your delivery details.</small></div></dl><Link className="customer-inline-link" to="/support?new=1&category=account">Request phone change <ArrowRight size={15} aria-hidden="true" /></Link><Link className="customer-inline-link" to="/account?tab=security">Password & security <ArrowRight size={15} aria-hidden="true" /></Link></aside>
+        </div>
+      </>}
+      {active === "security" && <>
+        <header className="customer-panel-heading"><h2>Password & security</h2><p>Manage access to your account.</p></header>
+        <div className="customer-security-grid"><section className="customer-security-card"><span className="customer-security-icon"><LockKeyhole aria-hidden="true" /></span><h3>Reset your password</h3><p>We’ll send a secure reset link to <b>{user.email}</b>.</p><button type="button" className="button button-dark" onClick={sendPasswordReset} disabled={securityBusy}>{securityBusy ? "Sending…" : "Send password-reset link"}</button>{securityNotice && <div className={`form-message ${securityNotice.error ? "error" : "success"}`} role={securityNotice.error ? "alert" : "status"}>{securityNotice.text}</div>}</section><section className="customer-security-card"><span className="customer-security-icon"><ShieldCheck aria-hidden="true" /></span><h3>Phone verification</h3><p className="customer-verification-status">{customerSmsVerified ? <CheckCircle2 size={17} aria-hidden="true" /> : <Smartphone size={17} aria-hidden="true" />} {customerSmsVerified ? "Verified for this sign-in" : requiresCustomerMfa ? "Verification required" : "Not currently required"}</p><p>SMS verification helps protect your account and order details.</p>{requiresCustomerMfa && !customerSmsVerified ? <Link className="button button-gold" to="/verify-phone?return=%2Faccount%3Ftab%3Dsecurity">Set up SMS security</Link> : <Link className="customer-inline-link" to="/support?new=1&category=account">Need help with your phone? <ArrowRight size={15} aria-hidden="true" /></Link>}</section></div>
+        <p className="customer-security-note"><ShieldCheck size={16} aria-hidden="true" /> Our team will never ask for your password or security code.</p>
+      </>}
+      {active === "support" && <>
+        <header className="customer-panel-heading customer-support-heading"><div><h2>Your support requests</h2><p>Open a request to read the conversation and reply.</p></div><Link className="button button-gold" to="/support?new=1"><Plus size={16} aria-hidden="true" /> New support request</Link></header>
+        <div className="customer-account-toolbar"><span>Recent requests</span><button type="button" className="customer-account-refresh" disabled={ticketsLoading} onClick={() => setTicketRefreshCount(count => count + 1)}><RefreshCw size={15} aria-hidden="true" /> {ticketsLoading ? "Refreshing…" : "Refresh requests"}</button></div>
+        {ticketsError && <div className="form-message error" role="alert">{ticketsError}<button type="button" className="text-button" disabled={ticketsLoading} onClick={() => setTicketRefreshCount(count => count + 1)}>Try again</button></div>}
+        {ticketsLoading ? <div className="customer-account-loading" role="status">Loading your support requests…</div> : tickets.length ? <div className="customer-ticket-list">{tickets.map(ticket => <Link className="customer-ticket-link" key={ticket.id} to={`/support?ticket=${encodeURIComponent(ticket.ticket_number)}`}><span className="customer-ticket-copy"><small>{ticket.ticket_number}</small><strong>{ticket.subject}</strong><span>Updated <time dateTime={ticket.updated_at || ticket.created_at}>{new Date(ticket.updated_at || ticket.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</time></span></span><span className={`customer-ticket-status ${ticket.status}`}>{ticketStatuses[ticket.status] || ticket.status}</span><ArrowRight size={17} aria-hidden="true" /></Link>)}</div> : !ticketsError && <div className="customer-account-empty"><Headphones aria-hidden="true" /><h3>No support requests yet</h3><p>Start a request for help with an order, product, or your account.</p></div>}
+        <Link className="customer-inline-link customer-all-conversations" to="/support">View all conversations <ArrowRight size={16} aria-hidden="true" /></Link>
+      </>}
     </div>
   </div></section>;
 }

@@ -6,9 +6,10 @@ import { supabase } from "../lib/supabase";
 import { money, orderStatusLabel } from "../lib/pricing";
 import { useAuth } from "../state/AuthContext";
 import { useCart } from "../state/CartContext";
+import OrderReceipt, { OrderItems } from "../components/OrderReceipt";
 import { clearCheckoutRecovery, readCheckoutRecovery } from "../lib/checkoutRecovery";
 
-const orderFields = "id, order_number, user_id, first_name, last_name, email, phone, status, payment_status, payment_method, payment_provider, provider_checkout_url, payment_reference, payment_due_at, subtotal, payment_surcharge, shipping_amount, insurance_amount, total, spot_snapshot, price_locked_until, shipping_address, customer_notes, tracking_number, created_at, updated_at, order_items(*)";
+const orderFields = "id, order_number, user_id, first_name, last_name, email, phone, status, payment_status, payment_method, payment_provider, provider_checkout_url, payment_reference, payment_due_at, subtotal, payment_surcharge, shipping_amount, insurance_amount, total, spot_snapshot, price_locked_until, shipping_address, customer_notes, tracking_number, created_at, updated_at, order_items(*, products(image_url, image_urls, slug, category))";
 const tabs = [
   ["orders", Package, "Orders"],
   ["profile", UserRound, "Profile"],
@@ -38,6 +39,7 @@ export default function AccountPage() {
   const [orders, setOrders] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshCount, setRefreshCount] = useState(0);
   const [loadError, setLoadError] = useState("");
   const [form, setForm] = useState(emptyProfile);
   const [message, setMessage] = useState("");
@@ -67,59 +69,55 @@ export default function AccountPage() {
     ]).then(([orderResult, ticketResult]) => {
       if (!activeRequest) return;
       if (orderResult.error || ticketResult.error) setLoadError("Some account information could not be loaded. Please refresh and try again.");
-      if (!orderResult.error) setOrders(orderResult.data || []);
+      if (!orderResult.error) setOrders((current) => (orderResult.data || []).map((row) => {
+        const prior = current.find((item) => item.id === row.id);
+        return prior && new Date(prior.updated_at) > new Date(row.updated_at) ? prior : row;
+      }));
       if (!ticketResult.error) setTickets(ticketResult.data || []);
       setLoading(false);
     }).catch(() => { if(activeRequest) { setLoadError("Your account connection was interrupted. Please refresh and try again."); setLoading(false); } });
     return () => { activeRequest = false; };
-  }, [user.id]);
+  }, [user.id, refreshCount]);
   useEffect(() => {
-    if (paymentResult !== "return" || !highlightedOrder) return undefined;
+    if (paymentResult !== "return" || !highlightedOrder) { setPaymentState("none"); return undefined; }
     let activeRequest = true;
     let timer;
     setPaymentState("checking");
 
     const confirmPayment = async (attempt = 0) => {
-      const { data, error } = await supabase
-        .from("orders")
-        .select(orderFields)
-        .eq("user_id", user.id)
-        .eq("order_number", highlightedOrder)
-        .maybeSingle();
-      if (!activeRequest) return;
-
-      if (data) {
-        setOrders((current) => {
-          const exists = current.some((order) => order.id === data.id);
-          return exists
-            ? current.map((order) => order.id === data.id ? data : order)
-            : [data, ...current];
+      try {
+        const { data, error } = await supabase.from("orders").select(orderFields)
+          .eq("user_id", user.id).eq("order_number", highlightedOrder).maybeSingle();
+        if (!activeRequest) return;
+        if (error) throw error;
+        if (data) setOrders((current) => {
+          const prior = current.find((order) => order.id === data.id);
+          if (prior && new Date(prior.updated_at) > new Date(data.updated_at)) return current;
+          return prior ? current.map((order) => order.id === data.id ? data : order) : [data, ...current];
         });
-      }
-
-      if (data?.payment_status === "paid") {
-        const recovery = readCheckoutRecovery();
-        if (recovery?.orderNumber === highlightedOrder) {
-          clearCheckoutRecovery(highlightedOrder);
-          completePurchaseRef.current(recovery.items);
+        if (data?.payment_status === "paid") {
+          const recovery = readCheckoutRecovery();
+          if (recovery?.orderNumber === highlightedOrder) {
+            clearCheckoutRecovery(highlightedOrder);
+            completePurchaseRef.current(recovery.items);
+          }
+          setPaymentState("paid"); return;
         }
-        setPaymentState("paid");
-        return;
+        if (!data || data.status === "cancelled" || ["failed","expired","refunded","disputed"].includes(data.payment_status)) {
+          setPaymentState("pending"); return;
+        }
+      } catch {
+        if (!activeRequest) return;
       }
-
-      if (attempt < 8) {
-        timer = window.setTimeout(() => confirmPayment(attempt + 1), 1250);
-      } else {
-        setPaymentState(error ? "pending" : "pending");
-      }
+      if (attempt < 8) timer = window.setTimeout(() => confirmPayment(attempt + 1), 1250);
+      else setPaymentState("pending");
     };
-
     confirmPayment();
     return () => {
       activeRequest = false;
       window.clearTimeout(timer);
     };
-  }, [paymentResult, highlightedOrder, user.id]);
+  }, [paymentResult, highlightedOrder, user.id, refreshCount]);
 
   const totals = useMemo(() => ({ orders: orders.length, open: orders.filter((order) => !["completed", "cancelled"].includes(order.status)).length, tickets: tickets.filter((ticket) => !["resolved", "closed"].includes(ticket.status)).length }), [orders, tickets]);
 
@@ -145,12 +143,21 @@ export default function AccountPage() {
   };
   const doSignOut = async () => { await signOut(); navigate("/"); };
 
+  if (highlightedOrder && active === "orders") {
+    const order = orders.find((item) => item.order_number === highlightedOrder);
+    const canPay = order && !["cancelled", "shipped", "completed"].includes(order.status)
+      && ["unpaid", "failed", "expired", "partially_paid"].includes(order.payment_status);
+    return <section className="section account-section"><div className="container">
+      {order ? <OrderReceipt order={order} checking={paymentState === "checking"} refreshing={loading} error={loadError} onRefresh={() => setRefreshCount((count) => count + 1)}>
+        {order.payment_method === "wire" && !["paid", "refunded", "disputed"].includes(order.payment_status) && order.status !== "cancelled"
+          ? <><p className="field-help">Reference: <b>{order.payment_reference || order.order_number}</b>{order.payment_due_at && <><br />Due {new Date(order.payment_due_at).toLocaleString()}</>}</p><PaymentAction order={order} autoOpen={autoShowWire} /></>
+          : canPay && paymentState !== "checking" ? <PaymentAction order={order} /> : null}
+      </OrderReceipt> : loading ? <div className="catalog-loading" role="status">Loading your order details…</div>
+      : <div className="empty-state"><Package /><h1>Order details unavailable</h1><p>We couldn’t load this order for your account. Refresh to try again or return to your order history.</p><button className="button button-gold" onClick={() => setRefreshCount((count) => count + 1)}>Try again</button><Link className="button button-outline" to="/account?tab=orders">All orders</Link></div>}
+    </div></section>;
+  }
+
   return <section className="section account-section"><div className="container">
-    {highlightedOrder && paymentResult === "cancelled" && <div className="form-message"><b>Payment was not completed.</b> Your locked order is saved below. Use “Pay with card” to reopen the same checkout without creating another order.</div>}
-    {highlightedOrder && paymentResult === "return" && paymentState === "paid" && <div className="success-banner"><CheckCircle2 /><div><b>Payment received for order {highlightedOrder}.</b><span>Your purchased items were removed from this browser's cart after payment confirmation.</span></div></div>}
-    {highlightedOrder && paymentResult === "return" && paymentState === "checking" && <div className="form-message"><b>Confirming your secure payment…</b> This normally takes only a few seconds. Do not submit another order.</div>}
-    {highlightedOrder && paymentResult === "return" && paymentState === "pending" && <div className="form-message"><b>Your payment is still being confirmed.</b> The order remains below and your cart stays saved until Stripe confirms payment.</div>}
-    {highlightedOrder && !paymentResult && <div className="success-banner"><CheckCircle2 /><div><b>Order {highlightedOrder} was placed successfully.</b><span>The exact server-calculated total and current status appear below.</span></div></div>}
     <div className="account-header"><div><span className="eyebrow dark">CUSTOMER ACCOUNT</span><h1>Welcome{profile?.first_name ? `, ${profile.first_name}` : ""}</h1><p>{user.email}</p></div><div>{isAdmin && <Link className="button button-dark" to="/admin">Open admin dashboard</Link>}<button className="button button-outline" onClick={doSignOut}><LogOut /> Sign out</button></div></div>
     <div className="account-snapshot"><div><b>{totals.orders}</b><span>Total orders</span></div><div><b>{totals.open}</b><span>Open orders</span></div><div><b>{totals.tickets}</b><span>Open support requests</span></div><div><b>{user.email_confirmed_at ? "Verified" : "Pending"}</b><span>Email status</span></div></div>
     {loadError && <div className="form-message error">{loadError}</div>}
@@ -167,7 +174,7 @@ export default function AccountPage() {
 
 function OrdersPanel({ orders, loading, highlightedOrder, autoShowWire }) {
   if (loading) return <div className="catalog-loading">Loading your secure order history…</div>;
-  return <div><div className="account-panel-heading"><div><h2>Your orders</h2><p>Payment, fulfillment, and tracking in one place.</p></div><Package /></div>{orders.length ? <div className="order-list">{orders.map((order) => <article className={order.order_number === highlightedOrder ? "order-card highlighted" : "order-card"} key={order.id}><div className="order-card-top"><div><small>ORDER</small><b>{order.order_number}</b></div><div><small>PLACED</small><b>{new Date(order.created_at).toLocaleDateString()}</b></div><div><small>TOTAL</small><b>{money(order.total)}</b></div><span className={`status-pill ${order.status}`}>{orderStatusLabel(order.status)}</span></div><div className="order-lines">{order.order_items?.map((item) => <div key={item.id}><span>{item.quantity} × {item.product_name}</span><b>{money(item.line_total)}</b></div>)}</div><div className="order-total-breakdown"><span>Items {money(order.subtotal)}</span><span>Shipping {Number(order.shipping_amount) ? money(order.shipping_amount) : "Free"}</span>{Number(order.payment_surcharge) > 0 && <span>Card surcharge {money(order.payment_surcharge)}</span>}<b>Total {money(order.total)}</b></div><div className="payment-instructions"><b>Payment: {orderStatusLabel(order.payment_method)} • {orderStatusLabel(order.payment_status)}</b><span>{order.payment_method === "wire" ? `Use reference ${order.payment_reference || order.order_number}. Instructions are available securely below and were emailed when the order was placed.` : order.payment_method === "card" ? "Card details are entered securely on GoldOnTheSpot using Stripe's encrypted fields." : "Crypto payment is completed on NOWPayments' secure hosted checkout."}</span>{order.payment_method === "wire" && order.payment_due_at && <span>Wire due: <b>{new Date(order.payment_due_at).toLocaleString()}</b></span>}{!["paid", "refunded", "disputed"].includes(order.payment_status) && <PaymentAction order={order} autoOpen={autoShowWire && order.order_number === highlightedOrder} />}{order.tracking_number && <strong>Tracking: {order.tracking_number}</strong>}<small>Price lock recorded: {order.price_locked_until ? new Date(order.price_locked_until).toLocaleString() : "Pending"}</small></div></article>)}</div> : <div className="empty-state compact"><h3>No orders yet</h3><p>Your placed orders will appear here immediately.</p><Link className="button button-dark" to="/shop">Shop bullion</Link></div>}</div>;
+  return <div><div className="account-panel-heading"><div><h2>Your orders</h2><p>Payment, fulfillment, and tracking in one place.</p></div><Package /></div>{orders.length ? <div className="order-list">{orders.map((order) => <article className={order.order_number === highlightedOrder ? "order-card highlighted" : "order-card"} key={order.id}><div className="order-card-top"><div><small>ORDER</small><b>{order.order_number}</b></div><div><small>PLACED</small><b>{new Date(order.created_at).toLocaleDateString()}</b></div><div><small>TOTAL</small><b>{money(order.total)}</b></div><span className={`status-pill ${order.status}`}>{orderStatusLabel(order.status)}</span></div><OrderItems items={order.order_items || []} /><div className="order-detail-link"><Link className="button button-outline" to={`/account?tab=orders&order=${encodeURIComponent(order.order_number)}`}>View full order</Link></div><div className="order-total-breakdown"><span>Items {money(order.subtotal)}</span><span>Shipping {Number(order.shipping_amount) ? money(order.shipping_amount) : "Free"}</span>{Number(order.payment_surcharge) > 0 && <span>Card surcharge {money(order.payment_surcharge)}</span>}<b>Total {money(order.total)}</b></div><div className="payment-instructions"><b>Payment: {orderStatusLabel(order.payment_method)} • {orderStatusLabel(order.payment_status)}</b><span>{order.payment_method === "wire" ? `Use reference ${order.payment_reference || order.order_number}. Instructions are available securely below and were emailed when the order was placed.` : order.payment_method === "card" ? "Card details are entered securely on GoldOnTheSpot using Stripe's encrypted fields." : "Crypto payment is completed on NOWPayments' secure hosted checkout."}</span>{order.payment_method === "wire" && order.payment_due_at && <span>Wire due: <b>{new Date(order.payment_due_at).toLocaleString()}</b></span>}{!["cancelled","shipped","completed"].includes(order.status) && ["unpaid","failed","expired","partially_paid"].includes(order.payment_status) && <PaymentAction order={order} autoOpen={autoShowWire && order.order_number === highlightedOrder} />}{order.tracking_number && <strong>Tracking: {order.tracking_number}</strong>}<small>Price lock recorded: {order.price_locked_until ? new Date(order.price_locked_until).toLocaleString() : "Pending"}</small></div></article>)}</div> : <div className="empty-state compact"><h3>No orders yet</h3><p>Your placed orders will appear here immediately.</p><Link className="button button-dark" to="/shop">Shop bullion</Link></div>}</div>;
 }
 
 function PaymentAction({ order, autoOpen = false }) {

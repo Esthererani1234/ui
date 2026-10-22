@@ -61,12 +61,61 @@ before(async()=>{
  // Legacy duplicate: migration must preserve existing access without allowing a new owner.
  await db.exec(`insert into profiles(id,phone,phone_verified_at) values('10000000-0000-4000-8000-000000000003','(202) 555-0102',now());`);
  await db.exec(await readFile(new URL('../supabase/migrations/20261022145500_unique_customer_phone_enrollment.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261022153500_atomic_phone_claim_reservation.sql',import.meta.url),'utf8'));
+ await db.exec(`alter table order_risk_reviews add column admin_notes text; alter table order_risk_reviews add column reviewed_by uuid; alter table order_risk_reviews add column updated_at timestamptz; alter table order_risk_reviews enable row level security; create policy admin_risk_read on order_risk_reviews for select to authenticated using(private.is_admin());`);
+ await db.exec(await readFile(new URL('../supabase/migrations/20261022151000_atomic_admin_risk_decisions.sql',import.meta.url),'utf8'));
+ await db.exec(`alter table products add column image_url text; alter table products add column image_urls text[]; alter table products add column slug text; alter table products add column category text;`);
+ await db.exec(await readFile(new URL('../supabase/migrations/20261022152500_order_item_photo_snapshots.sql',import.meta.url),'utf8'));
 });
 after(()=>db?.close());
 async function tx(fn) {await db.exec('begin');try{await fn();}finally{await db.exec('rollback');}}
 const scalar=async(sql,params=[])=>Object.values((await db.query(sql,params)).rows[0])[0];
 const claims=async(user=U,aal='aal1')=>db.query(`select set_config('request.jwt.claims',$1,true)`,[JSON.stringify({sub:user,session_id:S,role:'authenticated',aal})]);
 const event=(id='evt_test',state='paid',ref='pi_test')=>db.query(`select apply_payment_event('stripe',$1,1,'test',$2,$3,$3,'{}')`,[id,ref,state]);
+const riskReview=(decision='approved',expected='pending',at=null)=>scalar('select admin_review_order($1,1,$2,$3,$4,$5,$6)',[U,decision,'Checked order details','Private note',expected,at]);
+test('order item photo snapshots come from the trusted product, not supplied fields',()=>tx(async()=>{
+ await db.exec("insert into products(id,inventory_count,image_url,slug,category) values(10,2,'https://example.test/original.webp','test-coin','coin'); insert into order_items(order_id,product_id,quantity,product_image_url,product_slug) values(1,10,1,'https://example.test/altered.webp','altered')");
+ assert.deepEqual((await db.query('select product_image_url,product_slug,product_category from order_items')).rows,[{product_image_url:'https://example.test/original.webp',product_slug:'test-coin',product_category:'coin'}]);
+ await db.exec("update products set image_url='https://example.test/new.webp';delete from products where id=10");
+ assert.equal(await scalar('select product_image_url from order_items'),'https://example.test/original.webp');
+}));
+async function seedRiskReview(){await db.exec(`insert into admin_users values('${U}'); insert into order_risk_reviews(order_id,decision) values(1,'pending');`);}
+test('risk approval saves one audit record without marking an unpaid order paid',()=>tx(async()=>{
+ await seedRiskReview(); const result=await riskReview();assert.equal(result.review.decision,'approved');
+ assert.equal(await scalar('select payment_status from orders where id=1'),'unpaid');
+ assert.equal(await scalar("select count(*)::int from admin_audit_log where action='order.risk_reviewed'"),1);
+}));
+test('risk rejection is a fulfillment hold, not an automatic cancellation or refund',()=>tx(async()=>{
+ await seedRiskReview();await riskReview('rejected');
+ assert.equal(await scalar('select status from orders where id=1'),'awaiting_payment');
+ assert.equal(await scalar('select payment_status from orders where id=1'),'unpaid');
+ await db.exec("update orders set payment_status='paid' where id=1");
+ await assert.rejects(db.exec("update orders set status='processing' where id=1"),/Complete the risk review/);
+}));
+test('stale and double-submitted risk decisions cannot overwrite a newer review',()=>tx(async()=>{
+ await seedRiskReview();await riskReview();await db.exec('savepoint stale');
+ await assert.rejects(riskReview('rejected'),e=>e.code==='P2003');await db.exec('rollback to savepoint stale');
+ assert.equal(await scalar('select decision from order_risk_reviews where order_id=1'),'approved');
+ assert.equal(await scalar("select count(*)::int from admin_audit_log where action='order.risk_reviewed'"),1);
+}));
+test('a risk decision rolls back if its audit insert fails',()=>tx(async()=>{
+ await seedRiskReview();await db.exec("alter table admin_audit_log add constraint reject_fixture_audit check(action<>'order.risk_reviewed'); savepoint audit_failure");
+ await assert.rejects(riskReview());await db.exec('rollback to savepoint audit_failure');
+ assert.equal(await scalar('select decision from order_risk_reviews where order_id=1'),'pending');
+}));
+test('non-admins and missing risk rows cannot report a successful review',()=>tx(async()=>{
+ await db.exec('savepoint not_admin');await assert.rejects(riskReview(),e=>e.code==='42501');await db.exec('rollback to savepoint not_admin');
+ await db.exec(`insert into admin_users values('${U}'); savepoint missing`);
+ await assert.rejects(riskReview(),e=>e.code==='P2002');
+}));
+test('customers cannot invoke, mutate, truncate or read risk reviews',()=>tx(async()=>{
+ for(const role of ['anon','authenticated']) {
+  assert.equal(await scalar("select has_function_privilege($1,'admin_review_order(uuid,bigint,text,text,text,text,timestamptz)','EXECUTE')",[role]),false);
+  for(const privilege of ['INSERT','UPDATE','DELETE','TRUNCATE']) assert.equal(await scalar("select has_table_privilege($1,'order_risk_reviews',$2)",[role,privilege]),false);
+ }
+ await seedRiskReview();await claims(V);await db.exec('set local role authenticated');
+ assert.equal(await scalar('select count(*)::int from order_risk_reviews'),0);
+}));
 test('security RPCs cannot be executed by anonymous or signed-in clients',()=>tx(async()=>{
  for(const name of ['can_enroll_customer_phone(uuid,text)','consume_security_rate_limit(text,text,integer,integer)','claim_sms_attempt(uuid,uuid,text,integer)','complete_sms_challenge(uuid,uuid,text,integer)','check_customer_session(uuid,text,boolean)','claim_card_payment(bigint,uuid,text,numeric)','apply_payment_event(text,text,bigint,text,text,text,text,jsonb)'])
  for(const role of ['anon','authenticated']) assert.equal(await scalar('select has_function_privilege($1,$2,\'EXECUTE\')',[role,name]),false);

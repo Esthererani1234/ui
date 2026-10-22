@@ -556,6 +556,12 @@ Deno.serve(async (request: Request) => {
     }
 
     if (action === "review_order") {
+      const allowed = ["action","order_id","decision","reason","admin_notes","expected_decision","expected_reviewed_at"];
+      if (Object.keys(body).some(key=>!allowed.includes(key)) || !Number.isSafeInteger(body.order_id) || Number(body.order_id)<1 ||
+        typeof body.reason!=="string" || body.reason.length>1000 || typeof body.admin_notes!=="string" || body.admin_notes.length>5000 ||
+        !["pending","approved","rejected"].includes(String(body.expected_decision)) ||
+        !(body.expected_reviewed_at===null || (typeof body.expected_reviewed_at==="string" && body.expected_reviewed_at.length<=40 && Number.isFinite(Date.parse(body.expected_reviewed_at)))))
+        return json(request,{error:"Refresh the risk center and enter a valid review decision."},400);
       const orderId = Number(body?.order_id);
       const decision = cleanText(body?.decision, 20);
       const reason = cleanText(body?.reason, 1000);
@@ -564,20 +570,20 @@ Deno.serve(async (request: Request) => {
         return json(request, { error: "Invalid order review" }, 400);
       if (reason.length < 3)
         return json(request, { error: "Enter a review reason" }, 400);
-      const { error } = await admin
-        .from("order_risk_reviews")
-        .update({
-          decision,
-          admin_notes: notes || null,
-          reviewed_by: actor.id,
-          reviewed_at: new Date().toISOString(),
-        })
-        .eq("order_id", orderId);
-      if (error) throw error;
-      await audit("order.risk_reviewed", "order", String(orderId), reason, {
-        decision,
+      const {data,error} = await admin.rpc("admin_review_order", {
+        p_actor_user_id:actor.id,p_order_id:orderId,p_decision:decision,p_reason:reason,
+        p_admin_notes:notes,p_expected_decision:body.expected_decision,p_expected_reviewed_at:body.expected_reviewed_at,
       });
-      return json(request, { success: true });
+      if (error) {
+        const messages:Record<string,string> = {
+          P2002:"This order or risk review no longer exists. Refresh the queue.",
+          P2003:"Another administrator changed this review. Refresh it before saving your decision.",
+          P2004:"This order is already in fulfillment or closed. Open its order details before making further changes.",
+        };
+        if(messages[error.code]) return json(request,{error:messages[error.code]},409);
+        throw error;
+      }
+      return json(request, data);
     }
 
     if (action === "update_order") {

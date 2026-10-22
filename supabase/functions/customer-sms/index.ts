@@ -277,7 +277,9 @@ Deno.serve(async (request: Request) => {
       const purpose = clean(body.purpose, 20) === "recovery" ? "recovery" : "signin";
       return json(request, {
         configured, required,
-        verified: !required || Boolean(phoneVerified && sessionResult.data?.phone === savedPhone && (purpose !== "recovery" || sessionResult.data.purpose === "recovery")),
+        verified: purpose==='recovery'
+          ? Boolean(phoneVerified && sessionResult.data?.phone===savedPhone && sessionResult.data.purpose==='recovery' && Date.parse(sessionResult.data.verified_at)>Date.now()-5*60*1000)
+          : !required || Boolean(phoneVerified && sessionResult.data?.phone === savedPhone),
         phone_enrolled: phoneVerified, phone: maskPhone(savedPhone),
         resend_seconds: settings.resendSeconds, code_ttl_seconds: settings.codeTtlSeconds,
       });
@@ -365,12 +367,15 @@ Deno.serve(async (request: Request) => {
       await rateLimit(admin, "password_update", user.id, 5, 3600);
       const password = typeof body.password === "string" ? body.password : "";
       if (password.length < 12 || password.length > 200) return json(request, { error: "Use a password from 12 to 200 characters." }, 400);
-      const { data: smsSession, error: sessionError } = await admin.from("customer_sms_sessions").select("session_id").eq("user_id", user.id).eq("session_id", sessionId).eq("purpose", "recovery").gt("expires_at", new Date().toISOString()).maybeSingle();
+      const { data: smsSession, error: sessionError } = await admin.rpc('consume_recovery_sms',{p_user_id:user.id,p_session_id:sessionId});
       if (sessionError) throw sessionError;
-      if (!smsSession) return json(request, { error: "Verify the SMS security code before changing the password." }, 403);
+      if (smsSession!==true) return json(request, { error: "Verify a new SMS security code before changing the password." }, 403);
       const { error: updateError } = await admin.auth.admin.updateUserById(user.id, { password });
       if (updateError) throw updateError;
-      await admin.from("customer_sms_sessions").delete().eq("session_id", sessionId).eq("user_id", user.id);
+      const {error:clearError}=await admin.from("customer_sms_sessions").delete().eq("user_id", user.id);
+      if(clearError)safeLog('password_reset_sms_revocation_failed',clearError);
+      const {error:logoutError}=await admin.auth.admin.signOut(auth.slice(7),'global');
+      if(logoutError)safeLog('password_reset_session_revocation_failed',logoutError);
       return json(request, { success: true });
     }
     return json(request, { error: "Invalid action" }, 400);

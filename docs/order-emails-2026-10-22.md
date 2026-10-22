@@ -21,3 +21,8 @@ Owner requested shipping removal during this work. Production `app_settings.ship
 ## Recovery
 
 Pause order emails in Admin → Security to stop enqueueing/delivery. The cron can be unscheduled with `cron.unschedule('gold-order-emails')`. Retain the outbox and audit records for reconciliation. Never blindly resend an uncertain delivery beyond the provider's deduplication window.
+
+
+## Subsequent launch update
+
+The owner connected and enabled the Resend sender on 22 October 2026. Shipping was restored to $35 during launch preparation. Earlier activation and $0-shipping notes above describe the implementation-time state. Actual inbox delivery remains unverified. See `launch-readiness-2026-10-22.md` for current gates and recovery procedures.

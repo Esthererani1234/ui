@@ -66,6 +66,13 @@ before(async()=>{
  await db.exec(await readFile(new URL('../supabase/migrations/20261022151000_atomic_admin_risk_decisions.sql',import.meta.url),'utf8'));
  await db.exec(`alter table products add column image_url text; alter table products add column image_urls text[]; alter table products add column slug text; alter table products add column category text;`);
  await db.exec(await readFile(new URL('../supabase/migrations/20261022152500_order_item_photo_snapshots.sql',import.meta.url),'utf8'));
+ await db.exec(`alter table app_settings add unique(key);alter table payment_attempts add column created_at timestamptz default now();
+ create schema vault;create table vault.secrets(id uuid default gen_random_uuid(),name text unique,secret text);create view vault.decrypted_secrets as select name,secret as decrypted_secret from vault.secrets;
+ create function vault.create_secret(text,text,text)returns uuid language sql as $$insert into vault.secrets(secret,name)values($1,$2)returning id$$;
+ create table order_email_outbox(status text,created_at timestamptz default now());`);
+ await db.exec(await readFile(new URL('../supabase/migrations/20261022181910_launch_payment_capture.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261022182157_launch_recovery_and_monitoring.sql',import.meta.url),'utf8'));
+
 });
 after(()=>db?.close());
 async function tx(fn) {await db.exec('begin');try{await fn();}finally{await db.exec('rollback');}}
@@ -333,4 +340,45 @@ test('tracking edit on paid wire does not repeat the payment-received audit',()=
  await db.query(`select admin_update_order($1,1,'payment_received','paid',null,null,'verified wire')`,[U]);
  await db.query(`select admin_update_order($1,1,null,null,'TRACK',null,'add tracking')`,[U]);
  assert.equal(await scalar("select count(*)::int from admin_audit_log where action='wire.manually_marked_paid'"),1);
+}));
+
+test('card capture is authorized only for the matching amount, intent and live price lock',()=>tx(async()=>{
+ await db.exec("insert into private.card_payment_claims values(1,repeat('a',64),now())");
+ assert.equal(await scalar("select authorize_card_capture(1,'pi_test',10000)"),true);
+ assert.equal(await scalar("select authorize_card_capture(1,'pi_test',1)"),false);
+ assert.equal(await scalar("select authorize_card_capture(1,'pi_other',10000)"),false);
+ assert.equal(await scalar("select count(*)::int from private.card_capture_authorizations"),1);
+ assert.equal(await scalar("select authorize_card_capture(1,'pi_test',10000)"),true);
+ assert.equal(await scalar("select count(*)::int from private.card_capture_authorizations"),1);
+}));
+test('expired, nearly-expired and cancelled locks cannot authorize capture',()=>tx(async()=>{
+ for(const deadline of ["now()-interval '1 minute'","now()+interval '5 seconds'"]){
+ await db.exec("delete from private.card_payment_claims;update orders set price_locked_until="+deadline+" where id=1;insert into private.card_payment_claims values(1,repeat('a',64),now())");
+ assert.equal(await scalar("select authorize_card_capture(1,'pi_test',10000)"),false);
+ }
+ await db.exec("delete from private.card_payment_claims;update orders set status='cancelled',price_locked_until=now()+interval '10 minutes' where id=1;insert into private.card_payment_claims values(1,repeat('a',64),now())");
+ assert.equal(await scalar("select authorize_card_capture(1,'pi_test',10000)"),false);
+}));
+test('recovery SMS grant expires in five minutes and is single-use',()=>tx(async()=>{
+ await db.exec(`insert into customer_sms_sessions values('${S}','${U}','+12025550101','recovery',now()-interval '6 minutes',now()+interval '1 day')`);
+ assert.equal(await scalar('select consume_recovery_sms($1,$2)',[U,S]),false);
+ await db.exec("update customer_sms_sessions set verified_at=now()");
+ assert.equal(await scalar('select consume_recovery_sms($1,$2)',[V,S]),false);
+ assert.equal(await scalar('select consume_recovery_sms($1,$2)',[U,S]),true);
+ assert.equal(await scalar('select consume_recovery_sms($1,$2)',[U,S]),false);
+}));
+test('sign-in SMS authorization cannot be reused for password recovery',()=>tx(async()=>{
+ await db.exec(`insert into customer_sms_sessions values('${S}','${U}','+12025550101','signin',now(),now()+interval '1 day')`);
+ assert.equal(await scalar('select consume_recovery_sms($1,$2)',[U,S]),false);
+}));
+test('capture/reconciliation/recovery/health operations deny direct customer and anonymous access',()=>tx(async()=>{
+ for(const role of ['anon','authenticated'])for(const signature of ['authorize_card_capture(bigint,text,bigint)','consume_recovery_sms(uuid,text)','claim_payment_reconciliations()','get_launch_health()','check_payment_reconciliation_token(text)'])assert.equal(await scalar(`select has_function_privilege('${role}','public.${signature}','EXECUTE')`),false);
+}));
+test('reconciliation leases prevent duplicate claims and rotate failed work',()=>tx(async()=>{
+ await db.exec("update orders set payment_status='pending' where id=1;update payment_attempts set created_at=now()-interval '3 minutes' where order_id=1");
+ const jobs=(await db.query('select * from claim_payment_reconciliations()')).rows;assert.equal(jobs.length,1);
+ assert.equal((await db.query('select * from claim_payment_reconciliations()')).rows.length,0);
+ await db.query('select finish_payment_reconciliation($1,$2,$3)',[1,jobs[0].lease_id,'SECRET must not be logged']);
+ assert.equal(await scalar('select last_error from private.payment_reconciliation_state'),'reconciliation_failed');
+ assert.equal(await scalar("select (get_launch_health()->>'reconciliation_errors')::int"),1);
 }));

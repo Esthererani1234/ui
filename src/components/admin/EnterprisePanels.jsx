@@ -22,6 +22,7 @@ import { supabase } from "../../lib/supabase";
 import { money, orderStatusLabel } from "../../lib/pricing";
 import SalesAnalyticsPanel from "./SalesAnalyticsPanel";
 import OrderEmailPanel from "./OrderEmailPanel";
+import LaunchHealthPanel from "./LaunchHealthPanel";
 
 const invokeAdmin = (body) => invokeFunction(supabase,"admin-operations",body);
 
@@ -357,6 +358,7 @@ export function SecurityAdminPanel() {
   if (loading) return <div className="admin-panel sms-settings-loading"><RefreshCw className="spin" /><span>Loading SMS security settings…</span></div>;
   return <div className="enterprise-admin-stack">
     <OrderEmailPanel />
+    <LaunchHealthPanel />
     <div className="security-control-grid">
       <article><ShieldCheck /><span><small>ADMIN DATABASE ACCESS</small><h2>Authenticator MFA enforced</h2><p>Admin RLS requires an AAL2 session. Customer SMS settings cannot weaken administrator security.</p><b className="control-ready"><CheckCircle2 /> Active</b></span></article>
       <article><MessageSquareText /><span><small>CUSTOMER IDENTITY</small><h2>Bird SMS</h2><p>Every new customer sign-in can require a six-digit code before account, support, order, or checkout data opens.</p><b className={form.providerReady && form.required ? "control-ready" : "control-pending"}>{form.providerReady && form.required ? <CheckCircle2 /> : <Clock3 />}{form.providerReady ? form.required ? "Required" : "Tested" : form.configured ? "Test required" : "Needs connection"}</b></span></article>

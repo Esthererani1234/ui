@@ -647,11 +647,20 @@ export default function CheckoutPage() {
           );
           if (
             !intent ||
-            !["succeeded", "processing"].includes(intent.status)
+            !["succeeded", "processing", "requires_capture"].includes(intent.status)
           ) {
             throw new Error("Card verification was not completed.");
           }
           finalStatus = intent.status;
+          if(intent.status==='requires_capture') {
+            const completion=await authenticatedPost('/api/payments/complete-card',{order_id:order.order_id});
+            if(completion.expired) {
+              setError('The price lock expired during bank verification. The card authorization was released. Refresh your quote before trying again.');
+              return;
+            }
+            if(!['succeeded','processing'].includes(completion.status))throw new Error('Payment is still being confirmed. Check your order before trying again.');
+            finalStatus=completion.status;
+          }
         } else if (
           !["succeeded", "processing"].includes(payment.status)
         ) {

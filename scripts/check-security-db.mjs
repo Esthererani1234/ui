@@ -58,6 +58,9 @@ before(async()=>{
  await db.exec(await readFile(new URL('../supabase/migrations/20261015162128_fraud_review_and_admin_auditing.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261016141000_admin_order_partial_updates.sql',import.meta.url),'utf8'));
  await db.exec(`create trigger profiles_clear_changed_phone_verification before update of phone on profiles for each row execute function private.clear_changed_phone_verification();`);
+ // Legacy duplicate: migration must preserve existing access without allowing a new owner.
+ await db.exec(`insert into profiles(id,phone,phone_verified_at) values('10000000-0000-4000-8000-000000000003','(202) 555-0102',now());`);
+ await db.exec(await readFile(new URL('../supabase/migrations/20261022145500_unique_customer_phone_enrollment.sql',import.meta.url),'utf8'));
 });
 after(()=>db?.close());
 async function tx(fn) {await db.exec('begin');try{await fn();}finally{await db.exec('rollback');}}
@@ -65,7 +68,7 @@ const scalar=async(sql,params=[])=>Object.values((await db.query(sql,params)).ro
 const claims=async(user=U,aal='aal1')=>db.query(`select set_config('request.jwt.claims',$1,true)`,[JSON.stringify({sub:user,session_id:S,role:'authenticated',aal})]);
 const event=(id='evt_test',state='paid',ref='pi_test')=>db.query(`select apply_payment_event('stripe',$1,1,'test',$2,$3,$3,'{}')`,[id,ref,state]);
 test('security RPCs cannot be executed by anonymous or signed-in clients',()=>tx(async()=>{
- for(const name of ['consume_security_rate_limit(text,text,integer,integer)','claim_sms_attempt(uuid,uuid,text,integer)','complete_sms_challenge(uuid,uuid,text,integer)','check_customer_session(uuid,text,boolean)','claim_card_payment(bigint,uuid,text,numeric)','apply_payment_event(text,text,bigint,text,text,text,text,jsonb)'])
+ for(const name of ['can_enroll_customer_phone(uuid,text)','consume_security_rate_limit(text,text,integer,integer)','claim_sms_attempt(uuid,uuid,text,integer)','complete_sms_challenge(uuid,uuid,text,integer)','check_customer_session(uuid,text,boolean)','claim_card_payment(bigint,uuid,text,numeric)','apply_payment_event(text,text,bigint,text,text,text,text,jsonb)'])
  for(const role of ['anon','authenticated']) assert.equal(await scalar('select has_function_privilege($1,$2,\'EXECUTE\')',[role,name]),false);
 }));
 test('rate reservations enforce the limit and reset after the server window',()=>tx(async()=>{
@@ -110,6 +113,53 @@ test('OTP success is atomic and cannot be replayed',()=>tx(async()=>{
  assert.equal(await scalar('select complete_sms_challenge($1,$2,$3,24)',[C,U,S]),true);
  assert.equal(await scalar('select complete_sms_challenge($1,$2,$3,24)',[C,U,S]),false);
  assert.equal(await scalar('select check_customer_session($1,$2,true)',[U,S]),true);
+}));
+test('phone enrollment rejects a different account and all equivalent phone formats',()=>tx(async()=>{
+ for(const phone of ['2025550102','1 202 555 0102','+1 (202) 555-0102']) {
+  assert.equal(await scalar('select can_enroll_customer_phone($1,$2)',[U,phone]),false);
+  assert.equal(await scalar('select can_enroll_customer_phone($1,$2)',[V,phone]),true);
+ }
+ assert.equal(await scalar('select can_enroll_customer_phone($1,$2)',[U,'invalid']),false);
+ assert.equal(await scalar('select can_enroll_customer_phone($1,$2)',[U,null]),false);
+ assert.equal(await scalar('select can_enroll_customer_phone($1,$2)',[U,'2025550999']),true);
+}));
+test('legacy phone sharing preserves existing owners but refuses a new account',()=>tx(async()=>{
+ assert.equal(await scalar('select can_enroll_customer_phone($1,$2)',['10000000-0000-4000-8000-000000000003','+12025550102']),true);
+ assert.equal(await scalar('select cardinality(user_ids) from private.customer_phone_claims where phone=$1',['+12025550102']),2);
+ assert.equal(await scalar('select can_enroll_customer_phone($1,$2)',[U,'+12025550102']),false);
+}));
+test('database blocks duplicate verification even when the send-time check is bypassed',()=>tx(async()=>{
+ await db.exec(`update profiles set phone_verified_at=null where id='${U}'; update customer_sms_challenges set phone='+12025550102',attempt_count=1; savepoint verification;`);
+ await assert.rejects(scalar('select complete_sms_challenge($1,$2,$3,24)',[C,U,S]),e=>e.code==='P2001');
+ await db.exec('rollback to savepoint verification');
+ assert.equal(await scalar('select count(*)::int from customer_sms_sessions'),0);
+ assert.equal(await scalar(`select phone_verified_at from profiles where id='${U}'`),null);
+ assert.equal(await scalar('select status from customer_sms_challenges'),'pending');
+}));
+test('an unverified signup cannot reserve a phone; a later verified claim defeats stale availability',()=>tx(async()=>{
+ const phone='+12025550999';
+ await db.exec(`update profiles set phone_verified_at=null; update profiles set phone='${phone}' where id in ('${U}','${V}')`);
+ assert.equal(await scalar('select can_enroll_customer_phone($1,$2)',[U,phone]),true);
+ await db.exec(`update profiles set phone_verified_at=now() where id='${V}'`);
+ await db.exec(`update customer_sms_challenges set phone='${phone}',attempt_count=1; savepoint verification`);
+ await assert.rejects(scalar('select complete_sms_challenge($1,$2,$3,24)',[C,U,S]),e=>e.code==='P2001');
+ await db.exec('rollback to savepoint verification');
+ assert.equal(await scalar('select count(*)::int from customer_sms_sessions'),0);
+}));
+test('successful replacement releases old phone only after new verification',()=>tx(async()=>{
+ await db.exec(`update profiles set phone_verified_at=null,phone='+12025550999' where id='${U}'`);
+ assert.equal(await scalar('select can_enroll_customer_phone($1,$2)',[V,'+12025550101']),false);
+ await db.exec(`update customer_sms_challenges set phone='+12025550999',attempt_count=1`);
+ assert.equal(await scalar('select complete_sms_challenge($1,$2,$3,24)',[C,U,S]),true);
+ assert.equal(await scalar('select can_enroll_customer_phone($1,$2)',[V,'+12025550101']),true);
+ assert.equal(await scalar('select can_enroll_customer_phone($1,$2)',[V,'+12025550999']),false);
+}));
+test('profile deletion releases only that owner; private phone claims are not readable by customers',()=>tx(async()=>{
+ await db.exec(`delete from profiles where id='${V}'`);
+ assert.equal(await scalar('select can_enroll_customer_phone($1,$2)',[U,'+12025550102']),false);
+ assert.equal(await scalar('select cardinality(user_ids) from private.customer_phone_claims where phone=$1',['+12025550102']),1);
+ await claims(); await db.exec('set local role authenticated');
+ await assert.rejects(db.query('select * from private.customer_phone_claims'),/permission denied/);
 }));
 test('order IDOR: customer sees only own orders after SMS, none before SMS',()=>tx(async()=>{
  await claims();await db.exec('set local role authenticated');

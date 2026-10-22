@@ -8,6 +8,7 @@ const request = async (body) => {
       : {};
     const requestError = new Error(data?.error || errorBody?.error || error?.message || "SMS verification is temporarily unavailable.");
     requestError.status = error?.context?.status || 500;
+    requestError.code = data?.code || errorBody?.code || "";
     requestError.retryAfter = Number(data?.retry_after || errorBody?.retry_after || 0);
     throw requestError;
   }

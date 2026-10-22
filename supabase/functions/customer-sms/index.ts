@@ -57,6 +57,7 @@ const maskPhone = (phone: unknown) => {
   const normalized = normalizePhone(phone);
   return normalized ? `(***) ***-${normalized.slice(-4)}` : "";
 };
+const phoneAlreadyRegistered = "This mobile number is already linked to an account. Sign in with that account or use a different mobile number. If you need help, contact GoldOnTheSpot support.";
 const settingKeys = [
   "sms_provider_name", "sms_sender", "sms_provider_ready", "customer_sms_mfa_required",
   "sms_code_ttl_seconds", "sms_resend_seconds", "sms_max_attempts", "sms_session_hours",
@@ -297,6 +298,11 @@ Deno.serve(async (request: Request) => {
       await rateLimit(admin, "sms_cooldown", user.id, 1, settings.resendSeconds);
       await rateLimit(admin, "sms_hour", user.id, 5, 3600);
       await rateLimit(admin, "sms_day", user.id, 20, 86400);
+      const { data: phoneAvailable, error: phoneCheckError } = await admin.rpc("can_enroll_customer_phone", {
+        p_user_id: user.id, p_phone: phone,
+      });
+      if (phoneCheckError) throw phoneCheckError;
+      if (phoneAvailable !== true) return json(request, { error: phoneAlreadyRegistered, code: "phone_already_registered" }, 409);
       const phoneHash = await hashSubject(phone);
       await rateLimit(admin, "sms_phone_hour", phoneHash, 5, 3600);
       await rateLimit(admin, "sms_phone_day", phoneHash, 20, 86400);
@@ -347,6 +353,8 @@ Deno.serve(async (request: Request) => {
       const { data: completed, error: completeError } = await admin.rpc("complete_sms_challenge", {
         p_challenge_id: challenge.id, p_user_id: user.id, p_session_id: sessionId, p_session_hours: settings.sessionHours,
       });
+      if (completeError?.code === "P2001")
+        return json(request, { error: phoneAlreadyRegistered, code: "phone_already_registered" }, 409);
       if (completeError) throw completeError;
       if (!completed) return json(request, { error: "That code is no longer active. Send a new code." }, 410);
       return json(request, { verified: true });

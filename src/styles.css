@@ -1369,3 +1369,11 @@ img { max-width: 100%; display: block; }
   .receipt-summary { margin-top: 20px; }
   .receipt-panel, .receipt-item { break-inside: avoid; }
 }
+
+/* Payment refunds take visual priority while preserving fulfillment history. */
+.status-pill.refunded { color: #8e292f; background: #fbe2e4; border: 1px solid #e8b4ba; }
+.order-status-summary { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
+.order-status-summary .order-fulfillment-history { color: #596873; font-size: 10px; font-weight: 400; }
+@media (max-width: 600px) {
+  .order-card-top > .order-status-summary { grid-column: 1 / -1; }
+}

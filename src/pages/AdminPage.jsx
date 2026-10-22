@@ -37,6 +37,7 @@ import {
   StoreAdminPanel,
 } from "../components/admin/EnterprisePanels";
 import TrafficAnalyticsPanel from "../components/admin/TrafficAnalyticsPanel";
+import OrderStatus from "../components/OrderStatus";
 
 const blankProduct = {
   name: "",
@@ -226,6 +227,8 @@ export default function AdminPage() {
 
   const filteredOrders = useMemo(() => {
     if (orderFilter === "all") return orders;
+    if (orderFilter === "refunded")
+      return orders.filter((order) => order.payment_status === "refunded");
     if (orderFilter === "open")
       return orders.filter(
         (order) => !["completed", "cancelled"].includes(order.status),
@@ -794,11 +797,13 @@ export default function AdminPage() {
               </div>
               <select
                 className="admin-order-filter"
+                aria-label="Order status filter"
                 value={orderFilter}
                 onChange={(event) => setOrderFilter(event.target.value)}
               >
                 <option value="all">All orders</option>
                 <option value="open">All open orders</option>
+                <option value="refunded">Refunded</option>
                 {statuses.map((status) => (
                   <option key={status} value={status}>
                     {orderStatusLabel(status)}
@@ -1446,7 +1451,7 @@ function OrderTable({ orders, onOpen }) {
         <article className="admin-order-row" key={order.id}>
           <header>
             <div><b>{order.order_number}</b><small>{new Date(order.created_at).toLocaleString()}</small></div>
-            <span className={`status-pill ${order.status}`}>{order.status === "completed" ? "Delivered / completed" : orderStatusLabel(order.status)}</span>
+            <OrderStatus order={order} />
           </header>
           <div className="admin-order-summary">
             <div><small>Customer</small><b>{order.first_name} {order.last_name}</b><span>{order.email}</span></div>

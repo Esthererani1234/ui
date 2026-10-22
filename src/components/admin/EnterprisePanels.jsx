@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import PaymentMaximumsPanel from "./PaymentMaximumsPanel";
 import {
   AlertTriangle,
   Ban,
@@ -458,6 +459,7 @@ export function StoreAdminPanel() {
       {message && <div className="form-message">{message}</div>}
       <button className="button button-dark" onClick={save} disabled={busy}><Save /> {busy ? "Publishing…" : "Save and publish settings"}</button>
     </section>
+    <PaymentMaximumsPanel />
     <WireSettingsPanel />
   </div>;
 }

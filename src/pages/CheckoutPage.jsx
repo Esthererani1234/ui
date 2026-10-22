@@ -45,6 +45,9 @@ const defaults = {
   free_shipping_threshold: 5000,
   card_surcharge_percent: 4,
   accepting_orders: true,
+  card_order_maximum: 10000,
+  wire_order_maximum: 100000,
+  crypto_order_maximum: 2000000,
 };
 
 const stripeClients = new Map();
@@ -210,6 +213,9 @@ export default function CheckoutPage() {
           "free_shipping_threshold",
           "card_surcharge_percent",
           "accepting_orders",
+          "card_order_maximum",
+          "wire_order_maximum",
+          "crypto_order_maximum",
         ]),
     ])
       .then(([config, settingResult]) => {
@@ -487,6 +493,9 @@ export default function CheckoutPage() {
   });
 
   const validate = () => {
+    if (!orderInfo && displayedTotal > settings[`${form.paymentMethod}_order_maximum`]) {
+      return `The ${form.paymentMethod} payment maximum is ${money(settings[`${form.paymentMethod}_order_maximum`])}. Choose another payment method or reduce your order.`;
+    }
     if (!settings.accepting_orders) {
       return "Checkout is temporarily paused. Your cart is saved; please try again later.";
     }
@@ -944,7 +953,7 @@ export default function CheckoutPage() {
                 title="Credit or debit card"
                 detail={
                   paymentConfig.embedded_card
-                    ? `Secure card entry on GoldOnTheSpot • ${settings.card_surcharge_percent}% processing surcharge`
+                    ? `Secure card entry • ${settings.card_surcharge_percent}% processing surcharge • Maximum ${money(settings.card_order_maximum)}`
                     : "Embedded card entry needs the Stripe publishable key"
                 }
               />
@@ -954,7 +963,7 @@ export default function CheckoutPage() {
                 setForm={setForm}
                 disabled={!paymentConfig.wire}
                 title="Bank wire"
-                detail="Encrypted instructions by email and in your order • no surcharge"
+                detail={`Encrypted instructions • no surcharge • Maximum ${money(settings.wire_order_maximum)}`}
               />
               <PaymentOption
                 value="crypto"
@@ -962,7 +971,7 @@ export default function CheckoutPage() {
                 setForm={setForm}
                 disabled={!paymentConfig.crypto || Boolean(orderInfo)}
                 title="Crypto"
-                detail="Choose a supported cryptocurrency on secure hosted checkout • automatic confirmation"
+                detail={`Secure hosted checkout • Maximum ${money(settings.crypto_order_maximum)}`}
               />
             </div>
 

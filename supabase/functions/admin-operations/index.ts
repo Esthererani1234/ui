@@ -656,6 +656,17 @@ Deno.serve(async (request: Request) => {
       return json(request, { success: true });
     }
 
+    if (action === "update_payment_maximums") {
+      if (Object.keys(body).some(key => !["action", "limits", "reason"].includes(key)))
+        return json(request, { error: "Invalid payment maximum fields." }, 400);
+      const { data, error } = await admin.rpc("admin_set_payment_maximums", {
+        p_actor: actor.id, p_limits: body.limits, p_reason: cleanText(body.reason, 1000),
+      });
+      if (error?.code === "22023") return json(request, { error: error.message }, 400);
+      if (error) throw error;
+      return json(request, data);
+    }
+
     if (action === "update_store_settings") {
       const settings =
         body?.settings && typeof body.settings === "object"

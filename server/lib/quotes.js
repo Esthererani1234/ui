@@ -71,7 +71,7 @@ export async function refreshCardOrder(orderId) {
     p_order_id: orderId,
     p_spot: spot,
   });
-  if (error) throw Object.assign(new Error("The quote could not be updated. A payment may still be in progress; check your order before retrying."), { status: 409 });
+  if (error) throw Object.assign(new Error(error.code === "P2005" ? error.message : "The quote could not be updated. A payment may still be in progress; check your order before retrying."), { status: 409 });
   await recordSpot(spot);
   return data;
 }

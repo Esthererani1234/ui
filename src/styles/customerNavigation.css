@@ -1,0 +1,14 @@
+.customer-account-navigation { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 6px; margin: 0 0 28px; border: 1px solid #d6e0e6; border-radius: 10px; background: #fff; }
+.customer-account-navigation a { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 48px; padding: 10px 12px; border-radius: 6px; color: #526977; font-size: 13px; font-weight: 650; text-decoration: none; }
+.customer-account-navigation a svg { flex-shrink: 0; }
+.customer-account-navigation a:hover { color: #092439; background: #f1f5f7; }
+.customer-account-navigation a[aria-current="page"] { color: #fff; background: #092439; }
+.customer-account-navigation a[aria-current="page"] svg { color: #e5be65; }
+.customer-account-navigation a:focus-visible { outline: 3px solid #a87516; outline-offset: 2px; }
+.customer-support .support-account-navigation { padding-top: 24px; }
+.customer-support .support-account-navigation .customer-account-navigation { margin-bottom: 0; }
+@media (max-width: 560px) {
+  .customer-account-navigation { gap: 3px; padding: 4px; margin-bottom: 22px; }
+  .customer-account-navigation a { flex-direction: column; gap: 6px; padding: 10px 3px; font-size: 11px; text-align: center; }
+  .customer-account-navigation a span { overflow-wrap: anywhere; }
+}

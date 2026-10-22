@@ -5,6 +5,7 @@ import { requestReference, supportRequest } from "../lib/supportRequests";
 import { supabase } from "../lib/supabase";
 import { supportFaqs } from "../lib/supportKnowledge";
 import { useAuth } from "../state/AuthContext";
+import CustomerAccountNav from "../components/CustomerAccountNav";
 import "../styles/supportTickets.css";
 
 const blankTicket = { category: "order", order_number: "", subject: "", message: "" };
@@ -34,7 +35,7 @@ export default function SupportPage() {
   const [openFaq, setOpenFaq] = useState("live-pricing");
   const [tickets, setTickets] = useState([]);
   const [messages, setMessages] = useState({});
-  const [expanded, setExpanded] = useState(null);
+  const expanded = tickets.find(item => item.ticket_number === params.get('ticket'))?.id || null;
   const [replies, setReplies] = useState({});
   const [ticket, setTicket] = useState(blankTicket);
   const [loading, setLoading] = useState(Boolean(user));
@@ -52,6 +53,7 @@ export default function SupportPage() {
       if(currentUser.current!==owner || version!==ticketLoadVersion.current)return;
       if(error)throw error;
       setTickets(data || []);
+      setNotice(current=>current==='Support history could not be loaded. Please refresh it.'?'':current);
     } catch {if(currentUser.current===owner && version===ticketLoadVersion.current)setNotice("Support history could not be loaded. Please refresh it.");}
     finally {if(currentUser.current===owner && version===ticketLoadVersion.current)setLoading(false);}
   };
@@ -65,22 +67,57 @@ export default function SupportPage() {
     }catch{if(currentUser.current===owner)setMessageErrors(current=>({...current,[ticketId]:"Messages could not be loaded. Please try Refresh conversation."}));}
   };
   useEffect(()=>{
-    setTickets([]);setMessages({});setMessageErrors({});setReplies({});setExpanded(null);setNotice("");setTicket(blankTicket);setConfirmation(null);setFormError(null);linkedTicket.current=null;requestId.current=null;
+    setTickets([]);setMessages({});setMessageErrors({});setReplies({});setNotice("");setTicket(blankTicket);setConfirmation(null);setFormError(null);linkedTicket.current=null;requestId.current=null;
     if(!user){setLoading(false);return;}
     setLoading(true);loadTickets();
   },[user?.id]);
   useEffect(()=>{if(confirmation)confirmationRef.current?.focus();},[confirmation]);
   const targetTicket=params.get('ticket');
+  const newRequest=params.get('new')==='1';
+  const requestedOrder=(params.get('order') || '').slice(0,40);
+  const requestedCategory=params.get('category');
+  const focusRequest=()=>{
+    document.getElementById('new-support-request')?.scrollIntoView({behavior:'auto',block:'start'});
+    document.getElementById('support-subject')?.focus({preventScroll:true});
+  };
+  const focusConversation=(id)=>window.requestAnimationFrame(()=>{
+    const element=document.getElementById(`support-ticket-${id}`);
+    element?.scrollIntoView({behavior:'auto',block:'start'});
+    element?.focus({preventScroll:true});
+  });
   useEffect(()=>{
-    if(!targetTicket || loading || linkedTicket.current===targetTicket)return;
+    if(!newRequest || !user)return;
+    setConfirmation(null);setFormError(null);
+    setTicket(current=>current.subject || current.message || current.order_number ? current : {
+      ...current,
+      category:Object.hasOwn(categoryLabel,requestedCategory) ? requestedCategory : 'order',
+      order_number:/^[A-Z0-9-]{1,40}$/i.test(requestedOrder) ? requestedOrder.toUpperCase() : '',
+    });
+    const frame=window.requestAnimationFrame(focusRequest);
+    return ()=>window.cancelAnimationFrame(frame);
+  },[newRequest,requestedOrder,requestedCategory,user?.id]);
+  useEffect(()=>{
+    if(!targetTicket){linkedTicket.current=null;return;}
+    if(loading)return;
     const target=tickets.find(item=>item.ticket_number===targetTicket);
-    if(target){linkedTicket.current=targetTicket;setExpanded(target.id);loadMessages(target.id);document.getElementById('support-inbox')?.scrollIntoView({behavior:'smooth'});}
+    if(target && linkedTicket.current!==targetTicket){linkedTicket.current=targetTicket;loadMessages(target.id);focusConversation(target.id);}
   },[targetTicket,tickets,loading]);
-  const toggleTicket=async(id)=>{const next=expanded===id?null:id;setExpanded(next);if(next)await loadMessages(id);};
+  const toggleTicket=async(id)=>{
+    const next=expanded===id?null:id;
+    const number=tickets.find(item=>item.id===next)?.ticket_number;
+    linkedTicket.current=number || null;
+    setParams(number?{ticket:number}:{});
+    if(next)await loadMessages(id);
+  };
+  const startRequest=(event)=>{
+    event?.preventDefault();setConfirmation(null);setFormError(null);
+    setParams({new:'1',...(requestedOrder?{order:requestedOrder}:{}),...(requestedCategory?{category:requestedCategory}:{})});
+    window.requestAnimationFrame(focusRequest);
+  };
   const trackTicket=(item)=>{
     linkedTicket.current=item.ticket_number;
-    setParams({ticket:item.ticket_number});setExpanded(item.id);loadMessages(item.id);
-    document.getElementById('support-inbox')?.scrollIntoView({behavior:'smooth'});
+    setParams({ticket:item.ticket_number});loadMessages(item.id);
+    focusConversation(item.id);
   };
   const refreshHistory=()=>Promise.all([loadTickets(),...(expanded?[loadMessages(expanded)]:[])]);
   const submitTicket=async(event)=>{
@@ -115,7 +152,7 @@ export default function SupportPage() {
       if(currentUser.current!==owner)return;
       requestId.current=null;setReplies(current=>({...current,[item.id]:''}));
       setNotice(action==='reply'?'Reply sent securely.':action==='reopen'?'Ticket reopened.':'Ticket closed.');
-      await Promise.all([loadTickets(),loadMessages(item.id)]);if(currentUser.current===owner)setExpanded(item.id);
+      await Promise.all([loadTickets(),loadMessages(item.id)]);
     }catch(error){if(currentUser.current===owner)setNotice(error.message || 'That support action could not be completed. Your draft has been kept.');}
     finally{activeRequest.current=false;setBusy('');}
   };
@@ -131,7 +168,7 @@ export default function SupportPage() {
           <p>From your first question to your next delivery.<br />A direct line to our team, all in one place.</p>
           <nav className="support-desk-shortcuts" aria-label="Support shortcuts">
             {user && <a className="button button-gold" href="#support-inbox"><MessageSquareText aria-hidden="true" /> Your conversations</a>}
-            <a className={`button ${user ? "support-hero-secondary" : "button-gold"}`} href="#new-support-request"><Plus aria-hidden="true" /> {user ? "New request" : "Contact our team"}</a>
+            <a className={`button ${user ? "support-hero-secondary" : "button-gold"}`} href="#new-support-request" onClick={user?startRequest:undefined}><Plus aria-hidden="true" /> {user ? "New request" : "Contact our team"}</a>
           </nav>
         </div>
         <div className="support-desk-assurance">
@@ -141,6 +178,7 @@ export default function SupportPage() {
       </div>
     </section>
 
+    {user && <div className="container support-account-navigation"><CustomerAccountNav active="support" /></div>}
     <div className="container support-workspace">
       {user ? <section className="support-history" id="support-inbox" aria-labelledby="support-inbox-heading">
         <header className="support-desk-heading">
@@ -153,7 +191,7 @@ export default function SupportPage() {
           const replyReopens = ["resolved", "closed"].includes(item.status);
           const isExpanded = expanded === item.id;
           const threadMessages = messages[item.id];
-          return <article className={`support-thread ${isExpanded ? "expanded" : ""}`} key={item.id}>
+          return <article className={`support-thread ${isExpanded ? "expanded" : ""}`} key={item.id} id={`support-ticket-${item.id}`} tabIndex={-1}>
             <button type="button" className="support-thread-summary" onClick={() => toggleTicket(item.id)} aria-expanded={isExpanded} aria-controls={`support-conversation-${item.id}`}>
               <div className="support-ticket-copy">
                 <span className="support-ticket-reference">{item.ticket_number}<span aria-hidden="true"> · </span>{categoryLabel[item.category] || item.category}</span>
@@ -201,13 +239,13 @@ export default function SupportPage() {
           <dl><div><dt>Ticket number</dt><dd>{confirmation.ticket.ticket_number}</dd></div><div><dt>Subject</dt><dd>{confirmation.ticket.subject}</dd></div><div><dt>Status</dt><dd><TicketStatus status={tickets.find(item => item.id === confirmation.ticket.id)?.status || confirmation.ticket.status} /></dd></div></dl>
           <p>{confirmation.emailQueued ? "A confirmation email is queued for your verified email address. You can also track replies and status here." : "Track replies and status in Your conversations. Email notifications are currently unavailable; your ticket is safely saved."}</p>
           <Link className="button button-dark full" to={`/support?ticket=${encodeURIComponent(confirmation.ticket.ticket_number)}`} onClick={event => { event.preventDefault(); trackTicket(confirmation.ticket); }}>Track this ticket <ArrowRight size={16} aria-hidden="true" /></Link>
-          <button type="button" className="text-button" onClick={() => { setConfirmation(null); setFormError(null); }}>Start another request</button>
+          <button type="button" className="text-button" onClick={startRequest}>Start another request</button>
         </div> : <>
           <p className="support-compose-intro">Tell us how we can help. You can follow every update in your conversations.</p>
           <form onSubmit={submitTicket} noValidate aria-busy={busy === "new"}>
             <label>What do you need help with?<select value={ticket.category} onChange={event => setTicket({ ...ticket, category: event.target.value })}><option value="order">Existing order</option><option value="product">Product question</option><option value="payment">Payment</option><option value="shipping">Shipping</option><option value="account">Account</option><option value="other">Something else</option></select></label>
             <label>Order number <span>(if applicable)</span><input name="order_number" maxLength={40} placeholder="GOTS-2026-…" value={ticket.order_number} onChange={event => setTicket({ ...ticket, order_number: event.target.value.toUpperCase() })} /></label>
-            <label>Short subject<input name="subject" required minLength={4} maxLength={120} aria-invalid={formError?.field === "subject"} aria-describedby={formError?.field === "subject" ? "ticket-form-error" : undefined} placeholder="How can we help?" value={ticket.subject} onChange={event => setTicket({ ...ticket, subject: event.target.value })} /></label>
+            <label>Short subject<input id="support-subject" name="subject" required minLength={4} maxLength={120} aria-invalid={formError?.field === "subject"} aria-describedby={formError?.field === "subject" ? "ticket-form-error" : undefined} placeholder="How can we help?" value={ticket.subject} onChange={event => setTicket({ ...ticket, subject: event.target.value })} /></label>
             <label htmlFor="support-new-message">Tell us what happened</label><textarea id="support-new-message" name="message" required minLength={10} maxLength={3000} rows={5} aria-invalid={formError?.field === "message"} aria-describedby={formError?.field === "message" ? "ticket-message-help ticket-form-error" : "ticket-message-help"} placeholder="Include the details that will help us understand your request." value={ticket.message} onChange={event => setTicket({ ...ticket, message: event.target.value })} />
             <div className="support-message-help" id="ticket-message-help"><span>At least 10 characters</span><span>{ticket.message.trim().length.toLocaleString()} / 3,000</span></div>
             <p className="support-compose-privacy"><LockKeyhole size={14} aria-hidden="true" /> Please keep passwords, card numbers, and bank credentials out of your message.</p>

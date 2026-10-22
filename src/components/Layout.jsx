@@ -25,7 +25,13 @@ export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  useEffect(() => { setMenuOpen(false); window.scrollTo({ top: 0, behavior: "auto" }); }, [location.pathname, location.search]);
+  useEffect(() => {
+    setMenuOpen(false);
+    const query = new URLSearchParams(location.search);
+    // Support deep links place focus at the conversation or new-request form.
+    if (location.pathname !== "/support" || (!query.get("ticket") && query.get("new") !== "1"))
+      window.scrollTo({ top: 0, behavior: "auto" });
+  }, [location.pathname, location.search]);
   useEffect(() => {
     const activeQuery =
       location.pathname === "/shop"
@@ -74,8 +80,8 @@ export default function Layout() {
             onSubmit={submitSearch}
           />
           <div className="header-actions">
-            <Link className="header-action" to={user ? "/account" : "/login"}><User size={22} /><span>{user ? "Account" : "Sign in"}</span></Link>
-            <Link className={`header-action cart-link${lastAdded ? " cart-bump" : ""}`} to="/cart"><ShoppingCart size={22} /><span>Cart</span>{count > 0 && <b>{count}</b>}</Link>
+            <Link className="header-action" aria-label={user ? "My account" : "Sign in"} to={user ? "/account" : "/login"}><User size={22} /><span>{user ? "Account" : "Sign in"}</span></Link>
+            <Link className={`header-action cart-link${lastAdded ? " cart-bump" : ""}`} aria-label={`Cart${count ? `, ${count} items` : ""}`} to="/cart"><ShoppingCart size={22} /><span>Cart</span>{count > 0 && <b>{count}</b>}</Link>
             <button type="button" className="menu-button" onClick={() => setMenuOpen((open) => !open)} aria-label="Toggle menu" aria-expanded={menuOpen}>{menuOpen ? <X /> : <Menu />}</button>
           </div>
         </div>

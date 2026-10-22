@@ -64,7 +64,7 @@ export default async function handler(request, response) {
     if (error) {
       throw Object.assign(
         new Error(
-          /not found/i.test(error.message || "")
+          error.code === "P2005" ? error.message : /not found/i.test(error.message || "")
             ? "Order not found"
             : "This order could not be changed to bank wire.",
         ),

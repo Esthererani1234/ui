@@ -34,31 +34,41 @@ const shopPaths = [
   { label: "Silver bars", detail: "Stackable silver bars and larger formats", to: "/shop?metal=silver&category=bar", metal: "silver", category: "bar", symbol: "Ag", art: "bar" },
 ];
 
-function FeaturedHeroProduct({ product, spot }) {
-  const price = productPrice(product, spot);
-  const image = product?.image_url || product?.image_urls?.[0];
+// A local copy of the current promotional photo, not cached stock or pricing.
+// Only substitute it for this exact source, so admin image changes still work.
+const buffaloHero = {
+  original: "https://jwquqphzsnnijopabuhn.supabase.co/storage/v1/object/public/product-images/9d498b06-08dd-4e9c-800e-4ee1e7d02785-chatgpt-image-jul-15-2026-04-24-58-pm.png",
+  src: "/images/buffalo-hero-960-v1.webp",
+  srcSet: "/images/buffalo-hero-480-v1.webp 480w, /images/buffalo-hero-960-v1.webp 960w",
+  name: "1 oz American Gold Buffalo Proof Coin (Random Year) - .9999 Fine Gold",
+};
 
-  if (!product) {
-    return (
-      <div className="home-hero-product placeholder" role="status" aria-label="Loading featured product">
-        <div className="home-hero-product-skeleton" aria-hidden="true">
-          <span className="skeleton-topline" />
-          <span className="skeleton-photo" />
-          <span className="skeleton-title" />
-          <span className="skeleton-price" />
-        </div>
-      </div>
-    );
-  }
+function FeaturedHeroProduct({ product, spot, loading }) {
+  const price = productPrice(product, spot);
+  const image = product ? product.image_url || product.image_urls?.[0] : buffaloHero.original;
+  const useBuffaloPhoto = image === buffaloHero.original;
 
   return (
-    <Link className="home-hero-product" to={`/product/${product.slug}`}>
+    <Link className="home-hero-product" to={product ? `/product/${product.slug}` : "/shop?metal=gold"}>
       <div className="home-hero-product-topline">
         <span><Sparkles /> Featured at the bullion desk</span>
-        {product.badge && <b>{product.badge}</b>}
+        {product?.badge && <b>{product.badge}</b>}
       </div>
       <div className="home-hero-product-image">
-        {image ? <img src={productImageUrl(image, 960, 82)} srcSet={productImageSrcSet(image, [480, 720, 960])} sizes="(max-width: 760px) 92vw, 42vw" alt={product.name} width="960" height="768" loading="eager" fetchPriority="high" decoding="async" /> : (
+        {image ? <img
+          src={useBuffaloPhoto ? buffaloHero.src : productImageUrl(image, 960, 82)}
+          srcSet={useBuffaloPhoto ? buffaloHero.srcSet : productImageSrcSet(image, [480, 720, 960])}
+          sizes="(max-width: 560px) calc(100vw - 90px), (max-width: 800px) 245px, (max-width: 1000px) 308px, 440px"
+          alt={product?.name || buffaloHero.name}
+          width="960" height="768" loading="eager" fetchPriority="high" decoding="async"
+          onError={(event) => {
+            const img = event.currentTarget;
+            if (useBuffaloPhoto && img.getAttribute("src") !== buffaloHero.original) {
+              img.removeAttribute("srcset");
+              img.src = buffaloHero.original;
+            }
+          }}
+        /> : (
           <div className={`home-hero-bullion ${product.metal}`}>
             <span>{metalSymbol(product.metal)}</span>
             <b>{product.metal_weight_oz} TROY OZ</b>
@@ -67,11 +77,11 @@ function FeaturedHeroProduct({ product, spot }) {
         )}
       </div>
       <div className="home-hero-product-info">
-        <span>{product.metal} · {product.category}</span>
-        <h2>{product.name}</h2>
+        <span>{product ? `${product.metal} · ${product.category}` : "gold · coin"}</span>
+        <h2>{product?.name || buffaloHero.name}</h2>
         <div>
-          <p><small>Current price</small><strong>{price == null ? "Request quote" : money(price)}</strong></p>
-          <em>{product.inventory_count > 0 ? "Available now" : "Currently unavailable"}</em>
+          <p><small>Current price</small><strong>{!product ? (loading ? "Loading…" : "View catalog") : price == null ? "Request quote" : money(price)}</strong></p>
+          {product && <em>{product.inventory_count > 0 ? "Available now" : "Currently unavailable"}</em>}
         </div>
       </div>
     </Link>
@@ -164,7 +174,7 @@ export default function HomePage() {
               <span><Clock3 /> Server-locked pricing</span>
             </div>
           </div>
-          <FeaturedHeroProduct product={heroProduct} spot={spot} />
+          <FeaturedHeroProduct product={heroProduct} spot={spot} loading={loadingProducts} />
         </div>
       </section>
 

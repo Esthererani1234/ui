@@ -23,8 +23,36 @@ export async function deliverOrderEmails(db, settings, {send=sendOrderEmail, pau
     try {
       let message=job.message;
       if (!message) {
+        let wire;
+        if (!job.ticket_id && job.event_type === 'wire_instructions') {
+          // Only unprepared messages can be skipped or refreshed. A persisted
+          // message may already have reached the provider and must stay identical.
+          const {data:current,error:orderError}=await db.from('orders')
+            .select('payment_method,payment_status,status,payment_due_at').eq('id',job.order_id).maybeSingle();
+          if (orderError || !current) throw Object.assign(new Error('Current wire order unavailable'),{code:'wire_order_unavailable'});
+          const stale = current.payment_method !== 'wire' ||
+            !['unpaid','pending','failed','partially_paid'].includes(current.payment_status) ||
+            !['pending_review','awaiting_payment'].includes(current.status) ||
+            [current.payment_due_at,job.order_snapshot.payment_due_at].some(value => value && new Date(value).getTime() <= Date.now());
+          if (stale) {
+            const {data:skipped,error:skipError}=await db.from('order_email_outbox')
+              .update({status:'skipped',last_error:'wire_order_stale',lease_until:null})
+              .eq('id',job.id).eq('lease_id',job.lease_id).eq('status','sending').is('message',null).select('id').maybeSingle();
+            if (skipError || !skipped) throw Object.assign(new Error('Wire skip could not be saved'),{code:'wire_skip_failed'});
+            continue;
+          }
+          if (!current.payment_due_at || !Number.isFinite(new Date(current.payment_due_at).getTime())) {
+            throw Object.assign(new Error('Current wire deadline unavailable'),{code:'wire_order_unavailable'});
+          }
+          // Bank details are read only from the server's trusted secret RPC,
+          // never from the order snapshot or a customer-supplied payload.
+          const {data:bank,error:bankError}=await db.rpc('get_wire_instructions_secret');
+          if (bankError || !bank) throw Object.assign(new Error('Wire bank unavailable'),{code:'wire_instructions_unavailable'});
+          try { wire=typeof bank === 'string' ? JSON.parse(bank) : bank; }
+          catch { throw Object.assign(new Error('Wire bank unavailable'),{code:'wire_instructions_unavailable'}); }
+        }
         message={from:`Gold On The Spot <${settings.from_email}>`,to:[job.recipient],reply_to:settings.reply_to,
-          ...(job.ticket_id ? renderSupportEmail({event:job.event_type,ticket:job.order_snapshot}) : renderOrderEmail({event:job.event_type,order:job.order_snapshot,items:job.items_snapshot || []}))};
+          ...(job.ticket_id ? renderSupportEmail({event:job.event_type,ticket:job.order_snapshot}) : renderOrderEmail({event:job.event_type,order:job.order_snapshot,items:job.items_snapshot || [],wire}))};
         const {data:saved,error:saveError}=await db.from('order_email_outbox').update({message})
           .eq('id',job.id).eq('lease_id',job.lease_id).eq('status','sending').is('message',null).select('id').maybeSingle();
         if (saveError || !saved) throw Object.assign(new Error('Email payload could not be saved'),{code:'payload_save_failed'});

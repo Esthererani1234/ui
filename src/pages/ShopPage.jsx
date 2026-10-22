@@ -21,6 +21,8 @@ export default function ShopPage() {
   const cachedProducts = readCachedProducts();
   const [products, setProducts] = useState(cachedProducts || []);
   const [loading, setLoading] = useState(!cachedProducts);
+  const [loadError, setLoadError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [spot, setSpot] = useState(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -34,6 +36,8 @@ export default function ShopPage() {
 
   useEffect(() => {
     let mounted = true;
+    setLoading(true);
+    setLoadError(false);
     fetchActiveProducts()
       .then((data) => {
         if (!mounted) return;
@@ -41,12 +45,12 @@ export default function ShopPage() {
         setLoading(false);
       })
       .catch(() => {
-        if (mounted) setLoading(false);
+        if (mounted) { setLoadError(true); setLoading(false); }
       });
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [loadAttempt]);
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
@@ -232,6 +236,13 @@ export default function ShopPage() {
                   Did you mean <b>{searchCorrection}</b>?
                 </button>
               )}
+              {loadError && (
+                <div className="form-message error" role="alert">
+                  <h2>Catalog temporarily unavailable</h2>
+                  <p>{products.length ? "Showing the last loaded products. Refresh to check the latest availability." : "We couldn’t load the catalog. Please try again."}</p>
+                  <button type="button" className="button button-outline" onClick={() => setLoadAttempt((attempt) => attempt + 1)}>Try again</button>
+                </div>
+              )}
               {loading ? (
                 <div className="catalog-loading">Loading secure catalog…</div>
               ) : filtered.length ? (
@@ -256,7 +267,7 @@ export default function ShopPage() {
                     </button>
                   )}
                 </>
-              ) : (
+              ) : loadError ? null : (
                 <div className="empty-state">
                   <h2>No products found</h2>
                   <p>Try removing a filter or search term.</p>

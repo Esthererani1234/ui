@@ -1,3 +1,5 @@
+import {WIRE_AGREEMENT_TEXT, WIRE_AGREEMENT_VERSION} from "../../supabase/functions/_shared/wireAgreement.js";
+import {invokeFunction} from "../lib/functionRequest.js";
 import {estimateShipping} from "../lib/shipping";
 import {
   forwardRef,
@@ -167,7 +169,7 @@ export default function CheckoutPage() {
     paymentMethod: "card",
     notes: "",
     saveAddress: true,
-    agree: false,
+    agree: false, wireAgree: false,
   });
 
   useEffect(() => {
@@ -313,7 +315,7 @@ export default function CheckoutPage() {
         setSecondsLeft(secondsUntil(next.expires_at));
 
         if (automatic) {
-          setForm((currentForm) => ({ ...currentForm, agree: false }));
+          setForm((currentForm) => ({ ...currentForm, agree: false, wireAgree: false }));
           const changed =
             previousTotal > 0 &&
             Math.abs(Number(next.card_total) - previousTotal) >= 0.01;
@@ -370,7 +372,7 @@ export default function CheckoutPage() {
         state: address.state || currentForm.state,
         postalCode: address.postal_code || currentForm.postalCode,
         paymentMethod: "card",
-        agree: false,
+        agree: false, wireAgree: false,
       }));
     });
   }, [resumeOrderId, getFreshQuote]);
@@ -518,6 +520,7 @@ export default function CheckoutPage() {
     if (!/^\d{5}(?:-\d{4})?$/.test(form.postalCode.trim())) {
       return "Enter a valid US ZIP code.";
     }
+    if (form.paymentMethod === "wire" && !form.wireAgree) return "Read and accept the bank-wire purchase agreement.";
     if (!form.agree) {
       return "Agree to the Terms of Purchase and the displayed locked price before placing the order.";
     }
@@ -532,9 +535,7 @@ export default function CheckoutPage() {
 
   const createOrder = async () => {
     if (orderInfo) return orderInfo;
-    const { data, error: invokeError } =
-      await supabase.functions.invoke("create-order", {
-        body: {
+    const data = await invokeFunction(supabase, "create-order", {
           quote_id: quote.quote_id,
           cart: cartPayload,
           contact: {
@@ -553,15 +554,9 @@ export default function CheckoutPage() {
           },
           payment_method: form.paymentMethod,
           notes: form.notes.trim(),
-          terms: { accepted: true, version: "2026-08-04" },
-        },
+          terms: { accepted: true, version: "2026-10-22" },
+          ...(form.paymentMethod === "wire" ? {wire_agreement: {accepted: form.wireAgree, version: WIRE_AGREEMENT_VERSION}} : {}),
       });
-
-    if (invokeError || data?.error) {
-      throw new Error(
-        data?.error || invokeError?.message || "Unable to place order.",
-      );
-    }
 
     setOrderInfo(data);
     saveCheckoutRecovery({
@@ -581,7 +576,7 @@ export default function CheckoutPage() {
       .update({
         first_name: form.firstName.trim(),
         last_name: form.lastName.trim(),
-        phone: form.phone.trim(),
+        // Contact phone on this order must not revoke the verified sign-in phone.
         address_line_1: form.address1.trim(),
         address_line_2: form.address2.trim() || null,
         city: form.city.trim(),
@@ -622,7 +617,13 @@ export default function CheckoutPage() {
       }
 
       let order = await createOrder();
-      await saveAddress();
+      // Saving optional profile preferences must never hide a placed order.
+      await saveAddress().catch(() => {});
+      const convertingCardToWire = form.paymentMethod === "wire" && order.payment_method === "card";
+      if (order.payment_method && order.payment_method !== form.paymentMethod && !convertingCardToWire) {
+        navigate(`/account?tab=orders&order=${encodeURIComponent(order.order_number)}${order.payment_method === "wire" ? "&wire=show" : ""}`);
+        return;
+      }
 
       if (form.paymentMethod === "card") {
         let payment;
@@ -686,10 +687,11 @@ export default function CheckoutPage() {
         return;
       }
 
-      if (form.paymentMethod === "wire" && orderInfo) {
+      if (form.paymentMethod === "wire" && (orderInfo || convertingCardToWire)) {
         order = await authenticatedPost("/api/payments/change-method", {
           order_id: order.order_id,
           payment_method: "wire",
+          wire_agreement: {accepted: form.wireAgree, version: WIRE_AGREEMENT_VERSION},
         });
         setOrderInfo((current) => ({
           ...current,
@@ -708,7 +710,7 @@ export default function CheckoutPage() {
       }
 
       let payment = {};
-      if (paymentConfig.enabled) {
+      if (paymentConfig.enabled && form.paymentMethod !== "wire") {
         payment = await authenticatedPost(
           "/api/payments/create-checkout",
           { order_id: order.order_id },
@@ -1031,6 +1033,14 @@ export default function CheckoutPage() {
             />
           </label>
 
+          {form.paymentMethod === "wire" && <section className="wire-agreement" aria-labelledby="wire-agreement-heading">
+            <h3 id="wire-agreement-heading">Bank-wire purchase agreement</h3>
+            <p>{WIRE_AGREEMENT_TEXT}</p>
+            <label className="checkout-check"><input type="checkbox" checked={Boolean(form.wireAgree)} onChange={event => setForm({...form, wireAgree:event.target.checked})} />
+              <span>I have read and agree to this bank-wire agreement, including responsibility for documented market loss if I cancel or do not pay. Wire total: <b>{money(displayedTotal)}</b>.</span>
+            </label>
+            <small>Bank details and your payment deadline appear after placing the order. A copy is sent to your verified email.</small>
+          </section>}
           <label className="checkout-check terms-check">
             <input
               type="checkbox"
@@ -1039,11 +1049,11 @@ export default function CheckoutPage() {
                 setForm({ ...form, agree: event.target.checked })
               }
             />
-            I agree to the <Link to="/terms">Terms of Purchase</Link>. I
+            <span>I agree to the <Link to="/terms">Terms of Purchase</Link>. I
             understand this bullion order is a binding purchase obligation
             at the currently displayed locked total of{" "}
             <b>{money(displayedTotal)}</b>, subject to GoldOnTheSpot
-            acceptance and the stated payment deadline.
+            acceptance and the stated payment deadline.</span>
           </label>
 
           {priceNotice && (
@@ -1215,7 +1225,7 @@ function PaymentOption({
           setForm({
             ...form,
             paymentMethod: event.target.value,
-            agree: false,
+            agree: false, wireAgree: false,
           })
         }
       />

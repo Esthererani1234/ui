@@ -4,6 +4,7 @@ import { metalSymbol, money, productPrice } from "../lib/pricing";
 import { useCart } from "../state/CartContext";
 import { productImageSrcSet, productImageUrl } from "../lib/productImages";
 import { trackEvent } from "../lib/analytics";
+import ProductImage from "./ProductImage";
 
 export default function ProductCard({ product, spot }) {
   const { add, items, lastAdded } = useCart();
@@ -29,7 +30,7 @@ export default function ProductCard({ product, spot }) {
         }
       >
         {mainImage ? (
-          <img
+          <ProductImage
             src={productImageUrl(mainImage, 640, 80)}
             srcSet={productImageSrcSet(mainImage)}
             sizes="(max-width: 600px) 46vw, (max-width: 1000px) 31vw, 280px"

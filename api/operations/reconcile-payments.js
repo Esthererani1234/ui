@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import {json,service} from '../../server/lib/payments.js';
 import {securityLog} from '../../server/lib/security.js';
 import {reconcileCardIntent} from '../../server/lib/cardCapture.js';
+import {recoverCardIntent} from '../../server/lib/cardRecovery.js';
 export const maxDuration=60;
 export default async function handler(request,response) {
  if(request.method!=='POST')return json(response,405,{error:'Method not allowed'});
@@ -20,8 +21,8 @@ export default async function handler(request,response) {
    try {
     const {data:order,error:orderError}=await db.from('orders').select('id,user_id,total,payment_provider,provider_payment_id,payment_method,payment_status,status,price_locked_until').eq('id',job.order_id).single();
     if(orderError||!order)throw new Error('Order unavailable');
-    const intent=await stripe.paymentIntents.retrieve(order.provider_payment_id);
-    await reconcileCardIntent({db,stripe,order,intent});
+    const recovered=await recoverCardIntent({db,stripe,order});
+    await reconcileCardIntent({db,stripe,...recovered});
    } catch(error) {failure='reconciliation_failed';securityLog('payment_reconciliation_failed',error);}
    const {error:finishError}=await db.rpc('finish_payment_reconciliation',{p_order_id:job.order_id,p_lease_id:job.lease_id,p_error:failure});
    if(finishError)securityLog('payment_reconciliation_record_failed',finishError);

@@ -1,7 +1,8 @@
+import { validWireAgreement } from "../_shared/wireAgreement.js";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.110.6";
 
-import { checkSession, rateLimit, readObject, safeLog } from "../_shared/security.ts";
+import { checkSession, safeLog } from "../_shared/security.ts";
 
 const allowedOrigins = new Set([
   "https://goldonthespot.com",
@@ -34,22 +35,6 @@ const readDefaultKey = (modernName: string, legacyName: string) => {
   return Deno.env.get(legacyName) || "";
 };
 
-const readPrice = (payload: Record<string, unknown>) => {
-  const candidates = [payload.price, payload.ask, payload.mid, payload.value, payload.rate, payload.close];
-  for (const candidate of candidates) {
-    const value = Number(candidate);
-    if (Number.isFinite(value) && value > 0) return value;
-  }
-  throw new Error("The market feed returned an invalid value");
-};
-
-// Must match api/metals.js. This is applied again on the trusted checkout
-// service so a customer cannot bypass the retail spot basis in the browser.
-const DEALER_SPOT_ADJUSTMENT = 0.004;
-
-const applyDealerSpotAdjustment = (price: number) =>
-  Math.round(price * (1 + DEALER_SPOT_ADJUSTMENT) * 1_000_000) / 1_000_000;
-
 const jwtPayload = (token: string) => {
   try {
     const encoded = token.split(".")[1].replaceAll("-", "+").replaceAll("_", "/");
@@ -59,17 +44,6 @@ const jwtPayload = (token: string) => {
     return {};
   }
 };
-
-async function fetchSpot() {
-  const metals = { gold: "XAU", silver: "XAG", platinum: "XPT", palladium: "XPD" } as const;
-  const entries = await Promise.all(Object.entries(metals).map(async ([name, symbol]) => {
-    const response = await fetch(`https://api.gold-api.com/price/${symbol}`, { headers: { accept: "application/json" } });
-    if (!response.ok) throw new Error("The live market feed is temporarily unavailable");
-    const payload = await response.json();
-    return [name, applyDealerSpotAdjustment(readPrice(payload))] as const;
-  }));
-  return Object.fromEntries(entries) as Record<string, number>;
-}
 
 Deno.serve(async (request: Request) => {
   if (request.method === "OPTIONS") {
@@ -112,7 +86,7 @@ Deno.serve(async (request: Request) => {
       return json(request, { error: "Checkout request must be valid JSON." }, 400);
     }
 
-    if(Object.keys(body).some(key=>!["quote_id","cart","contact","shipping","payment_method","notes","terms"].includes(key)))
+    if(Object.keys(body).some(key=>!["quote_id","cart","contact","shipping","payment_method","notes","terms","wire_agreement"].includes(key)))
       return json(request,{error:"Invalid checkout fields."},400);
     const admin = createClient(supabaseUrl, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
     const sessionId = String(jwtPayload(token).session_id || "");
@@ -152,70 +126,45 @@ Deno.serve(async (request: Request) => {
     const quoteId = typeof body.quote_id === "string" && /^[0-9a-f-]{36}$/i.test(body.quote_id)
       ? body.quote_id
       : null;
-    if (!quoteId && (!Array.isArray(body.cart) || body.cart.length < 1 || body.cart.length > 25)) return json(request, { error: "Your cart is invalid." }, 400);
-    const cart = (Array.isArray(body.cart) ? body.cart : []).map((item: { product_id?: unknown; quantity?: unknown }) => ({
-      product_id: Number(item.product_id),
-      quantity: Number(item.quantity),
-    }));
-    if (!quoteId && cart.some((item) => !Number.isInteger(item.product_id) || !Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 100)) {
-      return json(request, { error: "One or more cart quantities are invalid." }, 400);
-    }
-
-    const spot = quoteId ? null : await fetchSpot();
+    if (!quoteId) return json(request, { error: "Refresh your checkout to get a secure price quote." }, 400);
     const requestedPaymentMethod = typeof body.payment_method === "string" ? body.payment_method : "";
     if (!["wire", "card", "crypto"].includes(requestedPaymentMethod))
       return json(request, { error: "Unsupported payment method" }, 400);
+    for (const [key, allowed] of [["contact", ["first_name","last_name","email","phone"]], ["shipping", ["address_line_1","address_line_2","city","state","postal_code","country"]], ["terms", ["accepted","version"]]] as const) {
+      const value = body[key];
+      if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).some(field => !(allowed as readonly string[]).includes(field)))
+        return json(request, {error:"Checkout contains invalid fields."},400);
+    }
+    const address = body.shipping as Record<string, unknown>;
+    const details = body.contact as Record<string, unknown>;
+    if ([details.first_name,details.last_name,details.phone,address.address_line_1,address.city].some(value => typeof value !== "string" || !value.trim() || value.length>160)
+      || !/^[A-Z]{2}$/.test(String(address.state || "")) || !/^\d{5}(-\d{4})?$/.test(String(address.postal_code || "")) || address.country !== "US"
+      || (address.address_line_2 !== undefined && (typeof address.address_line_2 !== "string" || address.address_line_2.length>160)))
+      return json(request,{error:"Enter complete contact details and a valid US delivery address."},400);
     const terms = body.terms && typeof body.terms === "object" ? body.terms as Record<string, unknown> : {};
-    if (terms.accepted !== true || terms.version !== "2026-08-04")
+    if (terms.accepted !== true || terms.version !== "2026-10-22")
       return json(request, { error: "Accept the current Terms of Purchase before placing the order." }, 400);
+    if (requestedPaymentMethod === "wire" && !validWireAgreement(body.wire_agreement))
+      return json(request, { error: "Accept the bank-wire purchase agreement before continuing." }, 400);
     const contact =
       body.contact && typeof body.contact === "object"
         ? { ...(body.contact as Record<string, unknown>), email: user.email }
         : { email: user.email };
-    const orderArgs = {
-      p_user_id: user.id,
-      p_contact: contact,
-      p_shipping: body.shipping || {},
-      p_payment_method: requestedPaymentMethod,
-      p_notes: typeof body.notes === "string" ? body.notes.slice(0, 1000) : null,
-    };
-    const { data, error } = quoteId
-      ? await admin.rpc("create_order_from_quote", { ...orderArgs, p_quote_id: quoteId })
-      : await admin.rpc("create_order", {
-          ...orderArgs,
-          p_cart: cart,
-          p_spot: spot,
-          // The legacy SQL function does not accept crypto directly.
-          p_payment_method: requestedPaymentMethod === "crypto" ? "wire" : requestedPaymentMethod,
-        });
-    if (error) {
-      console.error("create_order failed", error.code, error.message);
-      const customerSafe = /inventory|unavailable|address|contact|payment|cart|quote|quantity|account|expired|price lock|refreshed/i.test(error.message)
-        ? error.message
-        : "We could not lock this order. Please refresh the cart and try again.";
-      return json(request, { error: customerSafe }, 400);
-    }
-
     const forwardedIp = (request.headers.get("x-forwarded-for") || "").split(",")[0].trim();
     const ipSalt = Deno.env.get("ORDER_AUDIT_IP_SALT") || "";
     const ipDigest = forwardedIp && ipSalt
-      ? Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${forwardedIp}|${ipSalt}`))), (byte) => byte.toString(16).padStart(2, "0")).join("")
+      ? Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${forwardedIp}|${ipSalt}`))), byte => byte.toString(16).padStart(2, "0")).join("")
       : null;
-    const paymentReference = `GOTS-${String(data.order_number).replace(/[^A-Z0-9-]/gi, "")}`.slice(0, 48);
-    const { error: paymentMetadataError } = await admin.from("orders").update({
-      payment_method: requestedPaymentMethod,
-      payment_provider: requestedPaymentMethod === "wire" ? "manual_wire" : requestedPaymentMethod === "card" ? "stripe" : "nowpayments",
-      payment_reference: paymentReference,
-      payment_due_at: data.price_locked_until,
-      terms_version: "2026-08-04",
-      terms_accepted_at: new Date().toISOString(),
-      terms_ip_hash: ipDigest,
-      terms_user_agent: (request.headers.get("user-agent") || "").slice(0, 500),
-    }).eq("id", data.order_id);
-    if (paymentMetadataError) throw paymentMetadataError;
-
-    if (spot) {
-      await admin.from("price_snapshots").insert(Object.entries(spot).map(([metal, price]) => ({ metal, price, source: "GoldOnTheSpot retail spot" })));
+    const { data, error } = await admin.rpc("place_checkout_order", {
+      p_user_id: user.id, p_quote_id: quoteId, p_contact: contact, p_shipping: body.shipping || {},
+      p_payment_method: requestedPaymentMethod, p_notes: typeof body.notes === "string" ? body.notes.slice(0,1000) : null,
+      p_terms: terms, p_wire_agreement: body.wire_agreement || null,
+      p_user_agent: (request.headers.get("user-agent") || "").slice(0,500), p_ip_hash: ipDigest,
+    });
+    if (error) {
+      safeLog("create_order_failed", error);
+      const safe = ["P2005", "P2006"].includes(error.code) || error.message === "The price lock expired. Review the refreshed total and try again.";
+      return json(request, { error: safe ? error.message : "We could not lock this order. Check your orders, then refresh the cart and try again." }, 400);
     }
     return json(request, data, 201);
   } catch (error) {

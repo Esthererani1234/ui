@@ -100,7 +100,7 @@ export async function requireAdmin(request) {
 
 export async function customerOrder(orderId, userId) {
   const { data, error } = await service().from("orders")
-    .select("id,order_number,user_id,email,first_name,last_name,phone,payment_method,payment_status,payment_provider,provider_payment_id,provider_checkout_url,payment_reference,payment_due_at,subtotal,payment_surcharge,shipping_amount,total,spot_snapshot,price_locked_until,status,shipping_address,order_items(id,product_id,product_name,quantity,unit_price,line_total,products(image_url,image_urls))")
+    .select("id,order_number,user_id,email,first_name,last_name,phone,payment_method,payment_status,payment_provider,provider_payment_id,provider_checkout_url,payment_reference,payment_due_at,wire_agreement_version,wire_agreement_text,wire_accepted_at,subtotal,payment_surcharge,shipping_amount,total,spot_snapshot,price_locked_until,status,shipping_address,order_items(id,product_id,product_name,quantity,unit_price,line_total,products(image_url,image_urls))")
     .eq("id", orderId).eq("user_id", userId).maybeSingle();
   if (error) throw error;
   if (!data) throw Object.assign(new Error("Order not found"), { status: 404 });
@@ -211,7 +211,7 @@ export async function wireSettings() {
   }
 
   if (vaultError && vaultError.code !== "PGRST202") throw vaultError;
-  throw Object.assign(new Error("Wire instructions have not been configured"), { status: 503 });
+  throw Object.assign(new Error("Wire instructions have not been configured"), { status: 503, code: "wire_not_configured" });
 }
 
 export async function saveWireSettings(settings) {

@@ -1,0 +1,187 @@
+import { test, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { PGlite } from '@electric-sql/pglite';
+let db;
+const U='10000000-0000-4000-8000-000000000001', V='10000000-0000-4000-8000-000000000002', S='20000000-0000-4000-8000-000000000001', C='30000000-0000-4000-8000-000000000001';
+before(async()=>{
+ db=new PGlite();
+ await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
+ create schema auth; create schema private;
+ create function auth.jwt() returns jsonb language sql as $$select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb$$;
+ create function auth.uid() returns uuid language sql as $$select (auth.jwt()->>'sub')::uuid$$;
+ create table auth.users(id uuid primary key,email_confirmed_at timestamptz,banned_until timestamptz);
+ create table auth.sessions(id uuid primary key,user_id uuid,not_after timestamptz);
+ create table public.profiles(id uuid primary key,phone text,phone_verified_at timestamptz);
+ create table public.admin_users(user_id uuid primary key);
+ create table public.app_settings(key text primary key,value jsonb);
+ create table public.customer_sms_sessions(session_id uuid primary key,user_id uuid,phone text,purpose text,verified_at timestamptz,expires_at timestamptz);
+ create table public.customer_sms_challenges(id uuid primary key,user_id uuid,session_id uuid,phone text,purpose text,provider_verify_id text,status text default 'pending',attempt_count integer default 0,expires_at timestamptz,verified_at timestamptz);
+ create table public.orders(id bigint primary key,user_id uuid,total numeric,price_locked_until timestamptz,payment_method text,payment_status text,status text,payment_provider text,provider_payment_id text,paid_at timestamptz,internal_notes text,updated_at timestamptz);
+ create table public.order_risk_reviews(order_id bigint primary key,decision text);
+ create table public.payment_attempts(order_id bigint,provider text,provider_payment_id text,amount numeric,currency text,status text,updated_at timestamptz);
+ create table public.payment_events(id bigint generated always as identity primary key,provider text,provider_event_id text,order_id bigint,event_type text,verified boolean,payload jsonb,processed_at timestamptz,unique(provider,provider_event_id));
+ create function private.is_admin() returns boolean language sql as $$select false$$;
+ create function private.customer_sms_verified() returns boolean language sql as $$select false$$;
+ create function public.mark_payment_state(bigint,text,text,text,text,timestamptz default null) returns void language sql as $$select$$;
+ alter table public.profiles enable row level security;
+ alter table public.orders enable row level security;
+ grant usage on schema public,private,auth to authenticated,anon;
+ grant select(id,phone,phone_verified_at),update(phone) on public.profiles to authenticated;
+ grant select on public.orders to authenticated;
+ create policy own_profile on public.profiles to authenticated using(id=auth.uid()) with check(id=auth.uid());
+ create policy own_orders on public.orders for select to authenticated using(user_id=auth.uid() and private.customer_sms_verified() or private.is_admin());
+ insert into auth.users values('${U}',now(),null),('${V}',now(),null);
+ insert into auth.sessions values('${S}','${U}',null);
+ insert into profiles values('${U}','+12025550101',now()),('${V}','+12025550102',now());
+ insert into app_settings values('customer_sms_mfa_required','true');
+ insert into customer_sms_challenges values('${C}','${U}','${S}','+12025550101','signin','test-only','pending',0,now()+interval '5 minutes',null);
+ insert into orders values(1,'${U}',100,now()+interval '10 minutes','card','unpaid','awaiting_payment','stripe','pi_test',null,null,now()),(2,'${V}',200,now()+interval '10 minutes','card','unpaid','awaiting_payment','stripe','pi_other',null,null,now());
+ insert into payment_attempts values(1,'stripe','pi_test',100,'USD','failed',now());`);
+ await db.exec(await readFile(new URL('../supabase/migrations/20261015160910_authentication_and_payment_guards.sql',import.meta.url),'utf8'));
+ await db.exec(`alter table auth.users add column created_at timestamptz default now()-interval '10 days';
+ alter table profiles add column postal_code text;
+ alter table app_settings add column is_public boolean default false;
+ create table customer_risk_profiles(user_id uuid,status text,risk_score integer,manual_review_required boolean);
+ alter table orders add column order_number text default 'TEST';
+ alter table orders add column shipping_address jsonb default '{}';
+ alter table orders add column tracking_number text;
+ alter table orders add column created_at timestamptz default now();
+ alter table order_risk_reviews add column user_id uuid;
+ alter table order_risk_reviews add column risk_score integer;
+ alter table order_risk_reviews add column risk_level text;
+ alter table order_risk_reviews add column signals jsonb;
+ alter table order_risk_reviews add column reviewed_at timestamptz;
+ create table products(id bigint primary key,inventory_count integer);
+ create table order_items(order_id bigint,product_id bigint,quantity integer);
+ create table admin_audit_log(actor_user_id uuid,action text,target_type text,target_id text,reason text,metadata jsonb);`);
+ await db.exec(await readFile(new URL('../supabase/migrations/20261015162128_fraud_review_and_admin_auditing.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261016141000_admin_order_partial_updates.sql',import.meta.url),'utf8'));
+ await db.exec(`create trigger profiles_clear_changed_phone_verification before update of phone on profiles for each row execute function private.clear_changed_phone_verification();`);
+ // Legacy duplicate: migration must preserve existing access without allowing a new owner.
+ await db.exec(`insert into profiles(id,phone,phone_verified_at) values('10000000-0000-4000-8000-000000000003','(202) 555-0102',now());`);
+ await db.exec(await readFile(new URL('../supabase/migrations/20261022145500_unique_customer_phone_enrollment.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261022153500_atomic_phone_claim_reservation.sql',import.meta.url),'utf8'));
+ await db.exec(`alter table order_risk_reviews add column admin_notes text; alter table order_risk_reviews add column reviewed_by uuid; alter table order_risk_reviews add column updated_at timestamptz; alter table order_risk_reviews enable row level security; create policy admin_risk_read on order_risk_reviews for select to authenticated using(private.is_admin());`);
+ await db.exec(await readFile(new URL('../supabase/migrations/20261022151000_atomic_admin_risk_decisions.sql',import.meta.url),'utf8'));
+ await db.exec(`alter table products add column image_url text; alter table products add column image_urls text[]; alter table products add column slug text; alter table products add column category text;`);
+ await db.exec(await readFile(new URL('../supabase/migrations/20261022152500_order_item_photo_snapshots.sql',import.meta.url),'utf8'));
+ await db.exec(`alter table app_settings add unique(key);alter table payment_attempts add column created_at timestamptz default now();
+ create schema vault;create table vault.secrets(id uuid default gen_random_uuid(),name text unique,secret text);create view vault.decrypted_secrets as select name,secret as decrypted_secret from vault.secrets;
+ create function vault.create_secret(text,text,text)returns uuid language sql as $$insert into vault.secrets(secret,name)values($1,$2)returning id$$;
+ create table order_email_outbox(status text,created_at timestamptz default now());`);
+ await db.exec(await readFile(new URL('../supabase/migrations/20261022181910_launch_payment_capture.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261022182157_launch_recovery_and_monitoring.sql',import.meta.url),'utf8'));
+
+ await db.exec(`alter table orders add column provider_checkout_url text;alter table orders add column payment_due_at timestamptz;
+ alter table payment_attempts add column expires_at timestamptz;
+ alter table payment_attempts add unique(provider,provider_payment_id);`);
+ await db.exec(await readFile(new URL('../supabase/migrations/20261022214410_payment_recovery_guards.sql',import.meta.url),'utf8'));
+});
+after(()=>db?.close());
+const A='a'.repeat(64),B='b'.repeat(64);
+const scalar=async(sql,params=[])=>Object.values((await db.query(sql,params)).rows[0])[0];
+async function tx(fn){await db.exec('begin');try{await fn()}finally{await db.exec('rollback')}}
+async function rejects(fn,pattern){await db.exec('savepoint rejected');await assert.rejects(fn,pattern);await db.exec('rollback to rejected')}
+const claim=(hash=A)=>scalar('select claim_card_payment_request(1,$1,$2,100)',[U,hash]);
+const bind=(id='pi_recovered',hash=A,amount=10000,user=U)=>scalar('select bind_card_payment_intent(1,$1,$2,$3,$4)',[user,hash,id,amount]);
+const state=(id,value)=>db.query("select mark_payment_state(1,'stripe',$1,$2,$2)",[id,value]);
+
+test('binding failure rolls back every write; retained claim recovers exact intent once',()=>tx(async()=>{
+ assert.equal(await claim(),true);
+ await db.exec(`create function private.fail_attempt() returns trigger language plpgsql as $$begin raise exception 'fixture failure';end$$;
+ create trigger fail_attempt before insert on payment_attempts for each row execute function private.fail_attempt();`);
+ await rejects(()=>bind(),/fixture failure/);
+ assert.equal(await scalar('select provider_payment_id from private.card_payment_requests where order_id=1'),null);
+ assert.equal(await scalar('select provider_payment_id from orders where id=1'),'pi_test');
+ assert.equal(await scalar('select count(*)::int from private.card_payment_claims'),1);
+ await db.exec('drop trigger fail_attempt on payment_attempts');
+ assert.equal((await bind()).payment_status,'pending');
+ await state('pi_recovered','paid');
+ assert.equal((await bind()).payment_status,'paid');
+ assert.equal(await scalar("select count(*)::int from payment_attempts where provider_payment_id='pi_recovered'"),1);
+ assert.equal(await scalar('select count(*)::int from private.card_payment_claims'),0);
+}));
+test('decline then new attempt initializes pending, permits capture and is selected for reconciliation',()=>tx(async()=>{
+ await claim();await bind();await state('pi_recovered','failed');
+ assert.equal(await claim(B),true);
+ const current=await bind('pi_retry',B);assert.equal(current.payment_status,'pending');
+ assert.equal(await scalar("select authorize_card_capture(1,'pi_retry',10000)"),true);
+ await db.exec("update private.card_payment_claims set created_at=now()-interval '3 minutes'");
+ assert.equal((await db.query('select * from claim_payment_reconciliations()')).rows[0].order_id,1);
+ await rejects(()=>bind('pi_recovered',A),/cannot replace/);
+ await rejects(()=>state('pi_recovered','paid'),/reference mismatch/);
+ assert.equal(await scalar('select provider_payment_id from orders where id=1'),'pi_retry');
+}));
+test('unbound attempts are leased even with an old failed reference; leases remain exclusive',()=>tx(async()=>{
+ await state('pi_test','failed');await claim();
+ await db.exec("update private.card_payment_claims set created_at=now()-interval '3 minutes'");
+ assert.deepEqual(await scalar('select get_card_payment_recovery(1)'),{request_hash:A,provider_payment_id:null,legacy:false});
+ assert.equal((await db.query('select * from claim_payment_reconciliations()')).rows.length,1);
+ assert.equal((await db.query('select * from claim_payment_reconciliations()')).rows.length,0);
+}));
+test('delayed previous decline cannot release a newer unbound claim or change its state',()=>tx(async()=>{
+ await claim();await bind();await state('pi_recovered','failed');await claim(B);
+ await rejects(()=>bind('pi_recovered',A),/newer payment/);
+ await rejects(()=>state('pi_recovered','failed'),/newer payment/);
+ assert.equal(await scalar('select request_hash from private.card_payment_claims where order_id=1'),B);
+ assert.equal((await bind('pi_retry',B)).payment_status,'pending');
+}));
+test('binding rejects wrong amount, owner, claim, duplicate intent and unrelated live attempt',()=>tx(async()=>{
+ await claim();
+ await rejects(()=>bind('pi_recovered',B),/claim mismatch/);
+ await rejects(()=>bind('pi_recovered',A,1),/identity mismatch/);
+ await rejects(()=>bind('pi_recovered',A,10000,V),/identity mismatch/);
+ await bind();
+ await rejects(()=>bind('pi_other',A),/claim mismatch/);
+ assert.equal(await claim(B),false);
+ assert.equal((await bind()).payment_status,'pending');
+}));
+test('late payment invalidates an old approval, audits once and requires a fresh audited approval to ship',()=>tx(async()=>{
+ await db.exec(`insert into admin_users values('${U}');insert into order_risk_reviews(order_id,user_id,decision)values(1,'${U}','approved');
+ update orders set price_locked_until=now()-interval '1 minute' where id=1;`);
+ await state('pi_test','paid');
+ const review=(await db.query('select * from order_risk_reviews where order_id=1')).rows[0];
+ assert.equal(review.decision,'pending');assert.ok(review.reviewed_at);
+ assert.equal(await scalar('select status from orders where id=1'),'pending_review');
+ await rejects(()=>db.query("select admin_update_order($1,1,'shipped',null,'TRACK',null,'Ship test order')",[U]),/risk review/);
+ await rejects(()=>db.query("select admin_review_order($1,1,'approved','Review payment','', 'approved',null)",[U]),/review has changed/);
+ await state('pi_test','paid');
+ assert.equal(await scalar("select count(*)::int from admin_audit_log where action='payment.late_review_required'"),1);
+ await db.query("select admin_review_order($1,1,'approved','Reconciled late payment','','pending',$2)",[U,review.reviewed_at]);
+ await db.query("select admin_update_order($1,1,'shipped',null,'TRACK',null,'Ship reviewed order')",[U]);
+ assert.equal(await scalar('select status from orders where id=1'),'shipped');
+}));
+test('late settlement creates a missing review and does not erase a rejected decision',()=>tx(async()=>{
+ await db.exec("update orders set price_locked_until=now()-interval '1 minute' where id=1");
+ await state('pi_test','paid');assert.equal(await scalar('select decision from order_risk_reviews where order_id=1'),'pending');
+ await db.exec("update orders set price_locked_until=now()-interval '1 minute' where id=2;insert into order_risk_reviews(order_id,user_id,decision)values(2,'"+V+"','rejected');insert into payment_attempts(order_id,provider,provider_payment_id,amount,currency,status)values(2,'stripe','pi_other',200,'USD','pending')");
+ await db.exec("select mark_payment_state(2,'stripe','pi_other','paid','paid')");
+ assert.equal(await scalar('select decision from order_risk_reviews where order_id=2'),'rejected');
+}));
+test('wire settlement uses wire due date, including manual admin paid updates',()=>tx(async()=>{
+ await db.exec(`insert into admin_users values('${U}');insert into order_risk_reviews(order_id,user_id,decision)values(1,'${U}','approved');
+ update orders set payment_method='wire',payment_due_at=now()+interval '1 day',price_locked_until=now()-interval '1 hour' where id=1;`);
+ await db.query("select admin_update_order($1,1,null,'paid',null,null,'Funds cleared')",[U]);
+ assert.equal(await scalar('select decision from order_risk_reviews where order_id=1'),'approved');
+ assert.equal(await scalar("select count(*)::int from admin_audit_log where action='payment.late_review_required'"),0);
+ await db.exec(`update orders set payment_method='wire',payment_due_at=now()-interval '1 minute',price_locked_until=now()+interval '1 hour' where id=2;
+ insert into order_risk_reviews(order_id,user_id,decision)values(2,'${V}','approved');`);
+ await db.query("select admin_update_order($1,2,null,'paid',null,null,'Late funds cleared')",[U]);
+ assert.equal(await scalar('select decision from order_risk_reviews where order_id=2'),'pending');
+}));
+test('failed review audit rolls back settlement and provider event for retry',()=>tx(async()=>{
+ await db.exec(`update orders set price_locked_until=now()-interval '1 minute' where id=1;
+ create function private.fail_audit() returns trigger language plpgsql as $$begin raise exception 'audit unavailable';end$$;
+ create trigger fail_audit before insert on admin_audit_log for each row execute function private.fail_audit();`);
+ await rejects(()=>db.exec("select apply_payment_event('stripe','evt_late',1,'payment_intent.succeeded','pi_test','paid','paid','{}')"),/audit unavailable/);
+ assert.equal(await scalar('select payment_status from orders where id=1'),'unpaid');
+ assert.equal(await scalar('select count(*)::int from payment_events'),0);
+ assert.equal(await scalar('select count(*)::int from order_risk_reviews'),0);
+}));
+test('recovery RPCs and ledger deny customers and anonymous callers; manual capture remains off',()=>tx(async()=>{
+ for(const role of ['anon','authenticated'])for(const fn of ['claim_card_payment_request(bigint,uuid,text,numeric)','bind_card_payment_intent(bigint,uuid,text,text,bigint)','get_card_payment_recovery(bigint)'])
+  assert.equal(await scalar('select has_function_privilege($1,$2,\'execute\')',[role,'public.'+fn]),false);
+ for(const role of ['anon','authenticated'])assert.equal(await scalar("select has_table_privilege($1,'private.card_payment_requests','select')",[role]),false);
+ assert.equal(await scalar("select value from app_settings where key='card_manual_capture_enabled'"),false);
+}));

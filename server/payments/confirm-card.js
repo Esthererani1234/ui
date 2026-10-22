@@ -2,11 +2,11 @@ import { service } from "../lib/payments.js";
 import { rateLimit, strictObject, securityLog, requestHash } from "../lib/security.js";
 import Stripe from "stripe";
 import { reconcileCardIntent } from "../lib/cardCapture.js";
+import { bindCardIntent } from "../lib/cardRecovery.js";
 import {
   assertPayable,
   authenticateCustomer,
   customerOrder,
-  insertAttempt,
   json,
   readJson,
 } from "../lib/payments.js";
@@ -45,10 +45,10 @@ export default async function handler(request, response) {
     const {data:captureSetting,error:captureSettingError}=await service().from('app_settings').select('value').eq('key','card_manual_capture_enabled').maybeSingle();
     if(captureSettingError)throw Object.assign(new Error('Payment security checks are temporarily unavailable.'),{status:503});
     claimHash = requestHash(confirmationTokenId);
-    const {data: claimed,error: claimError}=await service().rpc("claim_card_payment",{p_order_id:order.id,p_user_id:user.id,p_request_hash:claimHash,p_expected_total:Number(order.total)});
+    const {data: claimed,error: claimError}=await service().rpc("claim_card_payment_request",{p_order_id:order.id,p_user_id:user.id,p_request_hash:claimHash,p_expected_total:Number(order.total)});
     if(claimError) throw claimError;
     if(!claimed) throw Object.assign(new Error("A payment is already in progress for this order. Check your order before trying again."),{status:409});
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY,{timeout:8000,maxNetworkRetries:0});
     const intent = await stripe.paymentIntents.create({
       amount: Math.round(Number(order.total) * 100),
       currency: "usd",
@@ -63,31 +63,16 @@ export default async function handler(request, response) {
         order_id: String(order.id),
         order_number: order.order_number,
         user_id: user.id,
+        payment_claim: claimHash,
       },
     }, { idempotencyKey: `gots-card-${order.id}-${confirmationTokenId}` });
 
-    try {
-      await insertAttempt(
-        order,
-        "stripe",
-        intent.id,
-        intent.status === "succeeded" ? "paid" : "pending",
-        null,
-        order.price_locked_until,
-        intent,
-      );
-    } catch (recordError) {
-      securityLog("stripe_attempt_record_failed", recordError);
-      if (intent.status !== "succeeded") throw recordError;
-    }
-
-    let finalStatus=intent.status;
-    if(intent.capture_method==='manual' && intent.status==='requires_capture') {
-      const currentOrder=await customerOrder(order.id,user.id);
-      const result=await reconcileCardIntent({db:service(),stripe,order:currentOrder,intent});
-      if(result.expired)throw Object.assign(new Error('The price lock expired before payment could complete.'),{status:409});
-      finalStatus=result.status;
-    }
+    // Binding and attempt initialization commit together. Even a successful
+    // charge must not hide a persistence failure; webhook/worker can recover it.
+    order=await bindCardIntent({db:service(),order,intent,requestHash:claimHash});
+    const result=await reconcileCardIntent({db:service(),stripe,order,intent});
+    if(result.expired)throw Object.assign(new Error('The price lock expired before payment could complete.'),{status:409});
+    const finalStatus=result.status;
 
     return json(response, 200, {
       order_id: order.id,
@@ -99,19 +84,20 @@ export default async function handler(request, response) {
     securityLog("card_confirmation_failed", error);
     const intent = error?.payment_intent;
     if (order && intent?.id && ["requires_payment_method", "canceled"].includes(intent.status)) {
-      await insertAttempt(order, "stripe", intent.id, "failed", null, order.price_locked_until, intent).catch(() => {});
-    }
-    // Release only a definitive declined/cancelled intent. Network timeouts
-    // keep the claim: retrying with a new token could otherwise double-charge.
-    if(order && claimHash && intent?.id && ["requires_payment_method","canceled"].includes(intent.status)) {
-      const {error: releaseError}=await service().rpc("release_card_payment",{p_order_id:order.id,p_request_hash:claimHash});
-      if(releaseError) securityLog("card_claim_release_failed", releaseError);
+      try {
+        const stripe=new Stripe(process.env.STRIPE_SECRET_KEY,{timeout:8000,maxNetworkRetries:0});
+        const canonical=await stripe.paymentIntents.retrieve(intent.id);
+        const bound=await bindCardIntent({db:service(),order,intent:canonical,requestHash:claimHash});
+        // mark_payment_state releases the claim only after a definitive result
+        // and its matching binding are recorded. An outage retains the claim.
+        await reconcileCardIntent({db:service(),stripe,order:bound,intent:canonical});
+      } catch(recordError) { securityLog('stripe_decline_record_failed',recordError); }
     }
     const expired = error?.status === 409 && /expired/i.test(error.message || "");
     return json(response, expired ? 409 : (error.status || (error?.type === "StripeCardError" ? 402 : 500)), {
       error: expired
         ? "The 10-minute price lock expired. Review the refreshed total before paying."
-        : (error.status ? error.message : safeMessage(error)),
+        : (error.status ? error.message : error?.type === 'StripeCardError' ? safeMessage(error) : 'Payment could not be confirmed yet. Check your order before trying to pay again.'),
       code: expired ? "price_expired" : (error?.code || "payment_failed"),
       status: intent?.status || "requires_payment_method",
     });

@@ -1,6 +1,6 @@
-import { securityLog } from "../_lib/security.js";
+import { securityLog } from "../lib/security.js";
 import crypto from "node:crypto";
-import { json, readRaw, applyPaymentEvent, service } from "../_lib/payments.js";
+import { json, readRaw, applyPaymentEvent, service } from "../lib/payments.js";
 
 export const config = { api: { bodyParser: false } };
 

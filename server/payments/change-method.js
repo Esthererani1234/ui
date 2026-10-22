@@ -1,4 +1,4 @@
-import { rateLimit, strictObject, securityLog } from "../_lib/security.js";
+import { rateLimit, strictObject, securityLog } from "../lib/security.js";
 import {
   authenticateCustomer,
   customerOrder,
@@ -6,7 +6,7 @@ import {
   readJson,
   service,
   wireSettings,
-} from "../_lib/payments.js";
+} from "../lib/payments.js";
 
 export const config = { api: { bodyParser: false } };
 

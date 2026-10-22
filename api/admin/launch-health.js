@@ -1,5 +1,5 @@
-import {json,requireAdmin,service} from '../_lib/payments.js';
-import {rateLimit,securityLog} from '../_lib/security.js';
+import {json,requireAdmin,service} from '../../server/lib/payments.js';
+import {rateLimit,securityLog} from '../../server/lib/security.js';
 export default async function handler(request,response){
  if(request.method!=='GET')return json(response,405,{error:'Method not allowed'});
  try{

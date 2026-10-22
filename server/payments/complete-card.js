@@ -1,7 +1,7 @@
 import Stripe from 'stripe';
-import {authenticateCustomer,customerOrder,json,readJson,service} from '../_lib/payments.js';
-import {rateLimit,strictObject,securityLog} from '../_lib/security.js';
-import {reconcileCardIntent} from '../_lib/cardCapture.js';
+import {authenticateCustomer,customerOrder,json,readJson,service} from '../lib/payments.js';
+import {rateLimit,strictObject,securityLog} from '../lib/security.js';
+import {reconcileCardIntent} from '../lib/cardCapture.js';
 export const config={api:{bodyParser:false}};
 export default async function handler(request,response) {
  if(request.method!=='POST')return json(response,405,{error:'Method not allowed'});

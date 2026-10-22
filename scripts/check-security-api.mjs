@@ -1,9 +1,9 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {Readable} from 'node:stream';
-import {assertPayable,readJson,customerOrder} from '../api/_lib/payments.js';
-import {cleanCart} from '../api/_lib/quotes.js';
-import {strictObject,stripeState,stripeMatchesOrder,rateLimit} from '../api/_lib/security.js';
+import {assertPayable,readJson,customerOrder} from '../server/lib/payments.js';
+import {cleanCart} from '../server/lib/quotes.js';
+import {strictObject,stripeState,stripeMatchesOrder,rateLimit} from '../server/lib/security.js';
 const order={id:1,user_id:'test-user',total:100,payment_method:'card',payment_status:'unpaid',status:'awaiting_payment',price_locked_until:new Date(Date.now()+600000).toISOString()};
 test('payment guard rejects cancelled, missing or expired locks and invalid totals',()=>{
  assert.doesNotThrow(()=>assertPayable(order,'card'));

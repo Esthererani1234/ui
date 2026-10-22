@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
-import { json, readJson, requireAdmin, service } from '../_lib/payments.js';
-import { rateLimit, strictObject, securityLog } from '../_lib/security.js';
+import { json, readJson, requireAdmin, service } from '../../server/lib/payments.js';
+import { rateLimit, strictObject, securityLog } from '../../server/lib/security.js';
 import { SUPPORT_EMAIL_EVENTS, renderSupportEmail } from '../../supabase/functions/_shared/supportEmail.js';
 import { EMAIL_EVENTS, renderOrderEmail, sampleOrder } from '../../supabase/functions/_shared/orderEmail.js';
 import { sendOrderEmail } from '../../supabase/functions/_shared/orderEmailDelivery.js';

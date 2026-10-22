@@ -203,6 +203,10 @@ export default function AuthPage() {
       setMessage(`We sent a six-digit SMS code to ${result.phone || formatUsPhone(pendingPhone)}.`);
     } catch (error) {
       if (error.retryAfter) setResendSeconds(error.retryAfter);
+      if (error.code === "phone_already_registered") {
+        navigate(signupPhonePath, { replace: true, state: { smsError: error.message } });
+        return;
+      }
       setMessage(friendlyError(error));
     } finally { setBusy(false); }
   };
@@ -216,6 +220,10 @@ export default function AuthPage() {
       await refreshSecurity();
       navigate(signupDestination, { replace: true });
     } catch (error) {
+      if (error.code === "phone_already_registered") {
+        navigate(signupPhonePath, { replace: true, state: { smsError: error.message } });
+        return;
+      }
       setMessage(friendlyError(error));
     } finally {
       setBusy(false);

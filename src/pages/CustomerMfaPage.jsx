@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { LockKeyhole, LogOut, MessageSquareText, ShieldCheck } from "lucide-react";
 import { formatUsPhone, toUsE164 } from "../lib/phone";
 import { getCustomerSmsStatus, sendCustomerSmsCode, verifyCustomerSmsCode } from "../lib/customerSms";
@@ -18,6 +18,7 @@ export default function CustomerMfaPage() {
   const { user, profile, customerSmsVerified, requiresCustomerMfa, refreshSecurity, signOut } = useAuth();
   const [params] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const destination = useMemo(() => {
     return authDestination(params.get("return"), params.get("purpose") === "signup" ? "/" : "/account");
   }, [params]);
@@ -30,7 +31,7 @@ export default function CustomerMfaPage() {
   const [challengeId, setChallengeId] = useState("");
   const [code, setCode] = useState("");
   const [stage, setStage] = useState("loading");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(location.state?.smsError || "");
   const [busy, setBusy] = useState(false);
   const [resendSeconds, setResendSeconds] = useState(0);
 
@@ -100,6 +101,9 @@ export default function CustomerMfaPage() {
       await refreshSecurity();
       navigate(destination, { replace: true });
     } catch (error) {
+      if (error.code === "phone_already_registered" && !phoneEnrolled) {
+        setStage("setup"); setChallengeId(""); setCode("");
+      }
       setMessage(friendlySmsError(error));
     } finally {
       setBusy(false);
@@ -127,6 +131,7 @@ export default function CustomerMfaPage() {
       <label>Six-digit SMS code<span className="mfa-code-input"><LockKeyhole /><input required autoFocus inputMode="numeric" autoComplete="one-time-code" maxLength="6" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} /></span></label>
       <button className="button button-gold full" disabled={busy || code.length !== 6}>{busy ? "Verifying…" : "Verify and continue"}</button>
       <button type="button" className="text-button centered" onClick={sendCode} disabled={busy || resendSeconds > 0}>{resendSeconds > 0 ? `Send another code in ${resendSeconds}s` : "Send another code"}</button>
+      {!phoneEnrolled && <button type="button" className="text-button centered" disabled={busy} onClick={() => { setStage("setup"); setChallengeId(""); setCode(""); setMessage(""); }}>Use a different mobile number</button>}
     </form>}
     {message && <div className="form-message">{message}</div>}
     <button className="customer-mfa-signout" onClick={async () => { await signOut(); navigate("/login"); }}><LogOut /> Sign out and use another account</button>

@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "check": "npm run check:search && node --test scripts/check-signup.mjs && npm run check:security && npm run build",
     "check:search": "node scripts/check-product-search.mjs",
-    "check:security": "node --test scripts/check-security-api.mjs scripts/check-security-db.mjs"
+    "check:security": "node --test scripts/check-security-api.mjs scripts/check-security-db.mjs scripts/check-sms-phone.mjs"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^6.8.1",

@@ -1,4 +1,5 @@
 import { renderOrderEmail } from './orderEmail.js';
+import { renderSupportEmail } from './supportEmail.js';
 
 export async function sendOrderEmail(settings, message, key, fetcher = fetch) {
   const response = await fetcher('https://api.resend.com/emails', {
@@ -23,7 +24,7 @@ export async function deliverOrderEmails(db, settings, {send=sendOrderEmail, pau
       let message=job.message;
       if (!message) {
         message={from:`Gold On The Spot <${settings.from_email}>`,to:[job.recipient],reply_to:settings.reply_to,
-          ...renderOrderEmail({event:job.event_type,order:job.order_snapshot,items:job.items_snapshot || []})};
+          ...(job.ticket_id ? renderSupportEmail({event:job.event_type,ticket:job.order_snapshot}) : renderOrderEmail({event:job.event_type,order:job.order_snapshot,items:job.items_snapshot || []}))};
         const {data:saved,error:saveError}=await db.from('order_email_outbox').update({message})
           .eq('id',job.id).eq('lease_id',job.lease_id).eq('status','sending').is('message',null).select('id').maybeSingle();
         if (saveError || !saved) throw Object.assign(new Error('Email payload could not be saved'),{code:'payload_save_failed'});

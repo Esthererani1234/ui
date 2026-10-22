@@ -38,6 +38,7 @@ import {
 } from "../components/admin/EnterprisePanels";
 import TrafficAnalyticsPanel from "../components/admin/TrafficAnalyticsPanel";
 import OrderStatus from "../components/OrderStatus";
+import SupportAdminPanel from "../components/admin/SupportAdminPanel";
 
 const blankProduct = {
   name: "",
@@ -118,7 +119,6 @@ export default function AdminPage() {
   });
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
-  const [tickets, setTickets] = useState([]);
   const [editor, setEditor] = useState(null);
   const [message, setMessage] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -140,7 +140,6 @@ export default function AdminPage() {
     const [
       { data: productData, error: productError },
       { data: orderData, error: orderError },
-      { data: ticketData, error: ticketError },
     ] = await Promise.all([
       supabase.from("products").select("*").order("sort_order"),
       supabase
@@ -148,22 +147,13 @@ export default function AdminPage() {
         .select(orderFields)
         .order("created_at", { ascending: false })
         .limit(100),
-      supabase
-        .from("support_tickets")
-        .select(
-          "id, ticket_number, user_id, category, order_number, subject, message, status, admin_response, created_at, updated_at",
-        )
-        .order("created_at", { ascending: false })
-        .limit(100),
     ]);
     if (version !== loadVersion.current) return;
     if (!productError) setProducts(productData || []);
     if (!orderError) setOrders(orderData || []);
-    if (!ticketError) setTickets(ticketData || []);
     const failures = [
       productError && "products",
       orderError && "orders",
-      ticketError && "support tickets",
     ].filter(Boolean);
     setMessage(
       failures.length
@@ -319,7 +309,6 @@ export default function AdminPage() {
     await load();
   };
 
-  const updateTicket = async () => { await load(); };
 
   const saveOrderDetails = async (updates) => {
     setMessage("");
@@ -820,43 +809,7 @@ export default function AdminPage() {
         )}
         {tab === "sales" && <SalesAdminPanel />}
         {tab === "traffic" && <TrafficAnalyticsPanel />}
-        {tab === "support" && (
-          <div className="admin-panel">
-            <div className="panel-title">
-              <div>
-                <h2>Support tickets</h2>
-                <p>
-                  Only the verified administrator and the ticket owner can read
-                  these messages.
-                </p>
-              </div>
-              <span className="status-pill">
-                {
-                  tickets.filter(
-                    (ticket) => !["resolved", "closed"].includes(ticket.status),
-                  ).length
-                }{" "}
-                open
-              </span>
-            </div>
-            {tickets.length ? (
-              <div className="admin-ticket-list">
-                {tickets.map((ticket) => (
-                  <AdminTicket
-                    key={ticket.id}
-                    ticket={ticket}
-                    onSave={updateTicket}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="empty-state compact">
-                <h3>No support tickets</h3>
-                <p>Customer requests will appear here.</p>
-              </div>
-            )}
-          </div>
-        )}
+        {tab === "support" && <SupportAdminPanel />}
         {tab === "customers" && <CustomerAdminPanel />}
         {tab === "risk" && <RiskAdminPanel />}
         {tab === "security" && <SecurityAdminPanel />}
@@ -1379,68 +1332,6 @@ function AdminMfaGate({ onVerified }) {
         )}
       </div>
     </section>
-  );
-}
-
-function AdminTicket({ ticket, onSave }) {
-  const [response, setResponse] = useState("");
-  const [status, setStatus] = useState(ticket.status);
-  const [messages, setMessages] = useState([]);
-  const [saving, setSaving] = useState(false);
-  const [notice, setNotice] = useState("");
-  const loadMessages = async () => {
-    const { data } = await supabase.from("support_ticket_messages").select("id,author_role,message,created_at").eq("ticket_id", ticket.id).order("created_at");
-    setMessages(data || []);
-  };
-  useEffect(() => { loadMessages(); }, [ticket.id]);
-  const save = async () => {
-    if (!response.trim()) { setNotice("Write a reply before sending."); return; }
-    setSaving(true);
-    setNotice("");
-    const { data, error } = await supabase.functions.invoke("support-operations", { body: { action: "reply", ticket_id: ticket.id, message: response.trim(), status } });
-    if (error || data?.error) setNotice(data?.error || "The reply could not be sent.");
-    else {
-      setResponse("");
-      setNotice(data?.email?.sent ? "Reply sent and customer emailed." : "Reply saved. Email provider is not configured yet.");
-      await Promise.all([loadMessages(), onSave()]);
-    }
-    setSaving(false);
-  };
-  return (
-    <article className="admin-ticket">
-      <header>
-        <div>
-          <small>
-            {ticket.ticket_number} • {ticket.category}
-          </small>
-          <h3>{ticket.subject}</h3>
-          <span>{new Date(ticket.created_at).toLocaleString()} · Customer ID {ticket.user_id.slice(0, 8).toUpperCase()}</span>
-        </div>
-        <select
-          value={status}
-          onChange={(event) => setStatus(event.target.value)}
-        >
-          <option value="open">Open</option>
-          <option value="in_progress">In progress</option>
-          <option value="resolved">Resolved</option>
-          <option value="closed">Closed</option>
-        </select>
-      </header>
-      {ticket.order_number && <b>Order: {ticket.order_number}</b>}
-      <div className="admin-support-thread">{messages.map((entry) => <div className={`support-message ${entry.author_role}`} key={entry.id}><b>{entry.author_role === "admin" ? "You / GoldOnTheSpot" : "Customer"}</b><p>{entry.message}</p><small>{new Date(entry.created_at).toLocaleString()}</small></div>)}</div>
-      <label>
-        Response to customer
-        <textarea
-          rows="4"
-          maxLength="5000"
-          value={response}
-          onChange={(event) => setResponse(event.target.value)}
-          placeholder="Write a clear response. The customer will see this in their support inbox and receive an email alert."
-        />
-      </label>
-      {notice && <div className="form-message">{notice}</div>}
-      <div className="admin-ticket-actions"><small>Sending this reply sets the selected status.</small><button className="button button-dark" onClick={save} disabled={saving || !response.trim()}>{saving ? "Sending…" : "Send reply"}</button></div>
-    </article>
   );
 }
 

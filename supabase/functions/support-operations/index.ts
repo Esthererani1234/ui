@@ -39,44 +39,44 @@ Deno.serve(async (req: Request) => {
     const { data: { user }, error: userError } = await userClient.auth.getUser(auth.slice(7));
     if (userError || !user) return json(req, { error: "Session expired" }, 401);
     const adminClient = createClient(url, secret, { auth: { persistSession: false, autoRefreshToken: false } });
-    const { data: adminMembership } = await adminClient.from("admin_users").select("user_id").eq("user_id", user.id).maybeSingle();
-    await checkSession(adminClient, user.id, String(jwtClaims(auth.slice(7)).session_id || ""));
+    const { data: adminMembership, error: membershipError } = await adminClient.from("admin_users").select("user_id").eq("user_id", user.id).maybeSingle();
+    if (membershipError) throw membershipError;
+    const claims = jwtClaims(auth.slice(7));
+    const isAdmin = Boolean(adminMembership) && claims.aal === "aal2";
+    if (adminMembership && !isAdmin) return json(req, { error: "Admin two-factor verification required" }, 403);
+    await checkSession(adminClient, user.id, String(claims.session_id || ""), !isAdmin);
     await rateLimit(adminClient, "support_action", user.id, 20, 600);
     const body = await readObject(req, 15000);
     const action = clean(body.action, 30);
-    const ticketId = Number(body.ticket_id);
-    if (!Number.isSafeInteger(ticketId) || ticketId <= 0) return json(req, { error: "Invalid ticket" }, 400);
-    const { data: ticket } = await adminClient.from("support_tickets").select("id,ticket_number,user_id,subject,status").eq("id", ticketId).maybeSingle();
-    if (!ticket) return json(req, { error: "Ticket not found" }, 404);
-    const isAdmin = Boolean(adminMembership) && jwtClaims(auth.slice(7)).aal === "aal2";
-    if (adminMembership && !isAdmin) return json(req, { error: "Admin two-factor verification required" }, 403);
-    if (!isAdmin && ticket.user_id !== user.id) return json(req, { error: "Access denied" }, 403);
-    if (!isAdmin) {
-      await checkSession(adminClient, user.id, String(jwtClaims(auth.slice(7)).session_id || ""), true);
+    const fields = action === "create" ? ["action","request_id","category","subject","message","order_number"] : ["action","request_id","ticket_id","message","status","expected_updated_at"];
+    if (Object.keys(body).some(key => !fields.includes(key))) return json(req, { error: "Request contains invalid fields." }, 400);
+    if (!["create","reply","status","close","reopen"].includes(action)) return json(req,{error:"Invalid support action"},400);
+    const ticketId = action === "create" ? null : Number(body.ticket_id);
+    if (action !== "create" && (!Number.isSafeInteger(ticketId) || Number(ticketId)<=0)) return json(req,{error:"Invalid ticket"},400);
+    if (!isAdmin && (action === "status" || body.status != null)) return json(req,{error:"Administrator access required"},403);
+    const requestId = body.request_id || crypto.randomUUID();
+    if (typeof requestId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)) return json(req,{error:"Invalid request reference"},400);
+    if (body.expected_updated_at && (typeof body.expected_updated_at !== "string" || !Number.isFinite(Date.parse(body.expected_updated_at)))) return json(req,{error:"Refresh the ticket before saving."},400);
+    if (["message","subject","category","order_number","status"].some(key => body[key]!=null && typeof body[key]!=="string")) return json(req,{error:"Check the support form fields."},400);
+    const { data, error } = await adminClient.rpc("support_ticket_action", {
+      p_actor:user.id,p_admin:isAdmin,p_request_id:requestId,p_action:action,p_ticket_id:ticketId,
+      p_message:body.message?.trim() || null,p_status:body.status || null,p_expected_updated_at:body.expected_updated_at || null,
+      p_category:body.category || null,p_subject:body.subject?.trim() || null,p_order_number:body.order_number?.trim() || null,
+    });
+    if (error) {
+      const failures:Record<string,[number,string]> = {
+        P2002:[404,"This ticket is unavailable."],
+        P2003:[409,"This ticket changed. Refresh the conversation before saving; your draft has been kept."],
+        P2004:[400,"Enter an order number from your account, or leave it blank."],
+        "22023":[400,"Check your ticket details, reply length, and selected status."],
+        "42501":[403,"You do not have access to this support action."],
+      };
+      if(error.code==="P0001" && error.message?.includes("rate limit")) return json(req,{error:"Too many new tickets. Please continue an existing conversation or try again later."},429);
+      if(failures[error.code]) return json(req,{error:failures[error.code][1]},failures[error.code][0]);
+      throw error;
     }
-    if (action === "reply") {
-      const message = clean(body.message);
-      if (message.length < 2) return json(req, { error: "Write a reply before sending" }, 400);
-      const role = isAdmin ? "admin" : "customer";
-      const { error: insertError } = await adminClient.from("support_ticket_messages").insert({ ticket_id: ticketId, author_user_id: user.id, author_role: role, message });
-      if (insertError) throw insertError;
-      const requestedStatus = clean(body.status, 20);
-      const nextStatus = isAdmin && ["open", "in_progress", "resolved", "closed"].includes(requestedStatus) ? requestedStatus : isAdmin ? "resolved" : "open";
-      const updates: Record<string, unknown> = { status: nextStatus };
-      if (isAdmin) updates.admin_response = message;
-      await adminClient.from("support_tickets").update(updates).eq("id", ticketId);
-      return json(req, { ok: true, status: nextStatus, email: { sent: false, configured: false } });
-    }
-    if (action === "reopen" && !isAdmin) {
-      if (!["resolved", "closed"].includes(ticket.status)) return json(req, { error: "This ticket is already open" }, 400);
-      await adminClient.from("support_tickets").update({ status: "open" }).eq("id", ticketId);
-      return json(req, { ok: true, status: "open" });
-    }
-    if (action === "close" && !isAdmin) {
-      await adminClient.from("support_tickets").update({ status: "closed" }).eq("id", ticketId);
-      return json(req, { ok: true, status: "closed" });
-    }
-    return json(req, { error: "Invalid action" }, 400);
+    return json(req,data);
+
   } catch (error) {
     safeLog("support_error", error);
     const safe = error as {status?: number; message?: string};

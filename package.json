@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "check": "npm run check:search && node --test scripts/check-signup.mjs && npm run check:security && npm run check:emails && npm run check:support && npm run build",
     "check:search": "node scripts/check-product-search.mjs",
-    "check:security": "node --test scripts/check-security-api.mjs scripts/check-security-db.mjs scripts/check-sms-phone.mjs scripts/check-card-capture.mjs scripts/check-launch-api.mjs scripts/check-shipping.mjs",
+    "check:security": "node --test scripts/check-security-api.mjs scripts/check-security-db.mjs scripts/check-sms-phone.mjs scripts/check-card-capture.mjs scripts/check-launch-api.mjs scripts/check-shipping.mjs scripts/check-deployment-safety.mjs",
     "check:emails": "node --test scripts/check-order-emails.mjs scripts/check-order-email-api.mjs",
     "check:support": "node --test scripts/check-support.mjs scripts/check-support-edge.mjs"
   },

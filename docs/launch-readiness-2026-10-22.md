@@ -58,3 +58,22 @@ At the owner's request, Products → Edit product now includes **Shipping fee ($
 All existing products retain null overrides. The release does not invent new product thresholds. Database constraints reject negative and out-of-range values. Cart and checkout estimates match the server rule. The editor keeps entered values and shows an error inside its dialog when saving fails.
 
 Final automated suite: 121 tests plus product-search checks and production build. Seven shipping tests cover RPC calculations, threshold boundaries, mixed carts, forged shipping fields, preserved locked totals, refresh/legacy paths, audit records, authorization and display estimates. Two additional routing tests verify authorization and signature-byte preservation. Browser fixtures verify shipping editing, persistence/reopening, blank inheritance, failed-save recovery and mobile/desktop layout. The outstanding launch gates above remain open.
+
+## Final preparation follow-up
+
+Production payment and Supabase server credentials are now scoped only to Vercel production. No secret values were changed or exposed. Existing deployments retain their original environment snapshots; Vercel reports authentication protection enabled for deployments except custom domains. The live custom domain remains public.
+
+New previews using the production database are read-only: catalog/public settings reads remain available, while account forms, recovery, checkout, support submissions, analytics writes, production database service access and payment handlers are blocked. The build receives only a non-secret deployment-environment label. An isolated database plus a Stripe test key is required before preview payment handlers can run. Production behavior remains unchanged. This prevents accidental live testing; it does not constitute successful sandbox testing.
+
+Added a GitHub Actions workflow for pull requests and main pushes: locked dependency install, full checks/build, and a high/critical production dependency vulnerability check. Actions are pinned to immutable commits, have read-only repository permissions and do not use production secrets. Branch protection/required-check enforcement has not been changed.
+
+Validation now includes 124 automated tests. Preview browser fixtures cover six protected routes, with no production writes or Auth requests and no uncaught errors. The previous production release passed live authorization checks and the authenticated reconciliation job check. Current Supabase advisors have no ERROR findings; remaining warnings are leaked-password protection being disabled and the managed pg_net extension in the public schema. RLS-without-policy is intentional for service-only data.
+
+Concrete owner decisions still required:
+
+- Supabase plan/MFA: current official pricing lists Pro at $25/month, including seven-day daily database backup retention, and native phone MFA at $75/month for the first project, plus SMS usage and any extra compute. No subscription was activated. Phone MFA still needs a tested enrollment migration and supported SMS sending configuration; purchasing the add-on alone does not fix the application.
+- Stripe: connection requested for remaining account/sandbox checks; not yet confirmed connected. Separate test credentials and a separate database are still required for full payment acceptance testing. Manual capture remains disabled.
+- Confirm owner-controlled email/phone test access, tax registrations/destinations, actual bullion insurance coverage and inventory. No real customer identity, payment, message, or inventory was fabricated for tests.
+- Backups: provision the approved plan, protect storage objects separately, and perform an isolated restore drill. External alert destination and delivery verification are still needed.
+
+Pricing sources checked 22 October 2026: https://supabase.com/pricing and https://supabase.com/docs/guides/platform/manage-your-usage/advanced-mfa-phone . Backup scope: https://supabase.com/docs/guides/platform/backups . Remaining advisor remediation: https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection and https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public .

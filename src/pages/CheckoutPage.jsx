@@ -1,3 +1,4 @@
+import {estimateShipping} from "../lib/shipping";
 import {
   forwardRef,
   useCallback,
@@ -422,9 +423,7 @@ export default function CheckoutPage() {
       0,
     );
     const shipping =
-      subtotal >= settings.free_shipping_threshold
-        ? 0
-        : settings.shipping_flat;
+      estimateShipping(items,subtotal,settings);
     const cardSurcharge =
       (subtotal * settings.card_surcharge_percent) / 100;
     return {

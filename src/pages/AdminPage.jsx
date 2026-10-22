@@ -54,6 +54,8 @@ const blankProduct = {
   fixed_price: "",
   premium_fixed: 0,
   premium_percent: 0,
+  shipping_fee: null,
+  free_shipping_minimum: null,
   inventory_count: 0,
   low_stock_threshold: 3,
   is_active: false,
@@ -120,6 +122,8 @@ export default function AdminPage() {
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [editor, setEditor] = useState(null);
+  const [shippingDefaults,setShippingDefaults]=useState({shipping_flat:35,free_shipping_threshold:5000});
+  useEffect(()=>{supabase.from("app_settings").select("key,value").in("key",["shipping_flat","free_shipping_threshold"]).then(({data})=>{if(data)setShippingDefaults(current=>data.reduce((next,row)=>({...next,[row.key]:Number(row.value)}),current));});},[]);
   const [message, setMessage] = useState("");
   const [uploading, setUploading] = useState(false);
   const [temporaryImagePaths, setTemporaryImagePaths] = useState([]);
@@ -263,6 +267,10 @@ export default function AdminPage() {
     const adjustment = Number(editor.premium_percent);
     if (!Number.isFinite(adjustment) || adjustment < -99 || adjustment > 99)
       return setMessage("Spot adjustment must be between -99% and +99%.");
+    for (const [field,max] of [["shipping_fee",10000],["free_shipping_minimum",1000000]]) {
+      const value=editor[field];
+      if(value != null && value !== "" && (!Number.isFinite(Number(value)) || Number(value)<0 || Number(value)>max)) return setMessage("Enter a valid, non-negative shipping amount.");
+    }
     const gallery = [
       ...new Set((editor.image_urls || []).filter(Boolean)),
     ].slice(0, 8);
@@ -285,6 +293,8 @@ export default function AdminPage() {
     delete payload.updated_at;
     delete payload._original_image_urls;
     for (const key of [
+      "shipping_fee",
+      "free_shipping_minimum",
       "metal_weight_oz",
       "fixed_price",
       "premium_fixed",
@@ -293,7 +303,7 @@ export default function AdminPage() {
       "low_stock_threshold",
       "sort_order",
     ])
-      payload[key] = payload[key] === "" ? null : Number(payload[key]);
+      payload[key] = payload[key] == null || payload[key] === "" ? null : Number(payload[key]);
     const result = editor.id
       ? await supabase.from("products").update(payload).eq("id", editor.id)
       : await supabase.from("products").insert(payload);
@@ -839,6 +849,16 @@ export default function AdminPage() {
               </button>
             </header>
             <div className="editor-scroll">
+              {message && <div className="form-message error" role="alert">{message}</div>}
+              <div className="editor-section editor-section-card">
+                <h3>Shipping</h3>
+                <p>Set the shipping fee and the merchandise subtotal needed for free shipping when this product is in the cart.</p>
+                <div className="form-row">
+                  <label>Shipping fee ($)<input type="number" min="0" max="10000" step="0.01" value={editor.shipping_fee ?? ''} placeholder={`Store default (${money(shippingDefaults.shipping_flat)})`} onChange={e=>setEditor({...editor,shipping_fee:e.target.value})}/></label>
+                  <label>Free shipping minimum ($)<input type="number" min="0" max="1000000" step="0.01" value={editor.free_shipping_minimum ?? ''} placeholder={`Store default (${money(shippingDefaults.free_shipping_threshold)})`} onChange={e=>setEditor({...editor,free_shipping_minimum:e.target.value})}/></label>
+                </div>
+                <p className="field-help">Leave a field blank to use Store settings. Enter 0 for the minimum to always qualify for free shipping. Mixed carts pay the highest applicable shipping fee once. Thresholds use the full merchandise subtotal before payment fees and taxes. Existing price locks keep their quoted shipping.</p>
+              </div>
               <div className="editor-section editor-section-card">
                 <div className="editor-section-heading">
                   <span>1</span>

@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import crypto from "node:crypto";
+import {isProductionPreview} from '../../shared/deploymentSafety.js';
 
 // The project URL and publishable key are public identifiers already used by
 // the storefront. Keeping the same fallback here prevents serverless checkout
@@ -17,6 +18,7 @@ const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY
   || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 export const service = () => {
+  if(isProductionPreview(process.env.VERCEL_ENV,SUPABASE_URL))throw Object.assign(new Error('Production account operations are disabled in preview deployments.'),{status:503});
   if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) throw new Error("Payment service is not configured");
   return createClient(SUPABASE_URL, SUPABASE_SECRET_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 };

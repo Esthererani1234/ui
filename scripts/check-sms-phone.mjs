@@ -51,7 +51,9 @@ test('duplicate phone is rejected before paid SMS, with a safe actionable error'
   const app = harness({ available: false });
   const response = await app.request({ action: 'send', phone: '(202) 555-0123', purpose: 'signup' });
   assert.equal(response.status, 409);
-  assert.equal((await response.json()).code, 'phone_already_registered');
+  const body = await response.json();
+  assert.equal(body.code, 'phone_already_registered');
+  assert.match(body.error, /^This phone number already belongs to an account\./);
   assert.equal(app.sent(), 0);
   assert.equal(app.calls.find(x => x.name === 'can_enroll_customer_phone').args.p_phone, '+12025550123');
 });

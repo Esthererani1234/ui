@@ -8,6 +8,8 @@ import SmsConsentDisclosure from "../components/SmsConsentDisclosure";
 import { authDestination } from "../lib/signupCompletion";
 
 const friendlySmsError = (error) => {
+  if (error?.code === "phone_already_registered")
+    return "This phone number already belongs to an account. Sign in to your existing account or use a different phone number.";
   if (/incorrect|expired|no longer active/i.test(error?.message || ""))
     return "That security code is incorrect or expired. Send a new code and try again.";
   if (/too many|another code/i.test(error?.message || "")) return error.message;
@@ -133,7 +135,7 @@ export default function CustomerMfaPage() {
       <button type="button" className="text-button centered" onClick={sendCode} disabled={busy || resendSeconds > 0}>{resendSeconds > 0 ? `Send another code in ${resendSeconds}s` : "Send another code"}</button>
       {!phoneEnrolled && <button type="button" className="text-button centered" disabled={busy} onClick={() => { setStage("setup"); setChallengeId(""); setCode(""); setMessage(""); }}>Use a different mobile number</button>}
     </form>}
-    {message && <div className="form-message">{message}</div>}
+    {message && <div className="form-message" role="status" aria-live="polite">{message}</div>}
     <button className="customer-mfa-signout" onClick={async () => { await signOut(); navigate("/login"); }}><LogOut /> Sign out and use another account</button>
   </div></section>;
 }

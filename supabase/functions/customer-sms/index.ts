@@ -57,7 +57,7 @@ const maskPhone = (phone: unknown) => {
   const normalized = normalizePhone(phone);
   return normalized ? `(***) ***-${normalized.slice(-4)}` : "";
 };
-const phoneAlreadyRegistered = "This mobile number is already linked to an account. Sign in with that account or use a different mobile number. If you need help, contact GoldOnTheSpot support.";
+const phoneAlreadyRegistered = "This phone number already belongs to an account. Sign in to your existing account or use a different phone number.";
 const settingKeys = [
   "sms_provider_name", "sms_sender", "sms_provider_ready", "customer_sms_mfa_required",
   "sms_code_ttl_seconds", "sms_resend_seconds", "sms_max_attempts", "sms_session_hours",

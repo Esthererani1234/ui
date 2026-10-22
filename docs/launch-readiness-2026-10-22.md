@@ -46,3 +46,15 @@ Do not place secrets in this document, commits, browser variables or chat. Strip
 ## Release order
 
 Apply additive migrations, deploy the compatible SMS function and Vercel application, then schedule the reconciliation dispatcher. Verify endpoint authorization, the dispatcher response, protected RPC grants and production asset version. Keep manual capture off until its acceptance gate is met. No paid subscriptions are purchased by this release.
+
+## Deployment and shipping follow-up
+
+The first Vercel deployment exceeded the account's 12-function limit and did not replace the live site. PR46 consolidated payment URLs into an allowlisted `api/payments/[action].js` entry point, with handlers and shared code under `server/`. Raw Stripe webhook bytes and existing authorization checks are preserved. The replacement production deployment reached READY; live payment config returned 200, unauthorized payment/admin/worker calls returned 401, and a forged Stripe webhook returned 400.
+
+The `payment-reconciliation` database cron is active every two minutes. A Vault-authenticated live worker check returned HTTP 200 with zero jobs and zero failures. This verifies worker connectivity, not a real payment lifecycle.
+
+At the owner's request, Products → Edit product now includes **Shipping fee ($)** and **Free shipping minimum ($)**. Blank values inherit Store settings ($35 and $5,000 at release). A zero minimum qualifies for free shipping. The full merchandise subtotal is compared to each included product's threshold; mixed carts pay the highest remaining shipping fee once, not once per item. New quotes, legacy order creation and repricing calculate this server-side. Locked quotes/orders retain their recorded amount. Product changes are audited and protected by the existing active-session/AAL2 administrator RLS policies; customers cannot execute the private calculator or quote RPC.
+
+All existing products retain null overrides. The release does not invent new product thresholds. Database constraints reject negative and out-of-range values. Cart and checkout estimates match the server rule. The editor keeps entered values and shows an error inside its dialog when saving fails.
+
+Final automated suite: 121 tests plus product-search checks and production build. Seven shipping tests cover RPC calculations, threshold boundaries, mixed carts, forged shipping fields, preserved locked totals, refresh/legacy paths, audit records, authorization and display estimates. Two additional routing tests verify authorization and signature-byte preservation. Browser fixtures verify shipping editing, persistence/reopening, blank inheritance, failed-save recovery and mobile/desktop layout. The outstanding launch gates above remain open.

@@ -1,3 +1,4 @@
+import {estimateShipping} from "../lib/shipping";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Minus, Plus, ShieldCheck, Trash2 } from "lucide-react";
@@ -107,7 +108,7 @@ export default function CartPage() {
     });
   }, []);
   const subtotal = items.reduce((sum, item) => sum + (productPrice(item.product, spot) || 0) * item.quantity, 0);
-  const shipping = subtotal >= settings.free_shipping_threshold ? 0 : settings.shipping_flat;
+  const shipping = estimateShipping(items,subtotal,settings);
 
   const resumePayment = async () => {
     if (!recovery?.orderId || !user) return;

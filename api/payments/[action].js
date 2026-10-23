@@ -12,6 +12,7 @@ const routes={
  'stripe-webhook':()=>import('../../server/payments/stripe-webhook.js'),
  'nowpayments-webhook':()=>import('../../server/payments/nowpayments-webhook.js'),
  'wire-instructions':()=>import('../../server/payments/wire-instructions.js'),
+ 'invoice':()=>import('../../server/payments/invoice.js'),
  'wire-settings':()=>import('../../server/payments/wire-settings.js'),
 };
 export default async function handler(request,response){

@@ -1,3 +1,4 @@
+import SupportAttachments from '../components/SupportAttachments';
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, CheckCircle2, ChevronDown, Headphones, LockKeyhole, Mail, MessageSquareText, Plus, RefreshCw, Send, ShieldCheck, UserRound, XCircle } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -213,6 +214,7 @@ export default function SupportPage() {
                 </div>)}
                 {threadMessages?.length === 0 && !messageErrors[item.id] && <div className="support-message customer"><div className="support-message-avatar" aria-hidden="true"><UserRound size={18} /></div><div className="support-message-content"><header><b>You · Original request</b><TicketTime value={item.created_at} /></header><p>{item.message}</p></div></div>}
               </div>
+              <SupportAttachments caseId={item.id} onUploaded={loadTickets}/>
               <div className="support-reply-composer">
                 <label className="support-reply-box" htmlFor={`support-reply-${item.id}`}>{replyReopens ? "Reply and reopen this ticket" : "Reply"}</label>
                 <p id={`support-reply-help-${item.id}`}>{replyReopens ? "Need more help? Your reply will reopen this conversation." : "Add a detail or ask a follow-up. Our team will see it here."}</p>
@@ -244,7 +246,7 @@ export default function SupportPage() {
           <p className="support-compose-intro">Tell us how we can help. You can follow every update in your conversations.</p>
           <form onSubmit={submitTicket} noValidate aria-busy={busy === "new"}>
             <label>What do you need help with?<select value={ticket.category} onChange={event => setTicket({ ...ticket, category: event.target.value })}><option value="order">Existing order</option><option value="product">Product question</option><option value="payment">Payment</option><option value="shipping">Shipping</option><option value="account">Account</option><option value="other">Something else</option></select></label>
-            <label>Order number <span>(if applicable)</span><input name="order_number" maxLength={40} placeholder="GOTS-2026-…" value={ticket.order_number} onChange={event => setTicket({ ...ticket, order_number: event.target.value.toUpperCase() })} /></label>
+            <label>Order number <span>(if applicable)</span><input name="order_number" maxLength={40} placeholder="G-100001" value={ticket.order_number} onChange={event => setTicket({ ...ticket, order_number: event.target.value.toUpperCase() })} /></label>
             <label>Short subject<input id="support-subject" name="subject" required minLength={4} maxLength={120} aria-invalid={formError?.field === "subject"} aria-describedby={formError?.field === "subject" ? "ticket-form-error" : undefined} placeholder="How can we help?" value={ticket.subject} onChange={event => setTicket({ ...ticket, subject: event.target.value })} /></label>
             <label htmlFor="support-new-message">Tell us what happened</label><textarea id="support-new-message" name="message" required minLength={10} maxLength={3000} rows={5} aria-invalid={formError?.field === "message"} aria-describedby={formError?.field === "message" ? "ticket-message-help ticket-form-error" : "ticket-message-help"} placeholder="Include the details that will help us understand your request." value={ticket.message} onChange={event => setTicket({ ...ticket, message: event.target.value })} />
             <div className="support-message-help" id="ticket-message-help"><span>At least 10 characters</span><span>{ticket.message.trim().length.toLocaleString()} / 3,000</span></div>

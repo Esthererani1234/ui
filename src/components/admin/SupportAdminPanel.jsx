@@ -1,3 +1,4 @@
+import SupportAttachments from '../SupportAttachments';
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { requestReference, supportRequest } from '../../lib/supportRequests';
@@ -65,6 +66,7 @@ function TicketConversation({ticket,draft,onDraftChange,reference,saving,busy,on
   <label>Ticket status to save<select value={status} onChange={e=>setStatus(e.target.value)} disabled={busy}>{Object.entries(labels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
   <label>Reply to customer<textarea disabled={busy} rows={5} maxLength={5000} value={reply} onChange={e=>setReply(e.target.value)} placeholder="Write your response. It will appear in the customer’s private support conversation." /></label>
   {notice && <div className={`form-message ${notice.error?'error':'success'}`} role={notice.error?'alert':'status'}>{notice.text}</div>}
+  <SupportAttachments caseId={ticket.id} admin onUploaded={onRefresh}/>
   <div className="admin-ticket-actions"><button className="button button-dark" disabled={busy||loading||messageError||reply.trim().length<2} onClick={()=>save('reply')}>{busy?'Saving…':'Send reply & save status'}</button><button className="button button-outline" disabled={busy||status===ticket.status} onClick={()=>save('status')}>Save status only</button></div>
  </div>;
 }

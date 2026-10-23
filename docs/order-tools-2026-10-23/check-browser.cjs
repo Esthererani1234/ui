@@ -1,0 +1,13 @@
+const {chromium}=require('/opt/codex/runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const assert=require('node:assert/strict');
+(async()=>{const browser=await chromium.launch({headless:true,executablePath:'/workspace/scratch/gots-security-audit/.verification/chromium',args:['--no-sandbox']});
+for(const width of [390,1440]){const page=await browser.newPage({viewport:{width,height:950}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+await page.route('**/api/payments/invoice?*',route=>route.fulfill({contentType:'application/pdf',body:Buffer.from('%PDF-1.7\nfixture')}));
+await page.goto('http://localhost:5173/scripts/fixtures/order-tools-browser.html');
+const download=page.waitForEvent('download');await page.getByRole('button',{name:'Download invoice'}).click();assert.equal((await download).suggestedFilename(),'invoice-G-100001.pdf');
+const support=page.getByRole('region',{name:'Attachments'});await support.getByRole('button',{name:'Attach image'}).waitFor();
+const chooser=page.waitForEvent('filechooser');await support.getByRole('button',{name:'Attach image'}).click();await (await chooser).setFiles({name:'unsafe.svg',mimeType:'image/svg+xml',buffer:Buffer.from('<svg/>')});await support.getByRole('alert').filter({hasText:'JPEG'}).waitFor();
+const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aP/0AAAAASUVORK5CYII=','base64');
+await support.locator('input[type=file]').setInputFiles({name:'photo.png',mimeType:'image/png',buffer:png});await support.getByAltText('Photo ready to send').waitFor();await support.getByRole('button',{name:'Upload image'}).click();await support.getByText('Image attached to this ticket.').waitFor();
+const sell=page.getByRole('region',{name:'Case conversation'});await sell.locator('input[type=file]').setInputFiles({name:'photo.png',mimeType:'image/png',buffer:png});await sell.getByAltText('Photo ready to send').waitFor();await sell.getByRole('button',{name:'Send to buying desk'}).click();await sell.getByText('Sent. Your message is saved in this case.').waitFor();
+assert.equal(await page.evaluate(()=>window.fixtureCalls.filter(x=>x.body.action==='send').length),2);assert.deepEqual(errors,[]);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);console.log(width+': invoice download, plus button, invalid format, photo preview/upload support + selling PASS');await page.close();}await browser.close();})().catch(e=>{console.error(e);process.exit(1)});

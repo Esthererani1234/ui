@@ -2,21 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase, readOnlyPreview } from '../lib/supabase';
 import { invokeFunction } from '../lib/functionRequest';
 import '../styles/sellingConversation.css';
+import preparePhoto from '../lib/preparePhoto';
+import ImageAttachmentButton from './ImageAttachmentButton';
 
-async function preparePhoto(file) {
- if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>10*1024*1024)throw new Error('Choose a JPEG, PNG, or WebP photo under 10 MB.');
- const url=URL.createObjectURL(file);
- try {
-  const image=new Image();image.src=url;await image.decode();
-  const scale=Math.min(1,1200/Math.max(image.width,image.height));
-  const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.width*scale));canvas.height=Math.max(1,Math.round(image.height*scale));
-  canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);
-  // Re-encoding removes camera metadata, including embedded location information.
-  const data=canvas.toDataURL('image/jpeg',.82).split(',')[1];
-  if(!data||data.length>1398104)throw new Error('This photo is too large. Choose a smaller image.');
-  return data;
- } finally {URL.revokeObjectURL(url);}
-}
 export default function SellingConversation({caseId,admin=false,enabled=true}) {
  const [messages,setMessages]=useState([]),[drafts,setDrafts]=useState({}),[loading,setLoading]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[more,setMore]=useState(false),[photoBusy,setPhotoBusy]=useState(false);
  const generation=useRef(0),saving=useRef(false),requests=useRef({});
@@ -35,7 +23,7 @@ export default function SellingConversation({caseId,admin=false,enabled=true}) {
   {!loading&&!error&&!messages.length&&<p>No messages yet. Add details or photos below.</p>}
   {more&&<button type="button" className="button button-outline" disabled={loading} onClick={()=>load(true)}>Load more messages</button>}
   <form onSubmit={send}><label>Message to {admin?'seller':'buying desk'}<textarea rows={3} maxLength={2000} value={draft.text} disabled={busy} onChange={e=>change({text:e.target.value})} placeholder="Add weights, markings, questions, or next steps…"/></label>
-   <div className="selling-photo-controls"><label>Add a photo<input type="file" accept="image/jpeg,image/png,image/webp" onChange={attach} disabled={busy||photoBusy}/></label><small>Up to 6 photos per case. JPEG, PNG, or WebP. Photos are resized and camera location metadata is removed. No identity documents or payment details.</small></div>
+   <div className="selling-photo-controls"><ImageAttachmentButton onChange={attach} disabled={busy||photoBusy||readOnlyPreview}/><small>Up to 6 photos per case. JPEG, PNG, or WebP. Photos are resized and camera location metadata is removed. No identity documents or payment details.</small></div>
    {photoBusy&&<p role="status">Preparing photo…</p>}{draft.photo&&<div className="selling-photo-preview"><img src={'data:image/jpeg;base64,'+draft.photo} alt="Photo ready to send"/><button type="button" className="text-button" disabled={busy} onClick={()=>change({photo:null})}>Remove photo</button></div>}
    <button className="button button-gold" disabled={busy||photoBusy||loading||readOnlyPreview||(!draft.text.trim()&&!draft.photo)}>{busy?'Sending…':'Send to '+(admin?'seller':'buying desk')}</button>
   </form><small>Photos use temporary private links. Refresh the conversation if a link expires. Sending a photo does not authorize melting or commit either party to a sale.</small>

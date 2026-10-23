@@ -6,6 +6,7 @@ import { useAuth } from "../state/AuthContext";
 import SupportAssistant from "./SupportAssistant";
 import SmartSearch from "./SmartSearch";
 import { supabase } from "../lib/supabase";
+import '../styles/sellPortal.css';
 
 function Logo() {
   return (
@@ -46,7 +47,7 @@ export default function Layout() {
   }, [lastAdded]);
   useEffect(() => {
     const titles = { "/": "GoldOnTheSpot | Precious Metals, Priced Right", "/shop": "Shop Live-Priced Bullion | GoldOnTheSpot", "/cart": "Shopping Cart | GoldOnTheSpot", "/checkout": "Secure Checkout | GoldOnTheSpot", "/login": "Customer Sign In | GoldOnTheSpot", "/verify-phone": "SMS Verification | GoldOnTheSpot", "/account": "Your Account | GoldOnTheSpot", "/support": "Customer Support | GoldOnTheSpot", "/shipping": "Shipping & Insurance | GoldOnTheSpot", "/terms": "Terms & Conditions | GoldOnTheSpot", "/privacy": "Privacy Policy | GoldOnTheSpot", "/about": "About GoldOnTheSpot" };
-    document.title = location.pathname.startsWith("/product/") ? "Bullion Product | GoldOnTheSpot" : titles[location.pathname] || "GoldOnTheSpot";
+    document.title = location.pathname === "/sell" ? "Sell Gold, Silver, Platinum & Palladium | GoldOnTheSpot" : location.pathname.startsWith("/product/") ? "Bullion Product | GoldOnTheSpot" : titles[location.pathname] || "GoldOnTheSpot";
   }, [location.pathname]);
   useEffect(() => {
     supabase
@@ -91,6 +92,7 @@ export default function Layout() {
             <NavLink to="/shop?metal=silver">Silver</NavLink>
             <NavLink to="/shop?metal=platinum">Platinum</NavLink>
             <NavLink to="/shop?metal=palladium">Palladium</NavLink>
+            <NavLink className="sell-nav" to="/sell">Sell to us</NavLink>
             <NavLink to="/shop?category=coin">Coins</NavLink>
             <NavLink to="/shop?category=bar">Bars</NavLink>
             <NavLink to="/shop?featured=true">Best Sellers</NavLink>
@@ -120,7 +122,7 @@ export default function Layout() {
           <div className="footer-brand"><Logo /><p>Investment-grade precious metals with live market pricing and careful fulfillment.</p></div>
           <div><h4>Shop</h4><Link to="/shop?metal=gold">Gold</Link><Link to="/shop?metal=silver">Silver</Link><Link to="/shop?metal=platinum">Platinum</Link><Link to="/shop">All bullion</Link></div>
           <div><h4>Customer care</h4><Link to="/support">Help center</Link><Link to="/shipping">Shipping & insurance</Link><Link to="/account?tab=orders">Order status</Link><a href="mailto:support@goldonthespot.com">Email support</a></div>
-          <div><h4>Company</h4><Link to="/about">About us</Link><Link to="/terms">Terms</Link><Link to="/privacy">Privacy</Link></div>
+          <div><h4>Company</h4><Link to="/about">About us</Link><Link to="/sell">Sell to us</Link><Link to="/terms">Terms</Link><Link to="/privacy">Privacy</Link></div>
         </div>
         <div className="container footer-bottom">
           <span>© 2026 GoldOnTheSpot. All rights reserved.</span>

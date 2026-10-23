@@ -1,0 +1,38 @@
+[
+  {
+    "path": "/api/checkout/quote",
+    "status": "401",
+    "expected": 401,
+    "pass": true
+  },
+  {
+    "path": "/api/payments/create-checkout",
+    "status": "401",
+    "expected": 401,
+    "pass": true
+  },
+  {
+    "path": "/api/payments/wire-instructions?order_id=1",
+    "status": "401",
+    "expected": 401,
+    "pass": true
+  },
+  {
+    "path": "/api/payments/wire-settings",
+    "status": "401",
+    "expected": 401,
+    "pass": true
+  },
+  {
+    "path": "/api/admin/launch-health",
+    "status": "401",
+    "expected": 401,
+    "pass": true
+  },
+  {
+    "path": "/api/payments/stripe-webhook",
+    "status": "400",
+    "expected": 400,
+    "pass": true
+  }
+]

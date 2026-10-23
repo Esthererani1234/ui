@@ -11,7 +11,7 @@
     "check:search": "node scripts/check-product-search.mjs",
     "check:security": "node --test scripts/check-security-api.mjs scripts/check-security-db.mjs scripts/check-sms-phone.mjs scripts/check-card-capture.mjs scripts/check-launch-api.mjs scripts/check-shipping.mjs scripts/check-payment-maximums.mjs scripts/check-payment-maximums-edge.mjs scripts/check-deployment-safety.mjs scripts/check-wire-orders.mjs scripts/check-wire-api.mjs scripts/check-payment-recovery-db.mjs scripts/check-payment-recovery.mjs",
     "check:emails": "node --test scripts/check-order-emails.mjs scripts/check-order-email-api.mjs scripts/check-wire-email.mjs",
-    "check:support": "node --test scripts/check-support.mjs scripts/check-support-edge.mjs scripts/check-sell.mjs"
+    "check:support": "node --test scripts/check-support.mjs scripts/check-support-edge.mjs scripts/check-sell.mjs scripts/check-selling-conversation.mjs scripts/check-market-status.mjs"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^6.8.1",

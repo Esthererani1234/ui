@@ -21,7 +21,7 @@ function json(body, status = 200, extraHeaders = {}) {
     headers: {
       "content-type": "application/json; charset=utf-8",
       "access-control-allow-origin": "*",
-      "cache-control": "public, max-age=10, s-maxage=10, stale-while-revalidate=86400, stale-if-error=86400",
+      "cache-control": "public, max-age=10, s-maxage=10, stale-while-revalidate=30, stale-if-error=120",
       ...extraHeaders
     }
   });
@@ -61,7 +61,8 @@ async function fetchJson(url) {
     headers: {
       accept: "application/json, text/plain, */*"
     },
-    cf: { cacheTtl: 30, cacheEverything: true }
+    cf: { cacheTtl: 30, cacheEverything: true },
+    signal: AbortSignal.timeout(4_000)
   });
 
   const text = await response.text();
@@ -113,6 +114,7 @@ export default async function handler(request) {
       }
     });
   }
+  if (request.method !== 'GET') return json({error:'Method not allowed'},405,{'cache-control':'no-store','allow':'GET, OPTIONS'});
 
   try {
     const entries = await Promise.all(
@@ -127,7 +129,8 @@ export default async function handler(request) {
 
     for (const [name, result] of entries) {
       metals[name] = result.price;
-      if (result.timestamp) timestamps.push(result.timestamp);
+      const parsed = Date.parse(result.timestamp);
+      if (Number.isFinite(parsed)) timestamps.push(parsed);
     }
 
     return json({
@@ -135,7 +138,8 @@ export default async function handler(request) {
       metals,
       currency: "USD",
       unit: "troy_ounce",
-      timestamp: timestamps[0] || new Date().toISOString(),
+      // A composite quote is no fresher than its oldest component. Never invent freshness.
+      timestamp: timestamps.length === Object.keys(METALS).length ? new Date(Math.min(...timestamps)).toISOString() : null,
       source: "GoldOnTheSpot live market",
       refreshSeconds: 10
     });

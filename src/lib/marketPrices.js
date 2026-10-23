@@ -41,6 +41,7 @@ export function fetchMarketPrices() {
 
   activeRequest = fetch("/api/metals", {
     headers: { accept: "application/json" },
+    signal: AbortSignal.timeout(12_000),
   })
     .then(async (response) => {
       const market = await response.json();

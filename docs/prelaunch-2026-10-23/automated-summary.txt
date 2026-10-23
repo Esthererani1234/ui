@@ -1,0 +1,8 @@
+Final npm run check: exit 0
+Search checks passed
+Signup: 9 passed
+Security/API/database: 126 passed
+Email: 36 passed
+Support/selling/market: 32 passed
+Total: 203 passed, 0 failed
+Production build: passed (405 ms)

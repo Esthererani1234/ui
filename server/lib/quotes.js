@@ -11,14 +11,24 @@ const readPrice = (payload) => {
   throw new Error("The market feed returned an invalid value");
 };
 
+export function requireFreshSpot(payload, now = Date.now()) {
+  const value = payload?.updatedAt ?? payload?.updated_at ?? payload?.timestamp ?? payload?.date;
+  const updated = typeof value === 'number' ? (value < 10_000_000_000 ? value * 1000 : value) : Date.parse(value);
+  if (!Number.isFinite(updated) || updated > now + 60_000 || now - updated > 120_000) {
+    throw Object.assign(new Error('Fresh market pricing is temporarily unavailable. Please try again when the market feed updates.'), { status: 503 });
+  }
+  return readPrice(payload);
+}
+
 export async function fetchRetailSpot() {
   const entries = await Promise.all(Object.entries(metals).map(async ([name, symbol]) => {
     const response = await fetch(`https://api.gold-api.com/price/${symbol}`, {
       headers: { accept: "application/json" },
+      cache: "no-store",
       signal: AbortSignal.timeout(8_000),
     });
     if (!response.ok) throw new Error("The live market feed is temporarily unavailable");
-    const raw = readPrice(await response.json());
+    const raw = requireFreshSpot(await response.json());
     return [name, Math.round(raw * (1 + DEALER_SPOT_ADJUSTMENT) * 1_000_000) / 1_000_000];
   }));
   return Object.fromEntries(entries);
@@ -49,7 +59,7 @@ const recordSpot = async (spot) => {
       source: "GoldOnTheSpot retail spot",
     })),
   );
-  if (error) console.error("price snapshot recording failed", error.message);
+  if (error) console.error("price snapshot recording failed", {code: error.code || "unknown"});
 };
 
 export async function createQuote(userId, cart) {

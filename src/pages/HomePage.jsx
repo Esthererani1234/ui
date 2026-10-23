@@ -19,6 +19,7 @@ import { productImageSrcSet, productImageUrl } from "../lib/productImages";
 import { metalSymbol, money, productPrice } from "../lib/pricing";
 import MarketTicker from "../components/MarketTicker";
 import ProductCard from "../components/ProductCard";
+import '../styles/storefrontPolish.css';
 
 const metals = [
   { key: "gold", name: "Gold", symbol: "Au", note: "Store of value" },
@@ -51,7 +52,7 @@ function FeaturedHeroProduct({ product, spot, loading }) {
   return (
     <Link className="home-hero-product" to={product ? `/product/${product.slug}` : "/shop?metal=gold"}>
       <div className="home-hero-product-topline">
-        <span><Sparkles /> Featured at the bullion desk</span>
+        <span>Featured bullion</span>
         {product?.badge && <b>{product.badge}</b>}
       </div>
       <div className="home-hero-product-image">
@@ -98,7 +99,7 @@ function MarketDesk({ spot }) {
             <h2>Know the market before you buy.</h2>
             <p>GoldOnTheSpot prices refresh automatically. Compare the current ounce and gram basis at a glance.</p>
           </div>
-          <span className="home-market-status"><i /> Refreshes every 10 seconds</span>
+          <span className="home-market-status">Indicative USD prices · see update time above</span>
         </div>
         <div className="home-market-grid">
           {metals.map((metal) => {
@@ -127,10 +128,14 @@ export default function HomePage() {
   const [products, setProducts] = useState(cachedProducts || []);
   const [spot, setSpot] = useState(null);
   const [loadingProducts, setLoadingProducts] = useState(!cachedProducts);
+  const [catalogError, setCatalogError] = useState(false);
+  const [retry, setRetry] = useState(0);
   const receivePrices = useCallback((next) => setSpot(next), []);
 
   useEffect(() => {
     let mounted = true;
+    setCatalogError(false);
+    setLoadingProducts(true);
     fetchActiveProducts()
       .then((data) => {
         if (!mounted) return;
@@ -138,10 +143,10 @@ export default function HomePage() {
         setLoadingProducts(false);
       })
       .catch(() => {
-        if (mounted) setLoadingProducts(false);
+        if (mounted) { setLoadingProducts(false); setCatalogError(true); }
       });
     return () => { mounted = false; };
-  }, []);
+  }, [retry]);
 
   const heroProduct = useMemo(
     () => products.find((product) => product.is_featured) || products[0] || null,
@@ -162,16 +167,16 @@ export default function HomePage() {
         <div className="container home-hero-grid">
           <div className="home-hero-copy">
             <span className="eyebrow">PRECIOUS METALS · PRICED RIGHT</span>
-            <h1>A clearer way to<br /><em>own real value.</em></h1>
-            <p>Shop physical gold, silver, platinum and palladium with live market-linked pricing, tracked inventory and secure order review.</p>
+            <h1>Physical bullion.<br /><em>Clear pricing.</em></h1>
+            <p>Browse coins and bars, compare market-linked prices, and review your full total before placing an order.</p>
             <div className="home-hero-actions">
               <Link className="button button-gold large" to="/shop">Shop all bullion <ArrowRight /></Link>
-              <Link className="button home-hero-secondary large" to="/shop?metal=gold">Explore gold</Link>
+              <Link className="button home-hero-secondary large" to="/sell">Sell to us</Link>
             </div>
             <div className="home-hero-confidence">
-              <span><BadgeCheck /> Authenticity focused</span>
-              <span><ShieldCheck /> Insured fulfillment</span>
-              <span><Clock3 /> Server-locked pricing</span>
+              <span><BadgeCheck /> Coins & bars</span>
+              <span><ShieldCheck /> Verified account access</span>
+              <span><Clock3 /> 10-minute price lock</span>
             </div>
           </div>
           <FeaturedHeroProduct product={heroProduct} spot={spot} loading={loadingProducts} />
@@ -182,7 +187,7 @@ export default function HomePage() {
         <div className="container home-service-grid">
           <div><LockKeyhole /><span><b>Secure ordering</b><small>Protected customer accounts</small></span></div>
           <div><PackageCheck /><span><b>Real inventory</b><small>Availability checked at checkout</small></span></div>
-          <div><Truck /><span><b>Insured shipping</b><small>Signature-required delivery</small></span></div>
+          <div><Truck /><span><b>Delivery tracking</b><small>Updates in your account</small></span></div>
           <div><Headphones /><span><b>Human support</b><small>Help before and after ordering</small></span></div>
         </div>
       </section>
@@ -193,7 +198,8 @@ export default function HomePage() {
             <div><span className="eyebrow dark">SHOP AVAILABLE INVENTORY</span><h2>Bullion you can order now.</h2><p>Active listings with market-linked prices, clear weights, and current availability.</p></div>
             <Link to="/shop">View all products <ArrowRight /></Link>
           </div>
-          {loadingProducts ? <div className="catalog-loading">Loading today’s bullion selection…</div> : products.length ? <div className="product-grid home-product-grid">{products.slice(0, 4).map((product) => <ProductCard key={product.id} product={product} spot={spot} />)}</div> : <div className="empty-state compact"><h3>Listings are being added</h3><p>There are no active products to display yet.</p></div>}
+          {catalogError && <div className="form-message error" role="alert">The catalog could not be refreshed. {products.length ? 'Previously loaded listings are shown; checkout rechecks availability.' : 'Please try again.'} <button className="text-button" onClick={()=>setRetry(value=>value+1)}>Retry catalog</button></div>}
+          {loadingProducts ? <div className="catalog-loading">Loading today’s bullion selection…</div> : products.length ? <div className="product-grid home-product-grid">{products.slice(0, 4).map((product) => <ProductCard key={product.id} product={product} spot={spot} />)}</div> : !catalogError && <div className="empty-state compact"><h3>No active listings</h3><p>Contact support for product availability.</p></div>}
         </div>
       </section>
 
@@ -224,14 +230,14 @@ export default function HomePage() {
             <li><b>1</b><span><strong>Choose</strong><small>Compare metal, mint, weight and live selling price.</small></span></li>
             <li><b>2</b><span><strong>Lock</strong><small>Checkout rechecks inventory and confirms your exact total.</small></span></li>
             <li><b>3</b><span><strong>Pay</strong><small>Complete the approved payment method shown on the order.</small></span></li>
-            <li><b>4</b><span><strong>Receive</strong><small>Track careful fulfillment and signature-required delivery.</small></span></li>
+            <li><b>4</b><span><strong>Receive</strong><small>Follow fulfillment and shipment tracking in your account.</small></span></li>
           </ol>
         </div>
       </section>
 
       <section className="home-help-section">
         <div className="container home-help-card">
-          <div><Headphones /><span><small>PERSONAL BULLION SUPPORT</small><h2>Questions before a larger order?</h2><p>Ask about products, payment timing or insured fulfillment before you lock the price.</p></span></div>
+          <div><Headphones /><span><small>PERSONAL BULLION SUPPORT</small><h2>Questions before a larger order?</h2><p>Ask about products, payment timing, shipping, and coverage before you lock the price.</p></span></div>
           <div><Link className="button button-gold" to="/support">Visit support center</Link><a href="mailto:support@goldonthespot.com">support@goldonthespot.com</a></div>
         </div>
       </section>

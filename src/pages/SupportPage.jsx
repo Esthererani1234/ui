@@ -1,3 +1,4 @@
+import DraftCaseImages,{useDraftCaseImages} from '../components/DraftCaseImages';
 import SupportAttachments from '../components/SupportAttachments';
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, CheckCircle2, ChevronDown, Headphones, LockKeyhole, Mail, MessageSquareText, Plus, RefreshCw, Send, ShieldCheck, UserRound, XCircle } from "lucide-react";
@@ -26,6 +27,7 @@ function TicketStatus({ status }) {
 }
 
 export default function SupportPage() {
+ const images=useDraftCaseImages('support');
   const { user } = useAuth();
   const [params, setParams] = useSearchParams();
   const activeRequest = useRef(false), requestId = useRef(null), linkedTicket = useRef(null), currentUser = useRef(user?.id);
@@ -68,7 +70,7 @@ export default function SupportPage() {
     }catch{if(currentUser.current===owner)setMessageErrors(current=>({...current,[ticketId]:"Messages could not be loaded. Please try Refresh conversation."}));}
   };
   useEffect(()=>{
-    setTickets([]);setMessages({});setMessageErrors({});setReplies({});setNotice("");setTicket(blankTicket);setConfirmation(null);setFormError(null);linkedTicket.current=null;requestId.current=null;
+    images.reset();setTickets([]);setMessages({});setMessageErrors({});setReplies({});setNotice("");setTicket(blankTicket);setConfirmation(null);setFormError(null);linkedTicket.current=null;requestId.current=null;
     if(!user){setLoading(false);return;}
     setLoading(true);loadTickets();
   },[user?.id]);
@@ -111,6 +113,7 @@ export default function SupportPage() {
     if(next)await loadMessages(id);
   };
   const startRequest=(event)=>{
+    if(images.busy||activeRequest.current){event?.preventDefault();return;} images.reset();
     event?.preventDefault();setConfirmation(null);setFormError(null);
     setParams({new:'1',...(requestedOrder?{order:requestedOrder}:{}),...(requestedCategory?{category:requestedCategory}:{})});
     window.requestAnimationFrame(focusRequest);
@@ -122,7 +125,7 @@ export default function SupportPage() {
   };
   const refreshHistory=()=>Promise.all([loadTickets(),...(expanded?[loadMessages(expanded)]:[])]);
   const submitTicket=async(event)=>{
-    event.preventDefault();if(activeRequest.current)return;
+    event.preventDefault();if(activeRequest.current||images.busy)return;
     if(!user){setFormError({text:'Please sign in again before submitting your ticket.',status:401});return;}
     const subject=ticket.subject.trim(),message=ticket.message.trim();
     const invalid=subject.length<4 || subject.length>120 ? ['subject','Enter a subject between 4 and 120 characters.'] : message.length<10 || message.length>3000 ? ['message','Describe your request in at least 10 characters (up to 3,000).'] : null;
@@ -140,6 +143,7 @@ export default function SupportPage() {
       // never hold the submit button or hide a successfully received ticket.
       setTickets(current=>[result.ticket,...current.filter(item=>item.id!==result.ticket.id)]);
       setMessages(current=>({...current,[result.ticket.id]:[{id:'received',author_role:'customer',message:result.ticket.message,created_at:result.ticket.created_at}]}));
+      await images.upload(result.ticket.id);
     }catch(error){if(currentUser.current===owner)setFormError({text:error.message || 'We could not create the ticket. Your message has been kept.',status:error.status});}
     finally{activeRequest.current=false;setBusy('');}
   };
@@ -240,11 +244,13 @@ export default function SupportPage() {
           <CheckCircle2 aria-hidden="true" /><h3 id="ticket-received-heading">Ticket received</h3><p>Your request has been saved. Our support team can now review it.</p>
           <dl><div><dt>Ticket number</dt><dd>{confirmation.ticket.ticket_number}</dd></div><div><dt>Subject</dt><dd>{confirmation.ticket.subject}</dd></div><div><dt>Status</dt><dd><TicketStatus status={tickets.find(item => item.id === confirmation.ticket.id)?.status || confirmation.ticket.status} /></dd></div></dl>
           <p>{confirmation.emailQueued ? "A confirmation email is queued for your verified email address. You can also track replies and status here." : "Track replies and status in Your conversations. Email notifications are currently unavailable; your ticket is safely saved."}</p>
+          <DraftCaseImages draft={images} disabled={Boolean(busy)}/>
           <Link className="button button-dark full" to={`/support?ticket=${encodeURIComponent(confirmation.ticket.ticket_number)}`} onClick={event => { event.preventDefault(); trackTicket(confirmation.ticket); }}>Track this ticket <ArrowRight size={16} aria-hidden="true" /></Link>
           <button type="button" className="text-button" onClick={startRequest}>Start another request</button>
         </div> : <>
           <p className="support-compose-intro">Tell us how we can help. You can follow every update in your conversations.</p>
           <form onSubmit={submitTicket} noValidate aria-busy={busy === "new"}>
+            <DraftCaseImages draft={images} disabled={Boolean(busy)}/>
             <label>What do you need help with?<select value={ticket.category} onChange={event => setTicket({ ...ticket, category: event.target.value })}><option value="order">Existing order</option><option value="product">Product question</option><option value="payment">Payment</option><option value="shipping">Shipping</option><option value="account">Account</option><option value="other">Something else</option></select></label>
             <label>Order number <span>(if applicable)</span><input name="order_number" maxLength={40} placeholder="G-100001" value={ticket.order_number} onChange={event => setTicket({ ...ticket, order_number: event.target.value.toUpperCase() })} /></label>
             <label>Short subject<input id="support-subject" name="subject" required minLength={4} maxLength={120} aria-invalid={formError?.field === "subject"} aria-describedby={formError?.field === "subject" ? "ticket-form-error" : undefined} placeholder="How can we help?" value={ticket.subject} onChange={event => setTicket({ ...ticket, subject: event.target.value })} /></label>
@@ -252,7 +258,7 @@ export default function SupportPage() {
             <div className="support-message-help" id="ticket-message-help"><span>At least 10 characters</span><span>{ticket.message.trim().length.toLocaleString()} / 3,000</span></div>
             <p className="support-compose-privacy"><LockKeyhole size={14} aria-hidden="true" /> Please keep passwords, card numbers, and bank credentials out of your message.</p>
             {formError && <div id="ticket-form-error" className="form-message error" role="alert">{formError.text}{[401, 403].includes(formError.status) && <Link to="/login?return=%2Fsupport">Sign in and verify your account</Link>}</div>}
-            <button type="submit" className="button button-gold full" disabled={Boolean(busy)}><Send size={16} aria-hidden="true" /> {busy === "new" ? "Submitting your request…" : "Create support ticket"}</button>
+            <button type="submit" className="button button-gold full" disabled={Boolean(busy)||images.busy}><Send size={16} aria-hidden="true" /> {busy === "new" ? "Submitting your request…" : "Create support ticket"}</button>
             {busy === "new" && <p className="support-submit-progress" role="status">Please wait while we save your ticket. You do not need to click again.</p>}
             <small>Keep your ticket number to track replies and status. Email updates link you back to your private conversation.</small>
           </form>

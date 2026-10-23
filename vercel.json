@@ -1,5 +1,6 @@
 {
   "framework": "vite",
+  "functions": { "api/payments/*.js": { "includeFiles": "server/assets/fonts/**" } },
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],

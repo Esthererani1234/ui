@@ -1,5 +1,6 @@
 import {json} from '../../server/lib/payments.js';
 import {previewPaymentsAllowed,PRODUCTION_DATABASE_HOST} from '../../shared/deploymentSafety.js';
+import {reportRuntimeSecurityOnce} from '../../server/lib/nodeRuntimeSecurity.js';
 
 // One Vercel function, fixed routing table. Preserve raw webhook bytes.
 export const config={api:{bodyParser:false}};
@@ -15,6 +16,7 @@ const routes={
  'wire-settings':()=>import('../../server/payments/wire-settings.js'),
 };
 export default async function handler(request,response){
+ if(process.env.VERCEL==='1')reportRuntimeSecurityOnce();
  const path=new URL(request.url,'https://goldonthespot.com').pathname;
  const action=/^\/api\/payments\/([a-z-]+)\/?$/.exec(path)?.[1];
  if(!action||!Object.hasOwn(routes,action))return json(response,404,{error:'Not found'});

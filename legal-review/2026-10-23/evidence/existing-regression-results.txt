@@ -1,0 +1,380 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> goldonthespot-storefront@1.0.0 check
+> npm run check:search && node --test scripts/check-signup.mjs && npm run check:security && npm run check:emails && npm run check:support && npm run build
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> goldonthespot-storefront@1.0.0 check:search
+> node scripts/check-product-search.mjs
+
+Product search checks passed.
+✔ new signup: same_password still saves metadata and profile (2.576382ms)
+✔ abandoned signup: latest password and details are applied (0.38298ms)
+✔ genuine password rejection is not treated as success (1.334096ms)
+✔ metadata failure blocks completion (0.267629ms)
+✔ profile failure followed by retry with already-saved password succeeds (0.212186ms)
+✔ zero updated rows is not success (0.336549ms)
+✔ unconfirmed or different session cannot save signup details (0.504325ms)
+✔ only email-specific rate limits enter email retry flow (0.364193ms)
+✔ destinations default home for signup and preserve checkout (0.285133ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 138.98192
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> goldonthespot-storefront@1.0.0 check:security
+> node --test scripts/check-security-api.mjs scripts/check-security-db.mjs scripts/check-sms-phone.mjs scripts/check-card-capture.mjs scripts/check-launch-api.mjs scripts/check-shipping.mjs scripts/check-payment-maximums.mjs scripts/check-payment-maximums-edge.mjs scripts/check-deployment-safety.mjs scripts/check-wire-orders.mjs scripts/check-wire-api.mjs scripts/check-payment-recovery-db.mjs scripts/check-payment-recovery.mjs
+
+✔ valid manual authorization captures exact server amount once with stable idempotency key (2.818318ms)
+✔ expired or otherwise rejected authorization releases hold without capture (0.476947ms)
+✔ capture authorization database failure never captures or cancels (0.580922ms)
+✔ provider timeout does not mark an order paid or issue another capture (0.867342ms)
+✔ manipulated amount, identity, currency and provider reference are rejected before capture (0.654608ms)
+✔ expired incomplete 3DS authorization is cancelled; legacy automatic intents are preserved (0.411512ms)
+✔ bank approval alone never marks paid; succeeded requires the full received amount (0.290908ms)
+✔ production stays enabled while previews require a distinct database and Stripe test key (1.405203ms)
+✔ read-only previews allow public catalog reads but block Auth, RPC, private data and writes (0.724502ms)
+✔ preview server refuses production database and payment operations before provider access (1.702699ms)
+card_completion_failed { code: 'internal_error' }
+card_completion_failed { code: 'internal_error' }
+card_completion_failed { code: 'internal_error' }
+card_completion_failed { code: 'internal_error' }
+launch_health_failed { code: 'internal_error' }
+launch_health_failed { code: 'internal_error' }
+card_completion_failed { code: 'internal_error' }
+wire_settings_failed { code: 'internal_error' }
+✔ card completion rejects missing auth and unverified SMS before reading orders (27.482261ms)
+✔ card completion scopes order lookup to authenticated owner and rejects client amounts (17.474811ms)
+✔ operations health rejects normal users and AAL1 admins before private diagnostics (9.71113ms)
+✔ reconciliation endpoint rejects missing and forged worker tokens without claiming work (2.770358ms)
+✔ payment router preserves authorization and rejects unknown paths or query overrides (3.640193ms)
+✔ payment router preserves raw signed webhook payload and rejects forged signature (23.417778ms)
+admin_operation_failed { code: 'internal_error' }
+(node:84) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ maximum edits require an admin, AAL2 and a valid live session (27.794517ms)
+✔ maximum edits bind the verified admin and use the audited atomic RPC (4.58449ms)
+✔ maximum edits reject spoofed actor and surface safe validation errors (3.106526ms)
+✔ all methods allow the exact final total and reject one cent above it (4850.298876ms)
+✔ limits changed after a quote are enforced server-side; failed order does not consume stock (13.222483ms)
+✔ legacy checkout, method changes and repricing cannot bypass maximums (25.04388ms)
+✔ lowering a maximum preserves existing orders and payment/fulfillment updates (13.972111ms)
+✔ limits save atomically with audit before/after and invalid inputs leave settings unchanged (46.67986ms)
+✔ customers cannot call the settings RPC, spoof an admin, or execute the trigger function (19.274985ms)
+✔ binding failure rolls back every write; retained claim recovers exact intent once (4872.676689ms)
+✔ decline then new attempt initializes pending, permits capture and is selected for reconciliation (65.912569ms)
+✔ unbound attempts are leased even with an old failed reference; leases remain exclusive (22.059333ms)
+✔ delayed previous decline cannot release a newer unbound claim or change its state (26.709952ms)
+✔ binding rejects wrong amount, owner, claim, duplicate intent and unrelated live attempt (27.554186ms)
+✔ late payment invalidates an old approval, audits once and requires a fresh audited approval to ship (35.49781ms)
+✔ late settlement creates a missing review and does not erase a rejected decision (16.096855ms)
+✔ wire settlement uses wire due date, including manual admin paid updates (15.37172ms)
+✔ failed review audit rolls back settlement and provider event for retry (13.83041ms)
+✔ recovery RPCs and ledger deny customers and anonymous callers; manual capture remains off (19.864378ms)
+✔ binding preserves USD, exact cents, order owner and durable claim checks (2.774285ms)
+✔ eventually consistent empty search retains claim; later unique canonical intent binds and settles without create (3.870305ms)
+✔ ambiguous search and legacy claims never create, bind, cancel or release a payment (0.554327ms)
+✔ search result is retrieved canonically and mismatched currency, cents, owner or claim cannot bind (1.094066ms)
+✔ settlement still requires the full amount received after successful binding (0.703865ms)
+✔ confirm-card cannot report success when a settled intent fails atomic binding (21.441526ms)
+✔ a signed success webhook recovers an unbound intent before applying its payment event (4.452548ms)
+✔ payment guard rejects cancelled, missing or expired locks and invalid totals (1.827518ms)
+✔ strict payment payload rejects submitted amounts and privilege flags (0.441895ms)
+✔ cart schema rejects manipulated price, fractional or unsafe quantities (0.978286ms)
+✔ JSON parser rejects nonobjects, invalid JSON and oversized bodies (8.734701ms)
+✔ unknown Stripe notifications and partial refunds do not change order state (0.271185ms)
+✔ Stripe settlement must match order, user, currency and exact cents (0.36607ms)
+✔ rate limiter fails closed and exposes clean retry errors (0.578308ms)
+✔ admin displays safe server rejection rather than opaque transport error (6.246117ms)
+✔ tracking form omits unchanged status/payment and explains shipment prerequisites (2.839275ms)
+✔ order item photo snapshots come from the trusted product, not supplied fields (4964.739954ms)
+✔ risk approval saves one audit record without marking an unpaid order paid (12.810964ms)
+✔ risk rejection is a fulfillment hold, not an automatic cancellation or refund (10.917327ms)
+✔ stale and double-submitted risk decisions cannot overwrite a newer review (7.554972ms)
+✔ a risk decision rolls back if its audit insert fails (5.231562ms)
+✔ non-admins and missing risk rows cannot report a successful review (5.583634ms)
+✔ customers cannot invoke, mutate, truncate or read risk reviews (17.491847ms)
+✔ security RPCs cannot be executed by anonymous or signed-in clients (10.901187ms)
+✔ rate reservations enforce the limit and reset after the server window (20.807391ms)
+✔ revoked, banned, mismatched sessions fail closed (8.199534ms)
+✔ password-only client cannot replace its enrolled phone (5.685562ms)
+✔ verified phone change clears old verification and SMS sessions (8.255903ms)
+✔ OTP attempts stop at the configured maximum (11.463727ms)
+✔ expired and wrong-owner OTPs cannot be claimed or completed (6.439676ms)
+✔ OTP success is atomic and cannot be replayed (10.966163ms)
+✔ phone enrollment rejects a different account and all equivalent phone formats (17.46172ms)
+✔ legacy phone sharing preserves existing owners but refuses a new account (3.853993ms)
+✔ database blocks duplicate verification even when the send-time check is bypassed (6.3243ms)
+✔ an unverified signup cannot reserve a phone; a later verified claim defeats stale availability (9.623678ms)
+✔ successful replacement releases old phone only after new verification (7.455563ms)
+✔ profile deletion releases only that owner; private phone claims are not readable by customers (4.046721ms)
+✔ order IDOR: customer sees only own orders after SMS, none before SMS (12.303181ms)
+✔ only one distinct card request can claim an order; same request can retry (8.418138ms)
+✔ expired price lock cannot start a payment (2.702743ms)
+✔ duplicate webhook does not double-process or downgrade paid orders (8.480274ms)
+✔ failed reconciliation rolls back event so provider can retry (6.08986ms)
+✔ cancelled order stays cancelled even when late payment is real (5.696052ms)
+✔ unpaid or unreviewed orders cannot enter fulfillment (7.269077ms)
+✔ new orders receive risk assessment using custom verified phone (7.024394ms)
+✔ risk thresholds come from private configuration (3.733214ms)
+✔ admin cannot manually fake a card settlement (5.931413ms)
+✔ wire paid action is permitted only for admin and is audited (8.357071ms)
+✔ stale server order snapshot cannot start payment at a previous total (5.560859ms)
+✔ tracking-only edits preserve current status, payment and private notes (5.494862ms)
+✔ pending and awaiting orders can cancel and restock exactly once (12.818073ms)
+✔ paid approved pre-fulfillment orders can be shipped in one audited action (9.019736ms)
+✔ shipment shortcut cannot bypass payment or risk review (6.601407ms)
+✔ shipped order cannot move backwards or restock through cancellation (8.54719ms)
+✔ tracking edit on paid wire does not repeat the payment-received audit (4.751087ms)
+✔ card capture is authorized only for the matching amount, intent and live price lock (9.959141ms)
+✔ expired, nearly-expired and cancelled locks cannot authorize capture (8.012646ms)
+✔ recovery SMS grant expires in five minutes and is single-use (11.346682ms)
+✔ sign-in SMS authorization cannot be reused for password recovery (4.371457ms)
+✔ capture/reconciliation/recovery/health operations deny direct customer and anonymous access (16.679562ms)
+✔ reconciliation leases prevent duplicate claims and rotate failed work (15.595189ms)
+✔ default shipping and exact free threshold are computed by the quote RPC (4706.432581ms)
+✔ product fee and minimum ignore forged browser shipping values (22.685512ms)
+✔ mixed carts charge the highest applicable fee once using full merchandise subtotal (3.993617ms)
+✔ saved quote keeps its shipping after admin edit; refresh and legacy order use current rules (25.340858ms)
+✔ invalid shipping settings fail at the database and authorized edits are audited (13.707389ms)
+✔ normal users and AAL1 admin cannot alter product shipping or call private calculator (3.752107ms)
+✔ cart display estimates match default, product, mixed and zero threshold rules (1.411532ms)
+(node:164) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ duplicate phone is rejected before paid SMS, with a safe actionable error (17.552972ms)
+✔ existing owner can sign in and submitted alternate phone cannot redirect the code (14.186728ms)
+✔ a phone claimed during OTP entry cannot create a verified session (2.91283ms)
+✔ available phone still completes normal signup (11.317304ms)
+✔ password reset consumes a fresh recovery grant before changing password and revokes sessions (1.099422ms)
+✔ missing, stale or consumed recovery grant cannot update the password (0.791604ms)
+checkout_error { code: 'internal_error' }
+create_order_failed { code: '42P01' }
+create_order_failed { code: 'P2006' }
+(node:184) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ revised terms reach the atomic order RPC unchanged (12.211928ms)
+✔ checkout binds authenticated user/email and commits consent through single atomic RPC (3.675196ms)
+✔ wire consent, current terms and strict schemas reject bypasses before order RPC (16.132833ms)
+✔ missing SMS or revoked session cannot create a wire order (4.780078ms)
+✔ checkout hides database internals but exposes controlled agreement validation (3.390299ms)
+✔ revised purchase terms are recorded for card and wire without rewriting on replay (4516.547149ms)
+✔ wire order records exact version/text/total and queues verified-recipient email atomically (15.24908ms)
+✔ missing/old/forged wire consent rolls back inventory, order and quote consumption (20.905618ms)
+✔ quote/order replay returns same order, preserves deadline and never duplicates email or inventory decrement (13.631595ms)
+✔ quote from another customer and expired quote cannot place an order (8.961038ms)
+✔ card conversion binds owner, retains payment guards, removes surcharge and records consent (17.186456ms)
+✔ accepted wire agreement cannot be repriced, have its deadline extended or consent rewritten (17.410021ms)
+✔ missing bank configuration aborts order transaction and old orders receive no backfilled consent (5.742522ms)
+✔ private ledger and accepting/placing RPCs are inaccessible to direct customers and anonymous requests (7.969806ms)
+✔ wire deadline skips weekends in New York and always gives at least 24 hours (20.982621ms)
+✔ wire instruction reads allow expired quote with valid wire deadline, reject settled/cancelled/overdue orders (0.65429ms)
+✔ wire settings require an admin and save destination plus sanitized audit atomically (16.552638ms)
+ℹ tests 126
+ℹ suites 0
+ℹ pass 126
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5962.886524
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> goldonthespot-storefront@1.0.0 check:emails
+> node --test scripts/check-order-emails.mjs scripts/check-order-email-api.mjs scripts/check-wire-email.mjs
+
+order_email_admin_failed { code: 'internal_error' }
+order_email_admin_failed { code: 'internal_error' }
+order_email_admin_failed { code: 'internal_error' }
+order_email_admin_failed { code: 'internal_error' }
+✔ email admin rejects missing authentication, non-admins and AAL1 before secret access (20.470924ms)
+✔ admin GET never returns the stored API key (5.498101ms)
+order_email_admin_failed { code: 'internal_error' }
+✔ connect rejects arbitrary recipients and sends sample only to verified admin (40.596466ms)
+✔ refreshing email settings does not consume sending allowance, while sends remain limited (53.122267ms)
+✔ emails are opt-in and migration does not notify historical orders (2474.494875ms)
+✔ order insertion and queue insertion share a transaction and use verified account recipient (12.078318ms)
+✔ unverified account does not receive notifications (3.804832ms)
+✔ all fulfillment and payment milestones queue once despite webhook replays (16.396635ms)
+✔ cancellation is separate from refunds and tracking changes are deduplicated (4.270168ms)
+✔ queue claims are exclusive, preserve item snapshots, and reclaim expired leases (15.131629ms)
+✔ stale retries stop before provider deduplication expires (8.659478ms)
+✔ customers and anonymous callers cannot read queue or call privileged functions (6.553797ms)
+✔ email configuration requires an admin and commits an audit entry atomically (13.790007ms)
+✔ every template has HTML/plain text, escaped content, trusted links and accurate totals (30.102539ms)
+✔ provider errors are sanitized and rate-limit/temporary errors are retryable (0.821887ms)
+✔ accepted send followed by DB failure retries the exact persisted payload and key (2.263612ms)
+✔ disabled email sender does not claim or send jobs (0.226582ms)
+✔ tracking edits notify once per reference without claiming a new shipment (7.84085ms)
+✔ notification rolls back with failed order transaction (4.848273ms)
+✔ wire HTML and plain text contain complete instructions, exact total/reference, images and saved agreement (26.088967ms)
+✔ deadline uses New York daylight/standard time, including date rollover (1.20232ms)
+✔ optional SWIFT/agreement are omitted and reference falls back to order number (2.30466ms)
+✔ untrusted bank, agreement and reference HTML is escaped and external product pictures are blocked (1.633396ms)
+✔ all existing events still render without a wire parameter (10.297726ms)
+✔ all admin event previews use synthetic data without needing a secret (7.10109ms)
+✔ shipping address supports stored and legacy field names with HTML escaping (8.791222ms)
+✔ incomplete bank or invalid amount/reference/deadline cannot render a wire request (1.661756ms)
+✔ worker uses only secret RPC bank data and persists before sending (3.637282ms)
+✔ missing/malformed/partial bank configuration or RPC failure retries without preparing or sending (1.781037ms)
+✔ missing/failed current-order read and missing deadline retry without accessing bank or sending (2.066101ms)
+✔ only eligible order and payment status combinations prepare wire instructions (11.098993ms)
+✔ ineligible or unknown states skip before first preparation, including preparation retries (1.479618ms)
+✔ skip write or payload persistence failure never permits an email send (1.790114ms)
+✔ uncertain accepted send retains identical payload and key despite changed order, secret, snapshots and sender (3.243873ms)
+✔ bank configuration can recover before first preparation, with stale state rechecked (1.687571ms)
+✔ non-wire messages preserve the original preparation path and never read wire secrets (2.677972ms)
+ℹ tests 36
+ℹ suites 0
+ℹ pass 36
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2816.229731
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> goldonthespot-storefront@1.0.0 check:support
+> node --test scripts/check-support.mjs scripts/check-support-edge.mjs scripts/check-sell.mjs scripts/check-selling-conversation.mjs scripts/check-market-status.mjs
+
+✔ market status distinguishes missing, stale, future and failed quotes (1.424113ms)
+✔ public prices use oldest provider timestamp and never fabricate freshness (12.798874ms)
+✔ checkout rejects missing, old and future provider timestamps independently of browser clock (1.794696ms)
+✔ checkout spot fetch fails closed if even one component is stale (3.627074ms)
+(node:285) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ sell database denies anonymous/customer reads and writes and privileged RPCs (3582.17326ms)
+✔ sell requests are deduplicated, disclose only a receipt, and reject changed replay (18.778981ms)
+✔ admin updates audit atomically, reject stale saves, and do not duplicate retries (14.85871ms)
+sell_request_error { code: 'internal_error' }
+sell_request_error { code: 'internal_error' }
+sell_request_error { code: 'internal_error' }
+sell_request_error { code: 'internal_error' }
+sell_request_error { code: 'internal_error' }
+sell_request_error { code: 'internal_error' }
+sell_request_error { code: 'internal_error' }
+sell_request_error { code: 'internal_error' }
+✔ signed-in case uses four persistent rate limits and trusted account identity (16.834657ms)
+✔ signed-in case rejects unexpected fields, bad email/phone, bots, oversize and short message (10.973714ms)
+sell_request_error { code: 'internal_error' }
+sell_request_error { code: 'internal_error' }
+sell_request_error { code: 'internal_error' }
+sell_request_error { code: 'internal_error' }
+sell_request_error { code: 'internal_error' }
+sell_request_error { code: 'internal_error' }
+sell_request_error { code: 'internal_error' }
+sell_request_error { code: 'internal_error' }
+sell_request_error { code: 'internal_error' }
+sell_request_error { code: 'internal_error' }
+sell_request_error { code: 'internal_error' }
+sell_request_error { code: 'internal_error' }
+sell_request_error { code: 'internal_error' }
+sell_request_error { code: 'internal_error' }
+sell_request_error { code: 'internal_error' }
+sell_request_error { code: 'internal_error' }
+✔ rate-limited quote never writes, invalid origin is denied (1.927189ms)
+✔ sell admin list/update require verified admin, MFA and live session (4.898297ms)
+✔ selling cases require login and SMS; owner filters and private field exclusion are enforced (7.140867ms)
+✔ account-owned receipt cannot be replayed by another owner; legacy guest RPC retired (4.656862ms)
+(node:291) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+sell_thread_error { code: 'internal_error' }
+sell_thread_error { code: 'internal_error' }
+sell_thread_error { code: 'internal_error' }
+sell_thread_error { code: 'internal_error' }
+sell_thread_error { code: 'internal_error' }
+sell_thread_error { code: 'internal_error' }
+sell_thread_error { code: 'internal_error' }
+sell_thread_error { code: 'internal_error' }
+sell_thread_error { code: 'internal_error' }
+✔ case messages and RPC deny direct anonymous/customer access; bucket private (3255.092748ms)
+✔ database enforces ownership, deduplication, changed replay and private admin audit (25.20934ms)
+✔ six-photo limit is enforced atomically in database (14.36754ms)
+✔ thread rejects unauthenticated, other-owner, SMS-unverified and non-MFA-admin requests (12.573194ms)
+✔ thread applies owner filter, trusted actor and persistent limits (3.106953ms)
+✔ thread rejects actor injection, control characters, unsupported photos and oversize input (4.578742ms)
+support_error { code: 'internal_error' }
+(node:292) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ support endpoint enforces live session, customer SMS and admin MFA (14.729676ms)
+✔ support endpoint rejects client-controlled actor, role and status (4.61681ms)
+✔ support endpoint maps atomic conflict to visible error, never false success (1.626878ms)
+✔ ticket creation identity comes from verified session (0.558373ms)
+✔ create works through the server, saves one original message and queues verified-email confirmation (3528.76062ms)
+✔ repeated create/reply requests return original result without duplicate messages or email (20.551614ms)
+✔ admin can save status without a reply and customer reply reopens ticket (10.388936ms)
+✔ normal customer cannot access another ticket or perform admin status operation (14.841695ms)
+✔ stale admin edit cannot overwrite a newer reply or status (7.030782ms)
+✔ reply insert failure rolls back ticket status and queued status email (12.298805ms)
+✔ ticket order reference must belong to its authenticated owner (7.188592ms)
+✔ RLS hides other customer conversations and anonymous/customer destructive privileges are removed (25.880322ms)
+✔ support emails are branded safe links without conversation text (1.478163ms)
+ℹ tests 32
+ℹ suites 0
+ℹ pass 32
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3902.320102
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> goldonthespot-storefront@1.0.0 build
+> vite build
+
+vite v8.1.4 building client environment for production...
+[2Ktransforming...✓ 1899 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                 1.81 kB │ gzip:  0.83 kB
+dist/assets/CustomerAccountNav-BpdxPiCb.css     1.16 kB │ gzip:  0.50 kB
+dist/assets/legalPolicies-B3mOQ1AS.css          1.40 kB │ gzip:  0.60 kB
+dist/assets/SellingConversation-CyXOw8bN.css    1.62 kB │ gzip:  0.63 kB
+dist/assets/AdminPage-iBqK6vO_.css              8.59 kB │ gzip:  2.21 kB
+dist/assets/AccountPage-XPsbLe9l.css           10.63 kB │ gzip:  2.19 kB
+dist/assets/SupportPage-CcK7urao.css           17.72 kB │ gzip:  3.62 kB
+dist/assets/index-BQAIAXTd.css                158.28 kB │ gzip: 30.76 kB
+dist/assets/minus-C9qMdltK.js                   0.10 kB │ gzip:  0.12 kB
+dist/assets/chevron-down-BULdBe6u.js            0.12 kB │ gzip:  0.13 kB
+dist/assets/plus-CPCioBZ4.js                    0.14 kB │ gzip:  0.14 kB
+dist/assets/user-round-CaT42yGN.js              0.17 kB │ gzip:  0.17 kB
+dist/assets/mail-S5NXhXTD.js                    0.20 kB │ gzip:  0.19 kB
+dist/assets/SellingCentrePage-CNa-6os4.js       0.22 kB │ gzip:  0.18 kB
+dist/assets/log-out-BNZ6cYBU.js                 0.22 kB │ gzip:  0.18 kB
+dist/assets/eye-CD4MzftE.js                     0.24 kB │ gzip:  0.19 kB
+dist/assets/supportRequests-BZe8RM5j.js         0.29 kB │ gzip:  0.23 kB
+dist/assets/shipping-CMdakUYq.js                0.29 kB │ gzip:  0.20 kB
+dist/assets/smartphone-CZ6sgI8e.js              0.30 kB │ gzip:  0.23 kB
+dist/assets/refresh-cw-C3iA-TmX.js              0.31 kB │ gzip:  0.22 kB
+dist/assets/trash-2-D6EMo1Tw.js                 0.32 kB │ gzip:  0.20 kB
+dist/assets/message-square-text-BdCitK_b.js     0.33 kB │ gzip:  0.24 kB
+dist/assets/functionRequest-Clmj3ILW.js         0.34 kB │ gzip:  0.25 kB
+dist/assets/NotFoundPage-C-rEc4LT.js            0.67 kB │ gzip:  0.37 kB
+dist/assets/OrderStatus-CyRgn4iE.js             0.77 kB │ gzip:  0.46 kB
+dist/assets/checkoutRecovery-DMHMLLhT.js        0.90 kB │ gzip:  0.50 kB
+dist/assets/CustomerAccountNav-DqpzUUDj.js      1.28 kB │ gzip:  0.72 kB
+dist/assets/analytics-CtpLQqxe.js               1.86 kB │ gzip:  0.95 kB
+dist/assets/signupCompletion-C1WNeDvT.js        1.96 kB │ gzip:  1.02 kB
+dist/assets/CustomerMfaPage-Dudp1m5x.js         5.50 kB │ gzip:  2.27 kB
+dist/assets/SellingConversation-Bzk-t2c9.js     5.58 kB │ gzip:  2.39 kB
+dist/assets/ShopPage-CZPmG8s8.js                6.26 kB │ gzip:  2.33 kB
+dist/assets/InfoPage-Di_FxPQ1.js                6.58 kB │ gzip:  2.82 kB
+dist/assets/CartPage-BgJHMKo1.js                7.03 kB │ gzip:  2.85 kB
+dist/assets/jsx-runtime-CbZIRoI9.js             9.59 kB │ gzip:  3.73 kB
+dist/assets/ProductPage-SvPijbKd.js            11.51 kB │ gzip:  3.81 kB
+dist/assets/SellPage-Bt09fhNX.js               14.44 kB │ gzip:  4.96 kB
+dist/assets/AuthPage-BeerJEp2.js               17.13 kB │ gzip:  5.29 kB
+dist/assets/legalPolicies-CbEhsu1c.js          18.72 kB │ gzip:  7.09 kB
+dist/assets/SupportPage-BTKceowo.js            25.76 kB │ gzip:  7.87 kB
+dist/assets/AccountPage-CHFSEwmx.js            32.49 kB │ gzip:  8.94 kB
+dist/assets/CheckoutPage-CBDujPMl.js           37.11 kB │ gzip: 12.73 kB
+dist/assets/AdminPage-xK4ZdxWi.js             138.69 kB │ gzip: 36.98 kB
+dist/assets/supabase-DVY0sWNr.js              205.80 kB │ gzip: 53.16 kB
+dist/assets/index-Chz1b8b8.js                 277.16 kB │ gzip: 88.71 kB
+
+✓ built in 463ms

@@ -1,0 +1,22 @@
+const { chromium }=require('playwright');
+const path=require('node:path');const fs=require('node:fs');
+(async()=>{const root=path.resolve(__dirname,'..');const browser=await chromium.launch({executablePath:path.resolve('.verification/chromium'),headless:true,args:['--no-sandbox']});const results=[];
+try{for(const [label,width,height] of [['mobile',390,844],['tablet',768,1024],['desktop',1440,1000]]){
+ const page=await browser.newPage({viewport:{width,height}});let errors=[];let network=0;page.on('pageerror',e=>errors.push(e.message));await page.route('http**://**',route=>{network++;return route.abort();});
+ await page.goto('file://'+path.join(root,'review.html'));
+ const assert=(v,m)=>{if(!v)throw Error(label+': '+m)};
+ assert(await page.locator('article').count()===16,'sixteen policies');
+ assert(await page.locator('nav a').count()===16,'sixteen navigation links');
+ assert(!await page.locator('#assent').isChecked(),'unchecked assent');
+ assert(await page.getByRole('button',{name:'Order submission unavailable in review copy'}).isDisabled(),'submission disabled');
+ assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no horizontal overflow');
+ assert(await page.locator('a[href^="#"]').evaluateAll(as=>as.every(a=>!!document.getElementById(a.getAttribute('href').slice(1)))),'all internal links resolve');
+ await page.locator('#search').fill('wrong-token');assert(await page.locator('article:visible').count()===1,'full text search');
+ await page.getByRole('link',{name:'Purchase Agreement',exact:true}).first().click();assert(await page.locator('[id="02-customer-purchase-agreement"]').isVisible(),'navigation restores filtered policy');
+ await page.locator('#assent').check();assert(await page.getByRole('button',{name:'Order submission unavailable in review copy'}).isDisabled(),'demo cannot submit after checking');
+ await page.locator('#assent').uncheck();await page.locator('#search').focus();await page.keyboard.press('Tab');assert(await page.locator('#print').evaluate(el=>el===document.activeElement),'keyboard focus');
+ await page.evaluate(()=>scrollTo(0,0));
+ if(label!=='tablet')await page.screenshot({path:path.join(root,'evidence',`legal-review-${label}.jpg`),type:'jpeg',quality:65,fullPage:false});
+ assert(errors.length===0,'no page exceptions');assert(network===0,'no external requests');
+ results.push({viewport:label,width,height,policies:16,links:true,search:true,unchecked:true,submissionDisabled:true,keyboard:true,horizontalOverflow:false,pageErrors:errors,externalRequests:network});await page.close();
+}fs.writeFileSync(path.join(root,'evidence','browser-review-results.json'),JSON.stringify({executedAt:new Date().toISOString(),environment:'local file preview, no production/browser payment transactions',results},null,2));console.log(JSON.stringify(results));}finally{await browser.close();}})().catch(e=>{console.error(e);process.exit(1)});

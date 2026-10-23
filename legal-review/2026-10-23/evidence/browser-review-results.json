@@ -1,0 +1,48 @@
+{
+  "executedAt": "2026-10-23T05:24:25.940Z",
+  "environment": "local file preview, no production/browser payment transactions",
+  "results": [
+    {
+      "viewport": "mobile",
+      "width": 390,
+      "height": 844,
+      "policies": 16,
+      "links": true,
+      "search": true,
+      "unchecked": true,
+      "submissionDisabled": true,
+      "keyboard": true,
+      "horizontalOverflow": false,
+      "pageErrors": [],
+      "externalRequests": 0
+    },
+    {
+      "viewport": "tablet",
+      "width": 768,
+      "height": 1024,
+      "policies": 16,
+      "links": true,
+      "search": true,
+      "unchecked": true,
+      "submissionDisabled": true,
+      "keyboard": true,
+      "horizontalOverflow": false,
+      "pageErrors": [],
+      "externalRequests": 0
+    },
+    {
+      "viewport": "desktop",
+      "width": 1440,
+      "height": 1000,
+      "policies": 16,
+      "links": true,
+      "search": true,
+      "unchecked": true,
+      "submissionDisabled": true,
+      "keyboard": true,
+      "horizontalOverflow": false,
+      "pageErrors": [],
+      "externalRequests": 0
+    }
+  ]
+}

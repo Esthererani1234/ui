@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowUpRight, Check, ClipboardList, Mail, Phone, RefreshCw, 
 import { supabase } from '../../lib/supabase';
 import { invokeFunction } from '../../lib/functionRequest';
 import '../../styles/sellAdmin.css';
+import SellingConversation from '../SellingConversation';
 
 const labels={new:'New',reviewing:'In review',contacted:'Contacted',quoted:'Quoted',closed:'Closed'};
 const descriptions={new:'A new enquiry is ready for your attention.',reviewing:'Review the items and decide what information you need next.',contacted:'You have contacted the seller. Record the next step in your notes.',quoted:'An offer has been discussed. Keep its details and any follow-up in your notes.',closed:'This case is closed. Reopen it for review if the seller returns.'};
@@ -60,6 +61,7 @@ export default function SellAdminPanel(){
     <section className="sell-desk-progress"><div><h4>Move this case forward</h4><p>{descriptions[selected.status]}</p></div><label>Review status<select disabled={busy} value={drafts[selected.id]?.status??selected.status} onChange={e=>draft(selected.id,{status:e.target.value})}>{Object.entries(labels).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>{selected.status==='new'&&!dirty(selected)&&<button className="button button-outline" disabled={loading||busy} onClick={()=>save(selected,'reviewing')}>Start review</button>}{selected.status==='closed'&&!dirty(selected)&&<button className="button button-outline" disabled={loading||busy} onClick={()=>save(selected,'reviewing')}>Reopen for review</button>}</section>
     <section className="sell-desk-notes"><label htmlFor="selling-case-notes">Internal case notes</label><p>Record weights, purity, pricing discussed, and the next action. These notes stay private.</p><textarea id="selling-case-notes" disabled={busy} rows={7} maxLength={5000} value={drafts[selected.id]?.notes??selected.internal_notes} onChange={e=>draft(selected.id,{notes:e.target.value})} placeholder={'Items / weight / purity\nOffer discussed\nNext action and follow-up'}/><small>{(drafts[selected.id]?.notes??selected.internal_notes).length}/5,000 characters · Contact the seller using Email seller or Call seller above.</small></section>
     <footer className="sell-desk-save"><div>{dirty(selected)?<b>Unsaved changes</b>:<span><Check size={15}/> All changes saved</span>}<small>Last updated {date(selected.updated_at)}</small></div><button className="button button-gold" disabled={busy||loading||!dirty(selected)} onClick={()=>save(selected)}>{busy?'Saving…':'Save changes'}</button></footer>
+    <SellingConversation caseId={selected.id} admin/>
    </>:<div className="sell-desk-empty sell-desk-detail-empty"><ClipboardList size={42}/><h3>A clear view of every case.</h3><p>Select a case to review the seller’s items, contact them, and manage the next steps.</p></div>}</div>
   </div>
  </section>;

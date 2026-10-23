@@ -1,0 +1,1 @@
+{"viewportWidths":[1440,1024,768,390,320],"noOverflow":true,"retryIdempotent":true,"draftRetained":true,"receiptFocused":true,"photoReencodedAndSent":true,"conversationPersistsOnReload":true,"errors":[],"loginRequired":true,"caseSurvivesReload":true,"realMutations":false}

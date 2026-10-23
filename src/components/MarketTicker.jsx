@@ -3,6 +3,7 @@ import { Activity } from "lucide-react";
 import { money } from "../lib/pricing";
 import { fetchMarketPrices, readCachedMarket } from "../lib/marketPrices";
 import '../styles/marketTimestamp.css';
+import { marketStatus } from '../lib/marketStatus';
 
 const labels = [
   ["gold", "GOLD", "Au"],
@@ -15,6 +16,8 @@ export default function MarketTicker({ onPrices }) {
   const [data, setData] = useState(readCachedMarket);
   const [refreshing, setRefreshing] = useState(Boolean(data));
   const [error, setError] = useState(false);
+  const [now, setNow] = useState(Date.now);
+  const status = marketStatus(data, { error, refreshing, now });
   const updated = data?.timestamp ? new Date(data.timestamp) : null;
   const validUpdated = updated && Number.isFinite(updated.getTime());
 
@@ -39,6 +42,7 @@ export default function MarketTicker({ onPrices }) {
     };
     load();
     const timer = setInterval(() => {
+      setNow(Date.now());
       if (!document.hidden) load();
     }, 10_000);
     const refreshWhenVisible = () => {
@@ -64,7 +68,7 @@ export default function MarketTicker({ onPrices }) {
         ))}
       </div>
       <div className="container market-update">
-        <span className={error ? 'market-status error' : 'market-status'}><Activity size={12} />{error ? (data ? 'Last price shown' : 'Retrying feed') : refreshing ? 'Refreshing market' : 'Live market'}</span>
+        <span className={`market-status${error ? ' error' : status === 'Last quoted prices' ? ' stale' : ''}`}><Activity size={12} />{status}</span>
         {validUpdated && <time dateTime={updated.toISOString()} title={updated.toLocaleString('en-US', { timeZone:'America/New_York', dateStyle:'medium', timeStyle:'long' })}>Updated {updated.toLocaleDateString('en-US', { timeZone:'America/New_York', month:'short', day:'numeric', year:'numeric' })} · {updated.toLocaleTimeString('en-US', { timeZone:'America/New_York', hour:'numeric', minute:'2-digit', hour12:true, timeZoneName:'short' })}</time>}
       </div>
     </section>

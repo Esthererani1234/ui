@@ -1,0 +1,34 @@
+{
+  "mode": "regression",
+  "results": [
+    {
+      "catalogFailureRecovery": "passed"
+    },
+    {
+      "productFailureRecovery": "passed",
+      "galleryFallbackAndNextImage": "passed"
+    },
+    {
+      "queryNavigationClosesMobileMenu": "passed"
+    },
+    {
+      "adminDraftSurvivesNavigationAndFilters": "passed",
+      "replyBlockedOnThreadFailure": "passed"
+    },
+    {
+      "realEmptyAndMissingStates": true,
+      "accountSignInReturnPreserved": true
+    },
+    {
+      "bankHttpNetworkMalformedErrorsAndRetry": true,
+      "bankSaveBlockedUntilLoaded": true,
+      "bankMaskedAccountNeverSubmitted": true,
+      "bankSaveFailureRetainsDraft": true,
+      "bankSaveSuccessClearsSensitiveFields": true,
+      "bankUnconfiguredStateAndRoutingLabels": true,
+      "bankMobileNoOverflow": true
+    }
+  ],
+  "pageErrors": [],
+  "productionMutations": 0
+}

@@ -1,0 +1,13 @@
+ℹ tests 9
+ℹ pass 9
+ℹ fail 0
+ℹ tests 126
+ℹ pass 126
+ℹ fail 0
+ℹ tests 36
+ℹ pass 36
+ℹ fail 0
+ℹ tests 30
+ℹ pass 30
+ℹ fail 0
+✓ built in 454ms

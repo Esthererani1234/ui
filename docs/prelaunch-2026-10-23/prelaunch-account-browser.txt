@@ -1,0 +1,52 @@
+Profile, navigation, reset checks passed
+Independent loading checks passed
+Owner-change checks passed
+{
+  "profile": {
+    "validation": true,
+    "dirtyRefreshPreserved": true,
+    "failedSaveDraftPreserved": true,
+    "zeroRowsNotSuccess": true,
+    "retry": true,
+    "busyControls": true,
+    "phoneExcluded": true
+  },
+  "navigation": {
+    "sharedNav": true,
+    "ticketLink": true,
+    "browserBack": true,
+    "newRequestFocus": true,
+    "phoneChangeCategory": true,
+    "staleAdminResponseRemoved": true
+  },
+  "passwordReset": {
+    "errorRetry": true,
+    "originalApiAndRedirect": true
+  },
+  "independentLoads": {
+    "slowOrdersDoNotBlockTickets": true,
+    "ordersErrorRetry": true,
+    "ticketsErrorRetry": true,
+    "noFalseEmptyState": true
+  },
+  "ownerChange": {
+    "pendingSaveIgnored": true,
+    "pendingResetIgnored": true,
+    "newOwnerDraftClean": true
+  },
+  "signOut": {
+    "signedOut": true,
+    "landing": "/"
+  },
+  "missingProfile": {
+    "failedReloadStillDisabled": true,
+    "retry": true
+  },
+  "pageErrors": [],
+  "widths": [
+    1440,
+    390,
+    320
+  ],
+  "productionWrites": false
+}

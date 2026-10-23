@@ -179,9 +179,9 @@ async function generateAnswer(message: string, history: Array<{ role: string; co
     relevant_in_stock_products: products,
     policies: {
       pricing: "Live market-linked product prices can move and checkout recalculates the final price.",
-      payment: "Available requests include bank wire, ACH, certified check, and secure card invoice. Never collect payment credentials in chat.",
+      payment: "Use only payment methods currently offered in checkout for that order. Bank wire and Stripe card payments are supported; other methods must not be promised unless checkout offers them. Never collect payment credentials in chat.",
       shipping: "Orders ship after cleared payment, insured, with signature requirements based on order value. Tracking appears in the account.",
-      returns: "Bullion is a market transaction; cancellation and return rights may differ from ordinary retail. Direct specific cases to support.",
+      returns: "No discretionary change-of-mind returns after acceptance. Rights for incorrect, damaged, misdescribed, or undelivered goods and legally required refunds remain. The separately accepted bank-wire agreement limits market-loss claims to documented actual loss, not an automatic fee. Direct specific cases to support and /terms#cancellations-returns-and-refunds.",
       support: "The assistant cannot change, cancel, refund, track, or ship an order. Account-specific actions go to /support or the customer account.",
     },
   });

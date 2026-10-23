@@ -42,10 +42,31 @@ const sessionId = () =>
     },
   );
 
-const analyticsAllowed = () =>
+export const analyticsAllowed = () =>
   typeof window !== "undefined" &&
   navigator.doNotTrack !== "1" &&
-  window.doNotTrack !== "1";
+  window.doNotTrack !== "1" &&
+  navigator.globalPrivacyControl !== true &&
+  !analyticsOptedOut();
+
+export function analyticsOptedOut() {
+  try { return localStorage.getItem('gots-analytics-opt-out') === '1'; }
+  catch { return true; }
+}
+
+export function setAnalyticsOptOut(disabled) {
+  try {
+    localStorage.setItem('gots-analytics-opt-out', disabled ? '1' : '0');
+    if (disabled) {
+      queued.length = 0;
+      localStorage.removeItem(VISITOR_KEY);
+      sessionStorage.removeItem(SESSION_KEY);
+      memoryVisitor = null;
+      memorySession = null;
+    }
+    return true;
+  } catch { return false; }
+}
 
 const scheduleFlush = () => {
   if (flushTimer) return;
@@ -56,6 +77,7 @@ const scheduleFlush = () => {
 };
 
 const flush = async () => {
+  if (!analyticsAllowed()) { queued.length = 0; return; }
   if (!queued.length) return;
   const events = queued.splice(0, 20);
   try {

@@ -7,6 +7,7 @@ import SupportAssistant from "./SupportAssistant";
 import SmartSearch from "./SmartSearch";
 import { supabase } from "../lib/supabase";
 import '../styles/sellPortal.css';
+import '../styles/storeNavigation.css';
 
 function Logo() {
   return (
@@ -25,6 +26,22 @@ export default function Layout() {
   const [announcement, setAnnouncement] = useState("");
   const location = useLocation();
   const navigate = useNavigate();
+  const shopLink = (label, query) => {
+    const active = location.pathname === '/shop' && location.search === `?${query}`;
+    return <Link key={query} to={`/shop?${query}`} className={active ? 'active' : undefined} aria-current={active ? 'page' : undefined}>{label}</Link>;
+  };
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (event) => {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+        document.getElementById('store-menu-toggle')?.focus();
+      }
+    };
+    document.addEventListener('keydown', close);
+    return () => document.removeEventListener('keydown', close);
+  }, [menuOpen]);
 
   useEffect(() => {
     setMenuOpen(false);
@@ -83,22 +100,27 @@ export default function Layout() {
           <div className="header-actions">
             <Link className="header-action" aria-label={user ? "My account" : "Sign in"} to={user ? "/account" : "/login"}><User size={22} /><span>{user ? "Account" : "Sign in"}</span></Link>
             <Link className={`header-action cart-link${lastAdded ? " cart-bump" : ""}`} aria-label={`Cart${count ? `, ${count} items` : ""}`} to="/cart"><ShoppingCart size={22} /><span>Cart</span>{count > 0 && <b>{count}</b>}</Link>
-            <button type="button" className="menu-button" onClick={() => setMenuOpen((open) => !open)} aria-label="Toggle menu" aria-expanded={menuOpen}>{menuOpen ? <X /> : <Menu />}</button>
+            <button id="store-menu-toggle" type="button" className="menu-button" onClick={() => setMenuOpen((open) => !open)} aria-label={menuOpen ? "Close menu" : "Open menu"} aria-controls="store-menu" aria-expanded={menuOpen}>{menuOpen ? <X /> : <Menu />}</button>
           </div>
         </div>
-        <nav className={menuOpen ? "main-nav open" : "main-nav"}>
+        <nav aria-label="Main navigation" className={menuOpen ? "main-nav store-nav open" : "main-nav store-nav"}>
           <div className="container nav-inner">
-            <NavLink to="/shop?metal=gold">Gold</NavLink>
-            <NavLink to="/shop?metal=silver">Silver</NavLink>
-            <NavLink to="/shop?metal=platinum">Platinum</NavLink>
-            <NavLink to="/shop?metal=palladium">Palladium</NavLink>
-            <NavLink className="sell-nav" to="/sell">Sell to us</NavLink>
-            <NavLink to="/shop?category=coin">Coins</NavLink>
-            <NavLink to="/shop?category=bar">Bars</NavLink>
-            <NavLink to="/shop?featured=true">Best Sellers</NavLink>
-            <NavLink to="/about">Why GoldOnTheSpot</NavLink>
-            <NavLink to="/support">Support</NavLink>
-            {isAdmin && <NavLink className="admin-link" to="/admin">Admin</NavLink>}
+            <div className="store-nav-primary">
+              {['gold', 'silver', 'platinum', 'palladium'].map(metal => shopLink(metal[0].toUpperCase() + metal.slice(1), `metal=${metal}`))}
+              <NavLink className="sell-nav" to="/sell">Sell to us</NavLink>
+            </div>
+            <div id="store-menu" className="store-nav-more">
+              <div className="store-nav-formats">
+                {shopLink('Coins', 'category=coin')}
+                {shopLink('Bars', 'category=bar')}
+                {shopLink('Best sellers', 'featured=true')}
+              </div>
+              <div className="store-nav-help">
+                <NavLink to="/about">Why us</NavLink>
+                <NavLink to="/support">Support</NavLink>
+                {isAdmin && <NavLink className="admin-link" to="/admin">Admin</NavLink>}
+              </div>
+            </div>
           </div>
         </nav>
       </header>
@@ -122,7 +144,7 @@ export default function Layout() {
           <div className="footer-brand"><Logo /><p>Investment-grade precious metals with live market pricing and careful fulfillment.</p></div>
           <div><h4>Shop</h4><Link to="/shop?metal=gold">Gold</Link><Link to="/shop?metal=silver">Silver</Link><Link to="/shop?metal=platinum">Platinum</Link><Link to="/shop">All bullion</Link></div>
           <div><h4>Customer care</h4><Link to="/support">Help center</Link><Link to="/shipping">Shipping & insurance</Link><Link to="/account?tab=orders">Order status</Link><a href="mailto:support@goldonthespot.com">Email support</a></div>
-          <div><h4>Company</h4><Link to="/about">About us</Link><Link to="/sell">Sell to us</Link><Link to="/terms">Terms</Link><Link to="/privacy">Privacy</Link></div>
+          <div><h4>Company</h4><Link to="/about">About us</Link><Link to="/sell">Sell to us</Link><Link to="/terms">Terms of purchase</Link><Link to="/terms#cancellations-returns-and-refunds">Returns & refunds</Link><Link to="/privacy">Privacy & choices</Link></div>
         </div>
         <div className="container footer-bottom">
           <span>© 2026 GoldOnTheSpot. All rights reserved.</span>

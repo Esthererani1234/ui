@@ -1,0 +1,7 @@
+.market-ticker .ticker-grid { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.market-update { display:flex; justify-content:flex-end; align-items:center; flex-wrap:wrap; gap:6px 12px; padding-top:5px; padding-bottom:7px; font-size:10px; color:#596e7b; }
+.market-status { display:inline-flex; align-items:center; gap:5px; color:var(--green); font-weight:700; }
+.market-status.error { color:var(--red); }
+.market-update time { font-variant-numeric:tabular-nums; }
+@media(max-width:1050px) { .market-ticker .ticker-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:600px) { .market-update { justify-content:center; } }

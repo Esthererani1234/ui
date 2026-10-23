@@ -2,7 +2,7 @@
 export const EMAIL_EVENTS = {
   placed: ['Order received', 'We have your order.', 'Thank you for choosing Gold On The Spot. Your order has been recorded. Payment must be confirmed before fulfillment begins.'],
   awaiting_payment: ['Awaiting payment', 'Your order is awaiting payment.', 'Open your order to review the payment instructions and deadline. We will email you again once payment is confirmed.'],
-  wire_instructions: ['Wire payment instructions', 'Please send your wire payment.', 'Please send a bank wire for the exact USD amount below and include your payment reference. Do not send an ACH transfer.'],
+  wire_instructions: ['Order received — Wire payment instructions', 'Thank you. We received your order.', 'Please send a bank wire for the exact USD amount below and include your payment reference. Do not send an ACH transfer. Your payment is still awaiting confirmation.'],
   paid: ['Payment received', 'Thank you. Payment received.', 'Your payment has been confirmed. We will keep you updated as your order moves through review, preparation, and shipping.'],
   processing: ['Preparing your order', 'Your order is being prepared.', 'Our team is preparing your precious metals for shipment. We will send another update when your order ships.'],
   shipped: ['Order shipped', 'Your order is on its way.', 'Your order has been marked shipped. Review the tracking details below and open your order for the latest information.'],
@@ -23,10 +23,11 @@ function imageUrl(value) {
 const paymentLabel = method => ({card:'Credit / debit card',wire:'Bank wire',crypto:'Cryptocurrency'}[method] || 'See order details');
 function renderWireInstructions(order, wire) {
   const invalid = () => Object.assign(new Error('Complete wire instructions are required'), {code:'wire_instructions_unavailable'});
-  const required = ['bank_name','beneficiary_name','routing_number','account_number','bank_address'];
+  const required = ['bank_name','beneficiary_name','routing_number','account_number'];
   if (!wire || required.some(key => typeof wire[key] !== 'string' || !wire[key].trim()) ||
       !/^\d{9}$/.test(wire.routing_number) || !/^\d{4,34}$/.test(wire.account_number) ||
-      (wire.swift_code != null && typeof wire.swift_code !== 'string')) throw invalid();
+      (wire.swift_code != null && typeof wire.swift_code !== 'string') ||
+      (wire.bank_address != null && typeof wire.bank_address !== 'string')) throw invalid();
   const total = String(order.total ?? '');
   const reference = order.payment_reference || order.order_number;
   const due = new Date(order.payment_due_at);
@@ -40,7 +41,7 @@ function renderWireInstructions(order, wire) {
     ['Bank', wire.bank_name], ['Beneficiary', wire.beneficiary_name],
     ['Domestic wire ABA routing number', wire.routing_number], ['Account number', wire.account_number],
     ...(wire.swift_code?.trim() ? [['SWIFT / BIC (international wires only)', wire.swift_code]] : []),
-    ['Bank address', wire.bank_address],
+    ...(wire.bank_address?.trim() ? [['Bank address', wire.bank_address]] : []),
   ];
   const security = 'Before sending funds, sign in to your account at goldonthespot.com and verify these bank details, the amount, reference, and deadline against your order. If anything differs, contact customer care through your signed-in account before sending. Do not act on emailed requests to change bank details.';
   const timing = 'Ask your bank to send a wire, not ACH, and include the payment reference exactly as shown. This email is a payment request, not confirmation of payment or a guarantee of delivery. Your account shows the latest order status.';

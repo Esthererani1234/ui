@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Headphones, Package, ShieldCheck, UserRound } from "lucide-react";
+import { Coins, Headphones, Package, ShieldCheck, UserRound } from "lucide-react";
 import "../styles/customerNavigation.css";
 
 const links = [
@@ -7,6 +7,7 @@ const links = [
   ["profile", "/account?tab=profile", UserRound, "Profile"],
   ["security", "/account?tab=security", ShieldCheck, "Security"],
   ["support", "/support", Headphones, "Support tickets"],
+  ["selling", "/selling-centre", Coins, "Selling Centre"],
 ];
 
 export default function CustomerAccountNav({ active = "orders" }) {

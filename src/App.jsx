@@ -17,6 +17,7 @@ const AdminPage = lazy(() => import("./pages/AdminPage"));
 const InfoPage = lazy(() => import("./pages/InfoPage"));
 const SupportPage = lazy(() => import("./pages/SupportPage"));
 const SellPage = lazy(() => import("./pages/SellPage"));
+const SellingCentrePage = lazy(() => import("./pages/SellingCentrePage"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 
 function PreviewGate({children}){
@@ -71,6 +72,7 @@ export default function App() {
           <Route path="privacy" element={<InfoPage type="privacy" />} />
           <Route path="support" element={<PreviewGate><SupportPage /></PreviewGate>} />
           <Route path="sell" element={<SellPage />} />
+          <Route path="selling-centre" element={<PreviewGate><Guard><SellingCentrePage /></Guard></PreviewGate>} />
           <Route path="sell-to-us" element={<Navigate to="/sell" replace />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>

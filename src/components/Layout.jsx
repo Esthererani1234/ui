@@ -47,7 +47,7 @@ export default function Layout() {
   }, [lastAdded]);
   useEffect(() => {
     const titles = { "/": "GoldOnTheSpot | Precious Metals, Priced Right", "/shop": "Shop Live-Priced Bullion | GoldOnTheSpot", "/cart": "Shopping Cart | GoldOnTheSpot", "/checkout": "Secure Checkout | GoldOnTheSpot", "/login": "Customer Sign In | GoldOnTheSpot", "/verify-phone": "SMS Verification | GoldOnTheSpot", "/account": "Your Account | GoldOnTheSpot", "/support": "Customer Support | GoldOnTheSpot", "/shipping": "Shipping & Insurance | GoldOnTheSpot", "/terms": "Terms & Conditions | GoldOnTheSpot", "/privacy": "Privacy Policy | GoldOnTheSpot", "/about": "About GoldOnTheSpot" };
-    document.title = location.pathname === "/sell" ? "Sell Gold, Silver, Platinum & Palladium | GoldOnTheSpot" : location.pathname.startsWith("/product/") ? "Bullion Product | GoldOnTheSpot" : titles[location.pathname] || "GoldOnTheSpot";
+    document.title = location.pathname === "/selling-centre" ? "Your Selling Centre | GoldOnTheSpot" : location.pathname === "/sell" ? "Sell Gold, Silver, Platinum & Palladium | GoldOnTheSpot" : location.pathname.startsWith("/product/") ? "Bullion Product | GoldOnTheSpot" : titles[location.pathname] || "GoldOnTheSpot";
   }, [location.pathname]);
   useEffect(() => {
     supabase

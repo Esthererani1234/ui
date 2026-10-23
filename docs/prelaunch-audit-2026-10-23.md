@@ -131,4 +131,14 @@ Previous known-ready production deployment: `dpl_ETkweztMHhPVF8SFwfnF3xLdegX7`, 
 
 Keep Silver Maple inactive during rollback; the bad premium must not return to sale. Do not undo the corrected Gold Eagle specification. Do not replay financial events or change payment state based on browser redirects. Reconcile canonical provider records before fulfillment.
 
-Deployment verification is recorded separately after the release reaches READY. This report remains **NO-GO** until the open gates have actual evidence of completion.
+## Completed deployment verification
+
+PR58 merged into main as `5e03484a74088c9e690e68a159ffe58600531fa6`. Production deployment `dpl_7cH63oobCcDoKKWHR5VSwUp1HcUU` reached **READY** and is aliased to goldonthespot.com and www.goldonthespot.com. Both PR and main CI checks passed. Supabase migration `20261023044029` and `sell-case-thread` version 1 are active.
+
+Post-deployment Chromium checks loaded the production assets and public data: new homepage heading, decoded hero image, desktop/mobile header, actual timestamp (`Updated Oct 23, 2026 · 12:56 AM EDT`), Selling Centre login redirect, terms and privacy controls all passed. No uncaught page errors or browser console errors were recorded. Transport used read-only curl-backed browser routing; non-GET requests were intercepted, so this was not a live account/payment transaction. An initial test used an obsolete hero-image selector; it was corrected to the existing `.home-hero-product-image img` and the live test reran successfully.
+
+Post-deployment unauthenticated quote, checkout, wire-instruction, bank-settings and admin-health requests returned **401**. A forged unsigned Stripe notification returned **400**. Deployment-scoped runtime logs showed five expected rejection records at the probe timestamps, with generic codes and no secret values; these are deliberate negative tests, not successful customer transactions. This short observation window does not establish long-term production reliability.
+
+Existing CSP, HSTS, nosniff, frame protection, referrer and permissions policies were preserved. Supabase SPA session tokens remain in browser-managed storage; no claim of an HttpOnly-cookie migration is made. Continue treating XSS prevention and Auth-level recovery as important controls.
+
+Full evidence and before/after files are versioned with the report. The production code has a documented rollback deployment. The final recommendation remains **NO-GO** until the open gates have actual evidence of completion.

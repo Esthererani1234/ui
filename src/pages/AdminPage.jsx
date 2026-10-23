@@ -39,6 +39,7 @@ import {
 import TrafficAnalyticsPanel from "../components/admin/TrafficAnalyticsPanel";
 import OrderStatus from "../components/OrderStatus";
 import SupportAdminPanel from "../components/admin/SupportAdminPanel";
+import SellAdminPanel from "../components/admin/SellAdminPanel";
 
 const blankProduct = {
   name: "",
@@ -73,6 +74,7 @@ const tabTitles = {
   sales: "Sales reporting",
   traffic: "Storefront traffic",
   support: "Customer support",
+  sell: "Sell requests",
   customers: "Customer operations",
   risk: "Fraud & risk center",
   security: "Security controls",
@@ -481,6 +483,12 @@ export default function AdminPage() {
             <Activity /> Traffic
           </button>
           <button
+            className={tab === "sell" ? "active" : ""}
+            onClick={() => setTab("sell")}
+          >
+            <DollarSign /> Sell requests
+          </button>
+          <button
             className={tab === "support" ? "active" : ""}
             onClick={() => setTab("support")}
           >
@@ -820,6 +828,7 @@ export default function AdminPage() {
         {tab === "sales" && <SalesAdminPanel />}
         {tab === "traffic" && <TrafficAnalyticsPanel />}
         {tab === "support" && <SupportAdminPanel />}
+        {tab === "sell" && <SellAdminPanel />}
         {tab === "customers" && <CustomerAdminPanel />}
         {tab === "risk" && <RiskAdminPanel />}
         {tab === "security" && <SecurityAdminPanel />}

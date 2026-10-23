@@ -68,13 +68,27 @@ test('shipping address supports stored and legacy field names with HTML escaping
   }
 });
 test('incomplete bank or invalid amount/reference/deadline cannot render a wire request',()=>{
-  for(const field of ['bank_name','beneficiary_name','routing_number','account_number','bank_address']){
+  for(const field of ['bank_name','beneficiary_name','routing_number','account_number']){
     const value=sample();value.wire[field]=' ';assert.throws(()=>render(value),{code:'wire_instructions_unavailable'});
   }
   for(const wire of [undefined,null,{},'secret', {...bank,routing_number:'123'}, {...bank,account_number:'123'}, {...bank,swift_code:{}}]) assert.throws(()=>render({...sample(),wire}),{code:'wire_instructions_unavailable'});
   for(const total of [undefined,null,'',0,-1,'NaN',Infinity,'4160.009']){const value=sample();value.order.total=total;assert.throws(()=>render(value),{code:'wire_instructions_unavailable'});}
   for(const due of [undefined,null,'','invalid','2099-01-01','2099-01-01T12:00:00']){const value=sample();value.order.payment_due_at=due;assert.throws(()=>render(value),{code:'wire_instructions_unavailable'});}
   const value=sample();value.order.payment_reference=' ';assert.throws(()=>render(value),{code:'wire_instructions_unavailable'});
+});
+
+test('domestic wire receipt sends without optional bank address and preserves required bank fields',()=>{
+  for(const address of [undefined,null,'',' ']){
+    const value=sample();value.wire.bank_address=address;
+    const mail=render(value);
+    assert.match(mail.subject,/Order received/);
+    assert.match(mail.text,/Thank you/);
+    assert.ok(!mail.text.includes('Bank address:'));
+    assert.match(mail.text,/021000021/);
+    assert.match(mail.text,/000012345678/);
+  }
+  const value=sample();value.wire.bank_address={};
+  assert.throws(()=>render(value),{code:'wire_instructions_unavailable'});
 });
 
 function fixture(overrides={}) {
@@ -119,8 +133,14 @@ test('worker uses only secret RPC bank data and persists before sending',async()
   assert.deepEqual(f.calls,['claim_order_emails','read_order','get_wire_instructions_secret','persist_message','send','update_sent']);
   assert.equal(f.requests.length,1);assert.ok(!f.requests[0].message.html.includes('ATTACKER BANK'));assert.deepEqual(f.requests[0].message.to,['verified@example.test']);assert.equal(f.requests[0].key,'gots-order-fixture-wire');
 });
+test('account alerts use the durable delivery path without accessing order or bank details',async()=>{
+  const f=fixture();f.job.account_user_id='fixture-user';f.job.order_id=null;f.job.event_type='account_password_changed';f.job.order_snapshot={occurred_at:'2026-10-23T14:00:00Z'};
+  assert.deepEqual(await f.run(),{enabled:true,sent:1,failed:0});
+  assert.ok(!f.calls.includes('read_order'));assert.ok(!f.calls.includes('get_wire_instructions_secret'));
+  assert.match(f.requests[0].message.subject,/password was changed/);
+});
 test('missing/malformed/partial bank configuration or RPC failure retries without preparing or sending',async()=>{
-  for(const overrides of [{bank:null},{bank:'not json'},{bank:{}},{bank:{...bank,bank_address:''}},{bankError:new Error('SECRET DETAILS')}]){
+  for(const overrides of [{bank:null},{bank:'not json'},{bank:{}},{bank:{...bank,account_number:''}},{bankError:new Error('SECRET DETAILS')}]){
     const f=fixture(overrides);const result=await f.run();assert.equal(result.failed,1);assert.equal(f.job.status,'pending');assert.equal(f.job.last_error,'wire_instructions_unavailable');assert.equal(f.job.message,null);assert.equal(f.requests.length,0);assert.ok(!f.calls.includes('persist_message'));
   }
   const f=fixture({bank:null});f.job.attempts=10;await f.run();assert.equal(f.job.status,'failed');

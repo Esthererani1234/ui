@@ -14,6 +14,7 @@
     "check:support": "node --test scripts/check-support.mjs scripts/check-support-edge.mjs scripts/check-sell.mjs scripts/check-selling-conversation.mjs scripts/check-market-status.mjs scripts/check-support-photos.mjs"
   },
   "dependencies": {
+    "@pdf-lib/fontkit": "1.1.1",
     "@stripe/react-stripe-js": "^6.8.1",
     "@stripe/stripe-js": "^9.13.0",
     "@supabase/supabase-js": "2.110.6",

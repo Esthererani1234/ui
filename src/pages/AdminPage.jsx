@@ -74,7 +74,7 @@ const tabTitles = {
   sales: "Sales reporting",
   traffic: "Storefront traffic",
   support: "Customer support",
-  sell: "Sell requests",
+  sell: "Selling Centre",
   customers: "Customer operations",
   risk: "Fraud & risk center",
   security: "Security controls",
@@ -486,7 +486,7 @@ export default function AdminPage() {
             className={tab === "sell" ? "active" : ""}
             onClick={() => setTab("sell")}
           >
-            <DollarSign /> Sell requests
+            <DollarSign /> Selling Centre
           </button>
           <button
             className={tab === "support" ? "active" : ""}

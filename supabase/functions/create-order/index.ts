@@ -142,7 +142,7 @@ Deno.serve(async (request: Request) => {
       || (address.address_line_2 !== undefined && (typeof address.address_line_2 !== "string" || address.address_line_2.length>160)))
       return json(request,{error:"Enter complete contact details and a valid US delivery address."},400);
     const terms = body.terms && typeof body.terms === "object" ? body.terms as Record<string, unknown> : {};
-    if (terms.accepted !== true || terms.version !== "2026-10-22")
+    if (terms.accepted !== true || !["2026-10-22", "2026-10-22-v2"].includes(String(terms.version)))
       return json(request, { error: "Accept the current Terms of Purchase before placing the order." }, 400);
     if (requestedPaymentMethod === "wire" && !validWireAgreement(body.wire_agreement))
       return json(request, { error: "Accept the bank-wire purchase agreement before continuing." }, 400);

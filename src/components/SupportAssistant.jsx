@@ -10,7 +10,7 @@ export default function SupportAssistant() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [messages, setMessages] = useState([{ role: "assistant", text: "Hi—I’m the private Gold Assistant. I can explain live pricing, products, payment, shipping, accounts, and order support.", links: [] }]);
+  const [messages, setMessages] = useState([{ role: "assistant", text: "Hi—I’m the Gold Assistant. I can explain live pricing, products, payment, shipping, accounts, and order support.", links: [] }]);
   const logRef = useRef(null);
 
   useEffect(() => setOpen(false), [location.pathname]);
@@ -39,11 +39,11 @@ export default function SupportAssistant() {
   return <>
     <button className="assistant-launcher" onClick={() => setOpen((value) => !value)} aria-label={open ? "Close Gold Assistant" : "Open Gold Assistant"} aria-expanded={open}><Sparkles /><span>Ask Gold Assistant</span></button>
     {open && <section className="assistant-panel" aria-label="Gold Assistant" role="dialog">
-      <header><span><Bot /><b>Gold Assistant</b><small>Live product guidance • private session</small></span><button onClick={() => setOpen(false)} aria-label="Close assistant"><X /></button></header>
+      <header><span><Bot /><b>Gold Assistant</b><small>Product guidance • AI-assisted</small></span><button onClick={() => setOpen(false)} aria-label="Close assistant"><X /></button></header>
       <div className="assistant-log" ref={logRef} aria-live="polite">{messages.map((message, index) => <div className={`assistant-message ${message.role}${message.pending ? " pending" : ""}`} key={message.id || `${message.role}-${index}`}><p>{message.text}</p>{message.links?.length > 0 && <div>{message.links.map((link) => <Link key={`${link.to}-${link.label}`} to={link.to}>{link.label} →</Link>)}</div>}</div>)}</div>
       {messages.length === 1 && <div className="assistant-prompts">{prompts.map((prompt) => <button key={prompt} onClick={() => ask(prompt)}>{prompt}</button>)}</div>}
       <form onSubmit={(event) => { event.preventDefault(); ask(input); }}><input value={input} onChange={(event) => setInput(event.target.value)} maxLength="800" placeholder="Ask a detailed product or order question…" aria-label="Ask Gold Assistant" disabled={busy} /><button disabled={busy || !input.trim()} aria-label="Send question"><Send /></button></form>
-      <footer>Never share passwords, verification codes, card numbers, or bank credentials in chat.</footer>
+      <footer>Never share passwords, verification codes, card numbers, or bank credentials in chat. <Link to="/privacy#assistant-and-support-conversations">How chat information is used</Link>.</footer>
     </section>}
   </>;
 }

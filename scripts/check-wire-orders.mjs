@@ -1,6 +1,6 @@
 import {test,before,after} from 'node:test';
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
+import {readFile,readdir} from 'node:fs/promises';
 import {PGlite} from '@electric-sql/pglite';
 let db;const U='10000000-0000-4000-8000-000000000001';
 import {WIRE_AGREEMENT_TEXT,WIRE_AGREEMENT_VERSION,validWireAgreement} from '../supabase/functions/_shared/wireAgreement.js';
@@ -46,6 +46,8 @@ before(async()=>{
  await db.exec(guards.slice(0,guards.indexOf('create or replace function public.admin_update_order')));
  await db.exec('create trigger guard_inflight before update on orders for each row execute function private.guard_inflight_payment()');
  await db.exec(await read('../supabase/migrations/20261022214403_wire_agreement_and_reliable_instructions.sql'));
+ const termsMigration=(await readdir(new URL('../supabase/migrations/',import.meta.url))).find(name=>name.endsWith('_versioned_purchase_terms.sql'));
+ await db.exec(await read('../supabase/migrations/'+termsMigration));
 });
 after(()=>db?.close());
 const scalar=async(q,p=[])=>Object.values((await db.query(q,p)).rows[0])[0];
@@ -55,8 +57,18 @@ const contact={first_name:'Test',last_name:'Only',email:'verified@example.test',
 const shipping={address_line_1:'1 Test Street',city:'New York',state:'NY',postal_code:'10001'};
 const agreement={accepted:true,version:WIRE_AGREEMENT_VERSION};
 const quote=()=>scalar('select create_checkout_quote($1,$2,$3)',[U,[{product_id:1,quantity:1}],{}]);
-const place=(q,method='wire',agree=agreement)=>scalar('select place_checkout_order($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',[U,q.quote_id,contact,shipping,method,null,{accepted:true,version:'2026-10-22'},agree,'fixture-agent',null]);
+const place=(q,method='wire',agree=agreement,version='2026-10-22')=>scalar('select place_checkout_order($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',[U,q.quote_id,contact,shipping,method,null,{accepted:true,version},agree,'fixture-agent',null]);
 const accept=(id,user=U,agree=agreement)=>scalar('select accept_wire_order($1,$2,$3)',[id,user,agree]);
+test('revised purchase terms are recorded for card and wire without rewriting on replay',()=>tx(async()=>{
+ for(const method of ['card','wire']) {
+   const q=await quote(),o=await place(q,method,method==='wire'?agreement:null,'2026-10-22-v2');
+   assert.equal(await scalar('select terms_version from orders where id=$1',[o.order_id]),'2026-10-22-v2');
+   if(method==='card') { await accept(o.order_id); assert.equal(await scalar('select terms_version from orders where id=$1',[o.order_id]),'2026-10-22-v2'); }
+   await place(q,method,method==='wire'?agreement:null,'2026-10-22');
+   assert.equal(await scalar('select terms_version from orders where id=$1',[o.order_id]),'2026-10-22-v2');
+ }
+ const q=await quote();await rejects(()=>place(q,'card',null,'unknown'),/Terms of Purchase/);
+}));
 test('wire order records exact version/text/total and queues verified-recipient email atomically',()=>tx(async()=>{
  const q=await quote(),o=await place(q);
  const row=(await db.query('select * from orders where id=$1',[o.order_id])).rows[0];

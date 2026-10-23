@@ -1,4 +1,6 @@
 import {WIRE_AGREEMENT_TEXT, WIRE_AGREEMENT_VERSION} from "../../supabase/functions/_shared/wireAgreement.js";
+import { TERMS_VERSION } from '../lib/legalPolicies';
+import '../styles/legalPolicies.css';
 import {invokeFunction} from "../lib/functionRequest.js";
 import {estimateShipping} from "../lib/shipping";
 import {
@@ -554,7 +556,7 @@ export default function CheckoutPage() {
           },
           payment_method: form.paymentMethod,
           notes: form.notes.trim(),
-          terms: { accepted: true, version: "2026-10-22" },
+          terms: { accepted: true, version: TERMS_VERSION },
           ...(form.paymentMethod === "wire" ? {wire_agreement: {accepted: form.wireAgree, version: WIRE_AGREEMENT_VERSION}} : {}),
       });
 
@@ -815,6 +817,7 @@ export default function CheckoutPage() {
             </span>
           </div>
 
+          <p className="checkout-policy-notice">Bullion purchases are market transactions. No change-of-mind returns after acceptance; rights for incorrect, damaged, or undelivered goods remain. Read our <Link to="/terms#cancellations-returns-and-refunds" target="_blank" rel="noopener">cancellation & refund policy</Link> and <Link to="/shipping" target="_blank" rel="noopener">shipping policy</Link> before entering payment details.</p>
           <fieldset disabled={Boolean(orderInfo)}>
             <legend>1. Contact</legend>
             <div className="form-row">
@@ -1049,7 +1052,7 @@ export default function CheckoutPage() {
                 setForm({ ...form, agree: event.target.checked })
               }
             />
-            <span>I agree to the <Link to="/terms">Terms of Purchase</Link>. I
+            <span>I agree to the <Link to={`/terms?version=${TERMS_VERSION}`} target="_blank" rel="noopener">Terms of Purchase</Link>. I
             understand this bullion order is a binding purchase obligation
             at the currently displayed locked total of{" "}
             <b>{money(displayedTotal)}</b>, subject to GoldOnTheSpot

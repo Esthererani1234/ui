@@ -1,13 +1,8 @@
-ℹ tests 9
-ℹ pass 9
-ℹ fail 0
-ℹ tests 126
-ℹ pass 126
-ℹ fail 0
-ℹ tests 36
-ℹ pass 36
-ℹ fail 0
-ℹ tests 30
-ℹ pass 30
-ℹ fail 0
-✓ built in 454ms
+Final npm run check: exit 0
+Search checks passed
+Signup: 9 passed
+Security/API/database: 126 passed
+Email: 36 passed
+Support/selling/market: 32 passed
+Total: 203 passed, 0 failed
+Production build: passed (405 ms)

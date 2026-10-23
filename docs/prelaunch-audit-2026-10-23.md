@@ -15,6 +15,7 @@ Inspected the existing React/Vite storefront, Vercel API handlers, Supabase Auth
 | High | Custom SMS recovery does not enforce SMS at every native Supabase Auth password-update path. | **Open launch blocker.** Existing custom reset grant is one-time and SMS-bound, but it does not close direct Auth recovery/update. Requires supported Auth-level MFA design and tested enrollment/migration. No security check was disabled; no paid plan was purchased. |
 | High | Full provider acceptance testing is unavailable without an isolated database and Stripe sandbox. Manual capture is configured off. | **Open launch blocker.** Test card success, decline, 3DS, expiry during 3DS, lost response, duplicate webhooks, refunds and cancellations. Existing automatic-capture late-settlement risk remains. No live charges/refunds were used as tests. |
 | High | Backup retention, isolated restore and external alert delivery are not demonstrated. | **Open launch blocker.** Existing operations dashboard and reconciliation are useful but are not a tested recovery plan or external paging. Confirm current plan, protected storage backups and credentials, recovery targets, isolated restore results and alert destination. |
+| High | Server-side checkout accepted a provider price without checking its observation timestamp. | **Fixed:** quote creation and card repricing reject missing/invalid, older-than-two-minute or implausibly future timestamps with a clean 503. A closed/stalled feed can suspend new quotes until it updates; the browser clock is not consulted. |
 | Medium | Public metal-price caching allowed a full day of stale responses, and old timestamps could be presented as live. | **Fixed:** bounded cache windows in both API and Vercel configuration, provider/client timeouts, oldest component timestamp, explicit missing/stale/error states, no fabricated update time. Server quote calculations remain authoritative. |
 | Medium | Homepage catalog-fetch failure was liable to appear as an empty catalog. | **Fixed:** visible failure and retry; retained cached products remain useful. |
 | Medium | Selling cases lacked private ongoing correspondence and photographs. | **Implemented:** separate customer/admin conversation, owner-bound API, private photos, temporary links, upload/message limits, audited admin replies, request deduplication and retained retry drafts. Browser and database/handler tests passed; live authenticated owner acceptance remains required. |
@@ -48,6 +49,7 @@ Primary references inspected: US Mint bullion program and 2020 announcement of t
 
 | Files / data | Changes |
 | --- | --- |
+| `server/lib/quotes.js` | Server-enforced source freshness for checkout/repricing, uncached retrieval and sanitized snapshot error logging. |
 | `api/metals.js`, `vercel.json` | GET-only quote endpoint, bounded cache, provider timeouts, conservative timestamp, generic error response. |
 | `src/lib/marketPrices.js`, `src/lib/marketStatus.js`, `src/components/MarketTicker.jsx`, `src/styles/marketTimestamp.css` | Client timeout, freshness classification, actual Eastern date/12-hour time, tabular prices and compact status treatment. |
 | `src/pages/HomePage.jsx`, `src/styles/storefrontPolish.css` | Existing hero refinement, clear buy/sell actions, catalog error/retry, qualified trust copy, reduced motion. |
@@ -55,7 +57,7 @@ Primary references inspected: US Mint bullion program and 2020 announcement of t
 | `src/components/SellingConversation.jsx`, `src/styles/sellingConversation.css` | Per-case drafts, retry IDs, pagination, loading/errors, photos, private-link refresh, responsive thread. |
 | `supabase/functions/sell-case-thread/index.ts` | Verified session/role/ownership, strict payloads, bounded uploads, private storage access, safe errors and rate limits. |
 | `supabase/migrations/20261023044029_selling_case_conversations.sql` | Private conversation table, service-only atomic append RPC, audit records and private photo bucket. Applied in production. |
-| `scripts/check-market-status.mjs`, `scripts/check-selling-conversation.mjs`, `package.json` | Eight new automated tests included in the regular checks. |
+| `scripts/check-market-status.mjs`, `scripts/check-selling-conversation.mjs`, `package.json` | Ten new automated tests included in the regular checks. |
 | Production `products` / `admin_audit_log` | Quarantined product 18 and corrected product 14 description, each with an audit entry. No orders/prices already recorded on orders changed. |
 | `docs/prelaunch-2026-10-23/` and this report | Browser evidence, dependency/asset checks and before/after captures. |
 
@@ -83,7 +85,7 @@ Admin browser fixtures verify tracking-only saves, visible server rejection, ret
 
 | Test | Actual result / boundary |
 | --- | --- |
-| `npm run check` | **PASS:** search checks, 9 signup + 126 security/API/database + 36 email + 30 support/selling/market tests = **201**; production build passed. |
+| `npm run check` | **PASS:** search checks, 9 signup + 126 security/API/database + 36 email + 32 support/selling/market tests = **203**; production build passed. |
 | Final build after homepage copy refinement | **PASS.** |
 | `npm audit --omit=dev --json` | **0 reported production vulnerabilities** at execution. This is known-advisory coverage, not a guarantee of dependency safety. No unnecessary upgrades. |
 | Client source + built assets secret-pattern scan | No Stripe secret, Supabase secret-key or private-key pattern found. Public publishable key is intentional. Not a full-history forensic secret audit. |
@@ -96,7 +98,7 @@ Admin browser fixtures verify tracking-only saves, visible server rejection, ret
 | Wire checkout browser fixture | PASS explicit consent, server error and retained form, instruction presentation, verified-phone preservation, mobile/desktop; no production order. |
 | Admin order browser fixture | PASS tracking, failed save/retry, cancellation, paid/approved shipping and mobile save. An obsolete test selector initially failed; updated it to the existing “Manage order” label and reran successfully. |
 | Storefront/support/bank browser fixture | PASS catalog/product failure recovery, image fallback/gallery, empty states, mobile query navigation, support drafts, bank HTTP/network/malformed failures, retry, save protection, sensitive-field clearing and mobile fit. |
-| Production database/Edge probes | Private table/RPC/bucket permissions confirmed; anonymous conversation request denied 401. No authenticated production conversation was sent. |
+| Production database/Edge probes | Private table/RPC/bucket permissions confirmed; anonymous conversation request denied 401. Unauthenticated quote, checkout, wire-instruction, bank-settings and operations-health requests returned 401; unsigned forged Stripe webhook returned 400. No authenticated production conversation was sent. |
 | Real card/crypto/check settlement; live OTP/inbox delivery; full restore; field CWV | **NOT EXECUTED / NOT CERTIFIED.** Requires the isolated environments, owner-controlled identity and business decisions below. |
 
 Browser tests used Chromium and controlled fixtures/replayed public reads. They are not Safari/iOS/Android physical-device tests or a keyboard-overlay accessibility audit. A complete real customer journey remains a launch gate. No performance score or blanket “all bugs fixed” claim is made.

@@ -3,11 +3,17 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=24.22.1 <25"
+  },
   "scripts": {
+    "check:runtime": "node scripts/check-node-runtime.mjs",
+    "predev": "npm run check:runtime",
+    "prebuild": "npm run check:runtime",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "check": "npm run check:search && node --test scripts/check-signup.mjs && npm run check:security && npm run check:emails && npm run check:support && npm run build",
+    "check": "npm run check:runtime && node --test scripts/check-node-runtime.test.mjs && npm run check:search && node --test scripts/check-signup.mjs && npm run check:security && npm run check:emails && npm run check:support && npm run build",
     "check:search": "node scripts/check-product-search.mjs",
     "check:security": "node --test scripts/check-security-api.mjs scripts/check-security-db.mjs scripts/check-sms-phone.mjs scripts/check-card-capture.mjs scripts/check-launch-api.mjs scripts/check-shipping.mjs scripts/check-payment-maximums.mjs scripts/check-payment-maximums-edge.mjs scripts/check-deployment-safety.mjs scripts/check-wire-orders.mjs scripts/check-wire-api.mjs scripts/check-payment-recovery-db.mjs scripts/check-payment-recovery.mjs",
     "check:emails": "node --test scripts/check-order-emails.mjs scripts/check-order-email-api.mjs scripts/check-wire-email.mjs",

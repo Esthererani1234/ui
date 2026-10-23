@@ -1,0 +1,10 @@
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import InvoiceDownload from '../../src/components/InvoiceDownload';
+import SupportAttachments from '../../src/components/SupportAttachments';
+import SellingConversation from '../../src/components/SellingConversation';
+import {supabase} from '../../src/lib/supabase';
+supabase.auth.getSession=async()=>({data:{session:{access_token:'fixture-only'}}});
+Object.defineProperty(supabase,'functions',{value:{invoke:async(name,{body})=>{window.fixtureCalls.push({name,body});return {data:body.action==='read'?{messages:[],has_more:false}:{message:{id:'fixture'}}}}}});
+window.fixtureCalls=[];
+createRoot(document.getElementById('root')).render(<main><InvoiceDownload order={{id:1,order_number:'G-100001'}}/><SupportAttachments caseId={1}/><SellingConversation caseId="20000000-0000-4000-8000-000000000001"/></main>);

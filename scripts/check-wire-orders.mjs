@@ -48,6 +48,8 @@ before(async()=>{
  await db.exec(await read('../supabase/migrations/20261022214403_wire_agreement_and_reliable_instructions.sql'));
  const termsMigration=(await readdir(new URL('../supabase/migrations/',import.meta.url))).find(name=>name.endsWith('_versioned_purchase_terms.sql'));
  await db.exec(await read('../supabase/migrations/'+termsMigration));
+ const numberMigration=(await readdir(new URL('../supabase/migrations/',import.meta.url))).find(name=>name.endsWith('_short_order_numbers.sql'));
+ await db.exec(await read('../supabase/migrations/'+numberMigration));
 });
 after(()=>db?.close());
 const scalar=async(q,p=[])=>Object.values((await db.query(q,p)).rows[0])[0];
@@ -58,6 +60,17 @@ const shipping={address_line_1:'1 Test Street',city:'New York',state:'NY',postal
 const agreement={accepted:true,version:WIRE_AGREEMENT_VERSION};
 const quote=()=>scalar('select create_checkout_quote($1,$2,$3)',[U,[{product_id:1,quantity:1}],{}]);
 const place=(q,method='wire',agree=agreement,version='2026-10-22')=>scalar('select place_checkout_order($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',[U,q.quote_id,contact,shipping,method,null,{accepted:true,version},agree,'fixture-agent',null]);
+
+test('short order numbers are unique and wire references match without a repeated brand',()=>tx(async()=>{
+ const first=await place(await quote());const second=await place(await quote());
+ assert.match(first.order_number,/^G-\d{6,}$/);assert.notEqual(first.order_number,second.order_number);
+ assert.equal(first.reference,first.order_number);assert.equal(second.reference,second.order_number);
+ assert.equal(await scalar('select order_number from orders where id=$1',[first.order_id]),first.order_number);
+ for(const role of ['anon','authenticated']){
+  assert.equal(await scalar(`select has_sequence_privilege('${role}','private.customer_order_numbers','USAGE')`),false);
+  assert.equal(await scalar(`select has_function_privilege('${role}','private.next_customer_order_number()','EXECUTE')`),false);
+ }
+}));
 const accept=(id,user=U,agree=agreement)=>scalar('select accept_wire_order($1,$2,$3)',[id,user,agree]);
 test('revised purchase terms are recorded for card and wire without rewriting on replay',()=>tx(async()=>{
  for(const method of ['card','wire']) {

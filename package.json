@@ -9,15 +9,16 @@
     "preview": "vite preview",
     "check": "npm run check:search && node --test scripts/check-signup.mjs && npm run check:security && npm run check:emails && npm run check:support && npm run build",
     "check:search": "node scripts/check-product-search.mjs",
-    "check:security": "node --test scripts/check-security-api.mjs scripts/check-security-db.mjs scripts/check-sms-phone.mjs scripts/check-card-capture.mjs scripts/check-launch-api.mjs scripts/check-shipping.mjs scripts/check-payment-maximums.mjs scripts/check-payment-maximums-edge.mjs scripts/check-deployment-safety.mjs scripts/check-wire-orders.mjs scripts/check-wire-api.mjs scripts/check-payment-recovery-db.mjs scripts/check-payment-recovery.mjs",
+    "check:security": "node --test scripts/check-security-api.mjs scripts/check-security-db.mjs scripts/check-sms-phone.mjs scripts/check-card-capture.mjs scripts/check-launch-api.mjs scripts/check-shipping.mjs scripts/check-payment-maximums.mjs scripts/check-payment-maximums-edge.mjs scripts/check-deployment-safety.mjs scripts/check-wire-orders.mjs scripts/check-wire-api.mjs scripts/check-invoices.mjs scripts/check-payment-recovery-db.mjs scripts/check-payment-recovery.mjs",
     "check:emails": "node --test scripts/check-order-emails.mjs scripts/check-order-email-api.mjs scripts/check-wire-email.mjs scripts/check-account-emails.mjs",
-    "check:support": "node --test scripts/check-support.mjs scripts/check-support-edge.mjs scripts/check-sell.mjs scripts/check-selling-conversation.mjs scripts/check-market-status.mjs"
+    "check:support": "node --test scripts/check-support.mjs scripts/check-support-edge.mjs scripts/check-sell.mjs scripts/check-selling-conversation.mjs scripts/check-market-status.mjs scripts/check-support-photos.mjs"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^6.8.1",
     "@stripe/stripe-js": "^9.13.0",
     "@supabase/supabase-js": "2.110.6",
     "lucide-react": "1.24.0",
+    "pdf-lib": "1.17.1",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "react-router-dom": "7.18.4",

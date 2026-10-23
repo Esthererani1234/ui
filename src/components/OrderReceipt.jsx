@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, Clock3, Headphones, MapPin, Package, Printer, RefreshCw, ShieldCheck, Truck } from "lucide-react";
 import { money, orderStatusLabel } from "../lib/pricing";
+import InvoiceDownload from './InvoiceDownload';
 
 function OrderPhoto({ src, name }) {
   const [failedSource, setFailedSource] = useState("");
@@ -46,7 +47,7 @@ export default function OrderReceipt({ order, checking, refreshing, error, onRef
     ["Shipped", ["shipped", "completed"].includes(order.status)], ["Delivered", order.status === "completed"],
   ];
   return <section className="order-receipt" aria-labelledby="receipt-title">
-    <div className="receipt-toolbar"><Link to="/account?tab=orders"><ArrowLeft /> All orders</Link><div><button type="button" className="text-button" disabled={refreshing} onClick={onRefresh}><RefreshCw /> {refreshing ? "Refreshing…" : "Refresh status"}</button><button type="button" className="text-button" onClick={() => window.print()}><Printer /> Print order</button></div></div>
+    <div className="receipt-toolbar"><Link to="/account?tab=orders"><ArrowLeft /> All orders</Link><div><InvoiceDownload order={order}/><button type="button" className="text-button" disabled={refreshing} onClick={onRefresh}><RefreshCw /> {refreshing ? "Refreshing…" : "Refresh status"}</button><button type="button" className="text-button" onClick={() => window.print()}><Printer /> Print order</button></div></div>
     <header className="receipt-heading"><div className={`receipt-confirmation-icon ${paid ? "paid" : ""}`}>{paid ? <CheckCircle2 /> : <Clock3 />}</div><div><span className="eyebrow dark">YOUR GOLDONTHESPOT ORDER</span><h1 id="receipt-title">{title}</h1><p>{description}</p><div className="receipt-reference"><b>{order.order_number}</b><span>Placed {new Date(order.created_at).toLocaleString()}</span></div></div></header>
     {error && <div className="form-message error" role="alert">{error}</div>}
     {order.status !== "cancelled" && !["refunded","disputed"].includes(order.payment_status) && <ol className="receipt-progress" aria-label="Order progress">{steps.map(([label, done]) => <li key={label} className={done ? "done" : ""}>{done ? <CheckCircle2 /> : <span className="receipt-step-dot" />}<span>{label}</span></li>)}</ol>}

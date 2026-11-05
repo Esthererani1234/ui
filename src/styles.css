@@ -37,7 +37,7 @@
 .support-contact-card [aria-invalid="true"] { border-color: var(--red); }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: auto; }
 body { margin: 0; min-width: 320px; background: var(--paper); }
 .skip-link { position: fixed; left: 12px; top: -60px; z-index: 120; padding: 10px 14px; color: #fff; background: var(--navy-950); border-radius: 3px; font-weight: 800; }
 .skip-link:focus { top: 12px; }

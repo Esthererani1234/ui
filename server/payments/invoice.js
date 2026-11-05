@@ -6,8 +6,9 @@ export default async function handler(req,res){
  try{
   const {user}=await authenticateCustomer(req,{requireSms:true});
   const id=Number(req.query.order_id);if(!Number.isSafeInteger(id)||id<1)return json(res,400,{error:'Invalid order'});
-  const order=await customerOrder(id,user.id);
+  // Count denied lookups too, before loading any order or rendering a PDF.
   await rateLimit(service(),'invoice_download',user.id,30,600);
+  const order=await customerOrder(id,user.id);
   const {data:items,error}=await service().from('order_items').select('product_name,sku,quantity,unit_price,line_total').eq('order_id',id).order('id');if(error)throw error;
   const {data:dates,error:dateError}=await service().from('orders').select('created_at').eq('id',id).eq('user_id',user.id).single();if(dateError)throw dateError;
   const pdf=await createOrderInvoice({...order,created_at:dates.created_at},items||[]);

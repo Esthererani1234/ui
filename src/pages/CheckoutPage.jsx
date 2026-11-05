@@ -482,14 +482,6 @@ export default function CheckoutPage() {
     0,
   );
 
-  if (
-    !items.length &&
-    !orderInfo &&
-    !(Number.isSafeInteger(resumeOrderId) && resumeOrderId > 0)
-  ) {
-    return <Navigate to="/cart" replace />;
-  }
-
   const shippingPayload = () => ({
     name: `${form.firstName.trim()} ${form.lastName.trim()}`.trim(),
     address: {
@@ -790,6 +782,14 @@ export default function CheckoutPage() {
     }),
     [pricing.card_total],
   );
+
+  if (
+    !items.length &&
+    !orderInfo &&
+    !(Number.isSafeInteger(resumeOrderId) && resumeOrderId > 0)
+  ) {
+    return <Navigate to="/cart" replace />;
+  }
 
   const timerClass = quoteRefreshing
     ? "refreshing"

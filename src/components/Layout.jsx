@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { CheckCircle2, Menu, ShieldCheck, ShoppingCart, User, X } from "lucide-react";
 import { useCart } from "../state/CartContext";
@@ -44,12 +44,20 @@ export default function Layout() {
   }, [menuOpen]);
 
   useEffect(() => {
+    // The router owns page positioning; browser history must not restore an old
+    // document offset after our route reset.
+    const previous = window.history.scrollRestoration;
+    window.history.scrollRestoration = "manual";
+    return () => { window.history.scrollRestoration = previous; };
+  }, []);
+
+  useLayoutEffect(() => {
     setMenuOpen(false);
     const query = new URLSearchParams(location.search);
     // Support deep links place focus at the conversation or new-request form.
-    if (location.pathname !== "/support" || (!query.get("ticket") && query.get("new") !== "1"))
-      window.scrollTo({ top: 0, behavior: "auto" });
-  }, [location.pathname, location.search]);
+    if (!location.hash && (location.pathname !== "/support" || (!query.get("ticket") && query.get("new") !== "1")))
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [location.key, location.pathname, location.search, location.hash]);
   useEffect(() => {
     const activeQuery =
       location.pathname === "/shop"

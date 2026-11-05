@@ -1,0 +1,34 @@
+import {useEffect,useRef,useState} from 'react';
+import {Star,CheckCircle2} from 'lucide-react';
+import {supabase,readOnlyPreview} from '../lib/supabase';
+import {invokeFunction} from '../lib/functionRequest';
+import preparePhoto from '../lib/preparePhoto';
+import ImageAttachmentButton from './ImageAttachmentButton';
+import '../styles/productReviews.css';
+const call=body=>invokeFunction(supabase,'product-reviews',body,{timeout:30000});
+function Stars({rating}){return <span className="review-stars" aria-label={`${rating} out of 5 stars`}>{[1,2,3,4,5].map(n=><Star key={n} size={16} fill={n<=rating?'currentColor':'none'} aria-hidden="true"/>)}</span>}
+export default function ProductReviews({productId}){
+ const [rows,setRows]=useState([]),[busy,setBusy]=useState(false),[error,setError]=useState(''),[more,setMore]=useState(false);const version=useRef(0);
+ async function load(append=false){const run=++version.current;setBusy(true);setError('');try{const data=await call({action:'list',product_id:productId,offset:append?rows.length:0});if(run!==version.current)return;setRows(old=>append?[...old,...data.reviews]:data.reviews);setMore(data.has_more);}catch(e){if(run===version.current)setError(e.message);}finally{if(run===version.current)setBusy(false)}}
+ useEffect(()=>{setRows([]);load();return()=>{version.current++}},[productId]);
+ return <section className="product-reviews" aria-label="Customer reviews"><header><div><span className="eyebrow dark">CUSTOMER EXPERIENCES</span><h2>Verified purchase reviews</h2><p>Reviews are available to customers after their paid order is marked delivered.</p></div><button type="button" className="text-button" disabled={busy} onClick={()=>load()}>Refresh reviews</button></header>
+ {error&&<p role="alert" className="form-message error">{error}</p>}{busy&&<p role="status">Loading reviews…</p>}{!busy&&!error&&!rows.length&&<p>No reviews yet. Purchased this item? Open your delivered order to share your experience.</p>}
+ {rows.map(row=><article className="product-review" key={row.id}><div><Stars rating={row.rating}/><small><CheckCircle2 size={14}/> Verified buyer · {new Date(row.created_at).toLocaleDateString('en-US')}</small></div><p>{row.body}</p><div className="review-images">{row.photos.map((url,index)=><a key={url} href={url} target="_blank" rel="noopener noreferrer"><img src={url} loading="lazy" alt={`Customer product photo ${index+1}`}/></a>)}</div></article>)}{more&&<button type="button" className="button button-outline" disabled={busy} onClick={()=>load(true)}>More reviews</button>}
+ </section>
+}
+function ReviewForm({item,onSaved}){
+ const [rating,setRating]=useState(0),[message,setMessage]=useState(''),[photos,setPhotos]=useState([]),[consent,setConsent]=useState(false),[busy,setBusy]=useState(false),[preparing,setPreparing]=useState(false),[error,setError]=useState('');const request=useRef(null),saving=useRef(false);
+ async function attach(event){const file=event.target.files?.[0];event.target.value='';if(!file||photos.length>=3||preparing)return;setPreparing(true);setError('');try{const data=await preparePhoto(file);setPhotos(old=>[...old,{id:crypto.randomUUID(),data}])}catch(e){setError(e.message)}finally{setPreparing(false)}}
+ async function submit(event){event.preventDefault();if(saving.current||preparing||readOnlyPreview)return;if(!rating||message.trim().length<20||!consent){setError('Select a rating, write at least 20 characters, and agree to public sharing.');return;}saving.current=true;setBusy(true);setError('');const payload={action:'submit',order_item_id:item.id,rating,message:message.trim(),photos:photos.map(p=>p.data),consent:'public-review-v1'};const signature=JSON.stringify(payload);if(request.current?.signature!==signature)request.current={signature,id:crypto.randomUUID()};try{await call({...payload,request_id:request.current.id});onSaved(item.id)}catch(e){setError(e.message)}finally{saving.current=false;setBusy(false)}}
+ return <form className="review-form" onSubmit={submit}><h3>{item.product_name}</h3><fieldset disabled={busy}><legend>Your rating</legend><div className="review-rating">{[1,2,3,4,5].map(n=><label key={n}><input type="radio" name={`rating-${item.id}`} value={n} checked={rating===n} onChange={()=>setRating(n)}/><span>{n} <Star size={15} fill={rating===n?'currentColor':'none'}/></span></label>)}</div></fieldset><label>Your experience<textarea rows={4} maxLength={2000} minLength={20} value={message} disabled={busy} onChange={e=>setMessage(e.target.value)} placeholder="Tell other buyers about the product and your experience."/></label>
+ <ImageAttachmentButton onChange={attach} disabled={busy||preparing||photos.length>=3||readOnlyPreview}/><small>Optional: up to 3 JPEG, PNG or WebP images, 10 MB each before resizing. Avoid faces, shipping labels, addresses or payment details.</small>
+ <div className="review-images">{photos.map(photo=><div key={photo.id}><img src={'data:image/jpeg;base64,'+photo.data} alt="Review image preview"/><button type="button" className="text-button" disabled={busy} onClick={()=>setPhotos(old=>old.filter(p=>p.id!==photo.id))}>Remove image</button></div>)}</div>
+ <label className="review-consent"><input type="checkbox" checked={consent} disabled={busy} onChange={e=>setConsent(e.target.checked)}/><span>I agree to publish my review and images on the product page as “Verified buyer.” I have permission to share these images and have removed personal information.</span></label>
+ {error&&<p role="alert" className="form-message error">{error}</p>}{preparing&&<p role="status">Preparing image…</p>}<button className="button button-gold" disabled={busy||preparing||readOnlyPreview}>{busy?'Publishing…':'Publish review'}</button></form>
+}
+export function OrderReviews({order}){
+ const [reviewed,setReviewed]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState('');const version=useRef(0);
+ async function load(){const run=++version.current;setLoading(true);setError('');try{const data=await call({action:'mine',order_id:order.id});if(run===version.current)setReviewed(data.reviewed)}catch(e){if(run===version.current)setError(e.message)}finally{if(run===version.current)setLoading(false)}}
+ useEffect(()=>{load();return()=>{version.current++}},[order.id]);
+ return <section className="receipt-panel product-reviews"><h2>Review your purchase</h2><p>Your order is delivered. Share an honest review of each item, with optional photos.</p>{loading?<p role="status">Loading your reviews…</p>:error?<><p role="alert">{error}</p><button className="text-button" onClick={load}>Retry</button></>:order.order_items?.map(item=>reviewed.includes(item.id)?<p role="status" key={item.id}><CheckCircle2 size={16}/> Review published for {item.product_name}.</p>:<ReviewForm key={item.id} item={item} onSaved={id=>setReviewed(old=>[...old,id])}/>)}</section>
+}

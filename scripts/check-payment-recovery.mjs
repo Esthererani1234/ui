@@ -10,7 +10,7 @@ import {readJson,readRaw,json,assertPayable} from '../server/lib/payments.js';
 
 // All provider and database calls are local fixtures. No network or credentials.
 const U='10000000-0000-4000-8000-000000000001',H=requestHash('ctoken_fixture');
-const order={id:1,user_id:U,total:100,order_number:'TEST',payment_method:'card',payment_status:'unpaid',status:'awaiting_payment',payment_provider:'stripe',provider_payment_id:null,price_locked_until:new Date(Date.now()+600000).toISOString()};
+const order={id:1,user_id:U,total:100,subtotal:100,order_number:'TEST',payment_method:'card',payment_status:'unpaid',status:'awaiting_payment',payment_provider:'stripe',provider_payment_id:null,price_locked_until:new Date(Date.now()+600000).toISOString()};
 const intent={id:'pi_recovery',object:'payment_intent',amount:10000,amount_received:10000,currency:'usd',status:'succeeded',capture_method:'automatic',metadata:{order_id:'1',user_id:U,payment_claim:H}};
 function harness({matches=[intent],canonical=intent,legacy=false,bindingError=false,request=true}={}) {
  const calls=[];let current={...order};

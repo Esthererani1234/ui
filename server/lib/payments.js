@@ -1,3 +1,4 @@
+import {cardLimitMessage} from "../../shared/cardLimits.js";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "node:crypto";
 import {isProductionPreview} from '../../shared/deploymentSafety.js';
@@ -100,7 +101,7 @@ export async function requireAdmin(request) {
 
 export async function customerOrder(orderId, userId) {
   const { data, error } = await service().from("orders")
-    .select("id,order_number,user_id,email,first_name,last_name,phone,payment_method,payment_status,payment_provider,provider_payment_id,provider_checkout_url,payment_reference,payment_due_at,wire_agreement_version,wire_agreement_text,wire_accepted_at,subtotal,payment_surcharge,shipping_amount,total,spot_snapshot,price_locked_until,status,shipping_address,order_items(id,product_id,product_name,quantity,unit_price,line_total,products(image_url,image_urls))")
+    .select("id,order_number,user_id,email,first_name,last_name,phone,payment_method,payment_status,payment_provider,provider_payment_id,provider_checkout_url,payment_reference,payment_due_at,wire_agreement_version,wire_agreement_text,wire_accepted_at,subtotal,payment_surcharge,shipping_amount,total,spot_snapshot,price_locked_until,status,shipping_address,order_items(id,product_id,product_name,quantity,unit_price,line_total,products(image_url,image_urls,slug))")
     .eq("id", orderId).eq("user_id", userId).maybeSingle();
   if (error) throw error;
   if (!data) throw Object.assign(new Error("Order not found"), { status: 404 });
@@ -108,6 +109,7 @@ export async function customerOrder(orderId, userId) {
 }
 
 export function assertPayable(order, method) {
+  if(method==="card"){const error=cardLimitMessage(order.subtotal,order.total);if(error)throw Object.assign(new Error(error),{status:409});}
   if (order.payment_method !== method) throw Object.assign(new Error("Payment method does not match this order"), { status: 409 });
   if (["paid", "refunded", "disputed"].includes(order.payment_status)) throw Object.assign(new Error("This order cannot accept another payment"), { status: 409 });
   if (!["pending_review", "awaiting_payment"].includes(order.status)) throw Object.assign(new Error("This order cannot accept payment."), {status:409});

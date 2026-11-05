@@ -1,3 +1,4 @@
+import ProductReviews from '../components/ProductReviews';
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -238,6 +239,7 @@ export default function ProductPage() {
               </div>
             </div>
           </div>
+          <ProductReviews productId={product.id}/>
           <div className="product-information-grid">
             {features.length > 0 && (
               <section className="product-highlights">

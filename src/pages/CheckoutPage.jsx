@@ -1,3 +1,4 @@
+import {cardLimitMessage,CARD_CHARGE_MAXIMUM} from "../../shared/cardLimits.js";
 import {WIRE_AGREEMENT_TEXT, WIRE_AGREEMENT_VERSION} from "../../supabase/functions/_shared/wireAgreement.js";
 import { TERMS_VERSION } from '../lib/legalPolicies';
 import '../styles/legalPolicies.css';
@@ -49,7 +50,7 @@ const defaults = {
   free_shipping_threshold: 5000,
   card_surcharge_percent: 4,
   accepting_orders: true,
-  card_order_maximum: 10000,
+  card_order_maximum: CARD_CHARGE_MAXIMUM,
   wire_order_maximum: 100000,
   crypto_order_maximum: 2000000,
 };
@@ -454,6 +455,11 @@ export default function CheckoutPage() {
       ? Number(pricing.card_total || 0)
       : wireTotal;
 
+  const cardLimitError = cardLimitMessage(pricing.subtotal,pricing.card_total,settings.card_order_maximum);
+  useEffect(()=>{
+    if(cardLimitError && paymentConfig.wire && !busy) setForm(current=>current.paymentMethod==="card"?{...current,paymentMethod:"wire",agree:false,wireAgree:false}:current);
+  },[cardLimitError,paymentConfig.wire,busy,form.paymentMethod]);
+
   const displayItems =
     quote?.line_items ||
     items.map((item) => {
@@ -497,6 +503,7 @@ export default function CheckoutPage() {
   });
 
   const validate = () => {
+    if(form.paymentMethod==="card" && cardLimitError)return cardLimitError;
     if (!orderInfo && displayedTotal > settings[`${form.paymentMethod}_order_maximum`]) {
       return `The ${form.paymentMethod} payment maximum is ${money(settings[`${form.paymentMethod}_order_maximum`])}. Choose another payment method or reduce your order.`;
     }
@@ -954,12 +961,12 @@ export default function CheckoutPage() {
                 value="card"
                 form={form}
                 setForm={setForm}
-                disabled={!paymentConfig.embedded_card}
+                disabled={!paymentConfig.embedded_card || Boolean(cardLimitError)}
                 title="Credit or debit card"
                 detail={
-                  paymentConfig.embedded_card
-                    ? `Secure card entry • ${settings.card_surcharge_percent}% processing surcharge • Maximum ${money(settings.card_order_maximum)}`
-                    : "Embedded card entry needs the Stripe publishable key"
+                  cardLimitError || (paymentConfig.embedded_card
+                    ? `Secure card entry • ${settings.card_surcharge_percent}% processing surcharge • Up to $10,000 in merchandise`
+                    : "Embedded card entry needs the Stripe publishable key")
                 }
               />
               <PaymentOption
@@ -989,7 +996,7 @@ export default function CheckoutPage() {
             )}
 
             {form.paymentMethod === "card" &&
-              paymentConfig.embedded_card &&
+              paymentConfig.embedded_card && !cardLimitError &&
               pricing.card_total > 0 && (
                 <div className="embedded-card-box">
                   <div className="embedded-card-heading">
@@ -1081,7 +1088,8 @@ export default function CheckoutPage() {
               !quote ||
               displayedTotal <= 0 ||
               !cartReady ||
-              !settings.accepting_orders
+              !settings.accepting_orders ||
+              (form.paymentMethod === "card" && Boolean(cardLimitError))
             }
           >
             {busy

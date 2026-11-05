@@ -21,3 +21,16 @@
 @media(prefers-reduced-motion:reduce) {
  *,*::before,*::after { scroll-behavior:auto!important; animation-duration:.01ms!important; transition-duration:.01ms!important; }
 }
+
+/* Keep the first product within reach on narrow screens. */
+@media (max-width:560px) {
+ .home-hero .home-hero-grid { padding-top:18px; padding-bottom:20px; gap:18px; }
+ .home-hero .home-hero-copy .eyebrow { font-size:10px; letter-spacing:.14em; }
+ .home-hero .home-hero-copy h1 { font-size:clamp(28px,8vw,36px); margin:8px 0 10px; line-height:1.03; }
+ .home-hero .home-hero-copy > p { font-size:13px; line-height:1.45; margin:0; }
+ .home-hero .home-hero-actions { grid-template-columns:minmax(0,1.4fr) minmax(0,1fr); gap:8px; margin-top:14px; }
+ .home-hero .home-hero-actions .button { min-height:44px; padding:10px 8px; font-size:13px; gap:6px; }
+ .home-hero .home-hero-confidence { margin-top:12px; gap:6px 12px; }
+}
+.receipt-item-description h3 a:hover { text-decoration:underline; }
+.receipt-item-description h3 a:focus-visible { outline:2px solid currentColor; outline-offset:3px; }

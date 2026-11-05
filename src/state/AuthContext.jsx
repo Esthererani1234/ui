@@ -45,13 +45,18 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let active = true;
     let hydrateVersion = 0;
+    let hydratedUserId = null;
 
     const hydrate = async (nextSession) => {
       const version = ++hydrateVersion;
       if (!active) return;
-      if (nextSession?.user) setLoading(true);
+      // Token refresh and tab focus must not unmount protected pages.
+      // Continue checking permissions in the background for the same account.
+      const nextUserId = nextSession?.user?.id || null;
+      if (nextUserId && nextUserId !== hydratedUserId) setLoading(true);
       setSession(nextSession);
       if (!nextSession?.user) {
+        hydratedUserId = null;
         setProfile(null);
         setIsAdmin(false);
         setAal("aal1");
@@ -76,7 +81,7 @@ export function AuthProvider({ children }) {
       ]);
 
       if (!active || version !== hydrateVersion) return;
-      setProfile(profileData || null);
+      setProfile(previous => JSON.stringify(previous) === JSON.stringify(profileData || null) ? previous : profileData || null);
       setIsAdmin(Boolean(adminData));
       setAal(assuranceResult.data?.currentLevel || "aal1");
       setPhoneMfaVerified(
@@ -95,6 +100,7 @@ export function AuthProvider({ children }) {
         setCustomerSmsVerified(Boolean(smsStatus?.verified));
         setCustomerSmsPhone(smsStatus?.phone || "");
       }
+      hydratedUserId = nextUserId;
       setLoading(false);
       } catch {
         if (!active || version !== hydrateVersion) return;

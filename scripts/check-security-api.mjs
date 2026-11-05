@@ -4,7 +4,7 @@ import {Readable} from 'node:stream';
 import {assertPayable,readJson,customerOrder} from '../server/lib/payments.js';
 import {cleanCart} from '../server/lib/quotes.js';
 import {strictObject,stripeState,stripeMatchesOrder,rateLimit} from '../server/lib/security.js';
-const order={id:1,user_id:'test-user',total:100,payment_method:'card',payment_status:'unpaid',status:'awaiting_payment',price_locked_until:new Date(Date.now()+600000).toISOString()};
+const order={id:1,user_id:'test-user',total:100,subtotal:100,payment_method:'card',payment_status:'unpaid',status:'awaiting_payment',price_locked_until:new Date(Date.now()+600000).toISOString()};
 test('payment guard rejects cancelled, missing or expired locks and invalid totals',()=>{
  assert.doesNotThrow(()=>assertPayable(order,'card'));
  for(const change of [{status:'cancelled'},{status:'shipped'},{payment_status:'paid'},{price_locked_until:null},{price_locked_until:'bad date'},{price_locked_until:new Date(Date.now()-1).toISOString()},{total:-1},{total:'NaN'}]) assert.throws(()=>assertPayable({...order,...change},'card'));

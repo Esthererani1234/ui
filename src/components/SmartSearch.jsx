@@ -117,7 +117,13 @@ export default function SmartSearch({ search, setSearch, onSubmit }) {
       onSubmit={submit}
       onFocus={() => setOpen(true)}
       onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+        if (event.currentTarget.contains(event.relatedTarget)) return;
+        // On mobile Safari the input blurs before the suggestion's click event.
+        // Defer closing one tick so the tapped Link can complete navigation.
+        const form = event.currentTarget;
+        window.setTimeout(() => {
+          if (!form.contains(document.activeElement)) setOpen(false);
+        }, 0);
       }}
       role="search"
     >

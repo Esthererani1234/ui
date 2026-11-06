@@ -525,6 +525,20 @@ export default function AdminPage() {
             <ScrollText /> Audit log
           </button>
         </nav>
+        <div className="admin-mobile-pulse" aria-label="Admin live overview">
+          <button type="button" onClick={() => setTab("orders")}>
+            <b>{metrics.open}</b><span>Open</span>
+          </button>
+          <button type="button" onClick={() => setTab("orders")}>
+            <b>{orders.length}</b><span>Orders</span>
+          </button>
+          <button type="button" onClick={() => setTab("products")}>
+            <b>{metrics.lowStock}</b><span>Low stock</span>
+          </button>
+          <span className={loadBusy ? "sync-state syncing" : message ? "sync-state attention" : "sync-state"} aria-live="polite">
+            <i aria-hidden="true" />{loadBusy ? "Refreshing" : message ? "Needs attention" : "Live sync"}
+          </span>
+        </div>
         <a href="/">← Return to storefront</a>
       </aside>
       <div className="admin-main">

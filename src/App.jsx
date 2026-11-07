@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { recoveryLinkState } from "./lib/authRecovery";
 import Layout from "./components/Layout";
 import AnalyticsTracker from "./components/AnalyticsTracker";
 import HomePage from "./pages/HomePage";
@@ -52,6 +53,12 @@ function Guard({ admin = false, requireMfa = true, children }) {
 }
 
 export default function App() {
+  const location = useLocation();
+  const emailLink = recoveryLinkState(location.search, location.hash);
+  // Auth errors can return to the Site URL rather than the requested redirect.
+  // Keep Supabase's fragment intact while routing to the recovery screen.
+  if (location.pathname === "/" && emailLink.requested)
+    return <Navigate to={{pathname:"/login",search:emailLink.failed ? "?recovery=1&link_error=1" : "?recovery=1",hash:location.hash}} replace />;
   return (
     <Suspense fallback={<div className="page-loader">Loading GoldOnTheSpot…</div>}>
       {!readOnlyPreview && <AnalyticsTracker />}

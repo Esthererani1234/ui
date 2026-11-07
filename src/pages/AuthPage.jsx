@@ -88,7 +88,7 @@ export default function AuthPage() {
   if (mode === "recovery" && loading)
     return <div className="page-loader" role="status">Opening your secure password-reset link…</div>;
   if (mode === "recovery" && !loading && !user)
-    return <section className="section container narrow"><h1>Request a new reset link</h1><p>{recoveryLinkMessage}</p><button className="button button-gold" onClick={() => { setMode("forgot"); setMessage(recoveryLinkMessage); }}>Send a new reset email</button><p><Link to="/login">Back to sign in</Link></p></section>;
+    return <section className="section container narrow"><h1>Request a new reset link</h1><p>{recoveryLinkMessage}</p><button className="button button-gold" onClick={() => { setMode("forgot"); setMessage(recoveryLinkMessage); }}>Send a new reset email</button><p><Link to="/login" onClick={() => setMode("signin")}>Back to sign in</Link></p></section>;
 
   const completingSignup = mode === "signup" && stage !== "details";
   if (user && mode === "recovery" && !loading && requiresCustomerMfa && recoverySmsVerified === null)

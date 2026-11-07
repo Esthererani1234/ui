@@ -8,6 +8,8 @@ import SmsConsentDisclosure from "../components/SmsConsentDisclosure";
 import { authDestination, isEmailSendRateLimit, saveVerifiedSignup } from "../lib/signupCompletion";
 import { getCustomerSmsStatus, sendCustomerSmsCode, updatePasswordAfterSms, verifyCustomerSmsCode } from "../lib/customerSms";
 
+import { recoveryLinkState, recoveryLinkMessage } from "../lib/authRecovery";
+
 const initialForm = { email: "", confirmEmail: "", phone: "", password: "", confirmPassword: "", firstName: "", lastName: "", agree: false };
 
 const friendlyError = (error) => {
@@ -31,9 +33,10 @@ export default function AuthPage() {
   const { user, loading, requiresCustomerMfa, refreshSecurity } = useAuth();
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const recoveryRequested = params.get("recovery") === "1";
+  const [emailLink] = useState(() => recoveryLinkState(window.location.search, window.location.hash));
+  const recoveryRequested = emailLink.requested || params.get("recovery") === "1";
   const resetSucceeded = params.get("reset") === "success";
-  const [mode, setMode] = useState(recoveryRequested ? "recovery" : params.get("mode") === "signup" ? "signup" : "signin");
+  const [mode, setMode] = useState(emailLink.failed ? "forgot" : recoveryRequested ? "recovery" : params.get("mode") === "signup" ? "signup" : "signin");
   const [stage, setStage] = useState("details");
   const [form, setForm] = useState(initialForm);
   const [pendingEmail, setPendingEmail] = useState("");
@@ -43,7 +46,7 @@ export default function AuthPage() {
   const [smsCode, setSmsCode] = useState("");
   const [challengeId, setChallengeId] = useState("");
   const [resendSeconds, setResendSeconds] = useState(0);
-  const [message, setMessage] = useState(resetSucceeded ? "Password updated. Sign in with your new password and SMS code." : "");
+  const [message, setMessage] = useState(emailLink.failed ? recoveryLinkMessage : resetSucceeded ? "Password updated. Sign in with your new password and SMS code." : "");
   const [messageType, setMessageType] = useState(resetSucceeded ? "success" : "");
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -61,10 +64,10 @@ export default function AuthPage() {
   }, []);
 
   useEffect(() => {
-    if (resetSucceeded && mode === "signin") return;
+    if ((resetSucceeded && mode === "signin") || (emailLink.failed && mode === "forgot")) return;
     setMessage(""); setMessageType(""); setStage("details");
     setEmailCode(""); setSmsCode(""); setResendSeconds(0); setVerifiedUserId("");
-  }, [mode, resetSucceeded]);
+  }, [mode, resetSucceeded, emailLink.failed]);
 
   useEffect(() => {
     if (!resendSeconds) return undefined;
@@ -82,13 +85,18 @@ export default function AuthPage() {
     return () => { active = false; };
   }, [mode, user, loading, requiresCustomerMfa]);
 
+  if (mode === "recovery" && loading)
+    return <div className="page-loader" role="status">Opening your secure password-reset link…</div>;
+  if (mode === "recovery" && !loading && !user)
+    return <section className="section container narrow"><h1>Request a new reset link</h1><p>{recoveryLinkMessage}</p><button className="button button-gold" onClick={() => { setMode("forgot"); setMessage(recoveryLinkMessage); }}>Send a new reset email</button><p><Link to="/login" onClick={() => setMode("signin")}>Back to sign in</Link></p></section>;
+
   const completingSignup = mode === "signup" && stage !== "details";
   if (user && mode === "recovery" && !loading && requiresCustomerMfa && recoverySmsVerified === null)
     return <div className="page-loader">Checking password-reset security…</div>;
   if (user && mode === "recovery" && !loading && requiresCustomerMfa && !recoverySmsVerified)
     return <Navigate to={`/verify-phone?purpose=recovery&return=${encodeURIComponent("/login?recovery=1")}`} replace />;
   if (user && mode === "signup" && !loading && stage === "details") return <Navigate to={signupPhonePath} replace />;
-  if (user && !loading && mode !== "recovery" && !completingSignup) return <Navigate to={destination} replace />;
+  if (user && !loading && mode !== "recovery" && mode !== "forgot" && !completingSignup) return <Navigate to={destination} replace />;
 
   const validateSignup = () => {
     const email = form.email.trim().toLowerCase();

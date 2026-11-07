@@ -13,6 +13,7 @@ export default async function handler(request, response) {
     enabled: paymentsEnabled,
     stripe_publishable_key: process.env.STRIPE_PUBLISHABLE_KEY || null,
     methods: {
+      ach: paymentsEnabled && paymentDatabaseReady && process.env.STRIPE_ENABLED === "true" && Boolean(process.env.STRIPE_SECRET_KEY) && Boolean(process.env.STRIPE_PUBLISHABLE_KEY),
       wire: paymentsEnabled && paymentDatabaseReady && wireConfigured,
       card: process.env.PAYMENTS_V2_ENABLED === "true" && paymentDatabaseReady && process.env.STRIPE_ENABLED === "true" && Boolean(process.env.STRIPE_SECRET_KEY),
       embedded_card: process.env.PAYMENTS_V2_ENABLED === "true"

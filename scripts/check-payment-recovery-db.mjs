@@ -77,6 +77,12 @@ before(async()=>{
  alter table payment_attempts add column expires_at timestamptz;
  alter table payment_attempts add unique(provider,provider_payment_id);`);
  await db.exec(await readFile(new URL('../supabase/migrations/20261022214410_payment_recovery_guards.sql',import.meta.url),'utf8'));
+ const ach = await readFile(new URL('../supabase/migrations/20261107233400_ach_checkout.sql',import.meta.url),'utf8');
+ for(const name of ['bind_card_payment_intent','claim_card_payment_request','claim_payment_reconciliations']) {
+   const start=ach.indexOf('CREATE OR REPLACE FUNCTION public.'+name+'(');
+   const end=ach.indexOf('$function$',ach.indexOf('$function$',start)+10)+10;
+   await db.exec(ach.slice(start,end)+';');
+ }
 });
 after(()=>db?.close());
 const A='a'.repeat(64),B='b'.repeat(64);
@@ -184,4 +190,18 @@ test('recovery RPCs and ledger deny customers and anonymous callers; manual capt
   assert.equal(await scalar('select has_function_privilege($1,$2,\'execute\')',[role,'public.'+fn]),false);
  for(const role of ['anon','authenticated'])assert.equal(await scalar("select has_table_privilege($1,'private.card_payment_requests','select')",[role]),false);
  assert.equal(await scalar("select value from app_settings where key='card_manual_capture_enabled'"),false);
+}));
+
+test('ACH claim binds one amount and owner; processing cannot authorize a second debit',()=>tx(async()=>{
+ await db.exec("update orders set payment_method='ach' where id=1");
+ assert.equal(await scalar('select claim_card_payment_request(1,$1,$2,100)',[V,A]),false);
+ assert.equal(await claim(),true);
+ const bound=await bind();
+ assert.equal(bound.payment_method,'ach');
+ assert.equal(bound.payment_status,'pending');
+ assert.equal(await claim(B),false);
+ await db.exec("update private.card_payment_claims set created_at=now()-interval '3 minutes'");
+ assert.equal((await db.query('select * from claim_payment_reconciliations()')).rows[0].order_id,1);
+ await state('pi_recovered','paid');
+ assert.equal(await claim(B),false);
 }));

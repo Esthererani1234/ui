@@ -5,6 +5,7 @@ import {previewPaymentsAllowed,PRODUCTION_DATABASE_HOST} from '../../shared/depl
 export const config={api:{bodyParser:false}};
 const routes={
  'config':()=>import('../../server/payments/config.js'),
+ 'confirm-ach':()=>import('../../server/payments/confirm-ach.js'),
  'confirm-card':()=>import('../../server/payments/confirm-card.js'),
  'complete-card':()=>import('../../server/payments/complete-card.js'),
  'create-checkout':()=>import('../../server/payments/create-checkout.js'),

@@ -1,0 +1,93 @@
+import {buildAchIntent} from "../lib/achCheckout.js";
+import { service } from "../lib/payments.js";
+import { rateLimit, strictObject, securityLog, requestHash } from "../lib/security.js";
+import Stripe from "stripe";
+import { reconcileCardIntent } from "../lib/cardCapture.js";
+import { bindCardIntent } from "../lib/cardRecovery.js";
+import {
+  assertPayable,
+  authenticateCustomer,
+  customerOrder,
+  json,
+  readJson,
+} from "../lib/payments.js";
+
+export const config = { api: { bodyParser: false } };
+
+const safeMessage = () => "Your bank could not complete this ACH payment. Check your order before trying again.";
+
+export default async function handler(request, response) {
+  if (request.method !== "POST") return json(response, 405, { error: "Method not allowed" });
+  let order;
+  let claimHash;
+  try {
+    if (process.env.STRIPE_ENABLED !== "true" || !process.env.STRIPE_SECRET_KEY) {
+      throw Object.assign(new Error("ACH payment is temporarily unavailable."), { status: 503 });
+    }
+    const { user } = await authenticateCustomer(request, { requireSms: true });
+    await rateLimit(service(), "card_confirm", user.id, 10, 600);
+    const body = strictObject(await readJson(request), ['order_id', 'confirmation_token_id']);
+    const orderId = Number(body.order_id);
+    const confirmationTokenId = String(body.confirmation_token_id || "");
+    if (!Number.isSafeInteger(orderId) || orderId < 1) return json(response, 400, { error: "Invalid order" });
+    if (!/^ctoken_[A-Za-z0-9_]+$/.test(confirmationTokenId)) {
+      return json(response, 400, { error: "Secure bank account details are incomplete." });
+    }
+
+    order = await customerOrder(orderId, user.id);
+    assertPayable(order, "ach");
+
+    claimHash = requestHash(confirmationTokenId);
+    const parameters = buildAchIntent(order, confirmationTokenId, claimHash);
+    const {data: claimed,error: claimError}=await service().rpc("claim_card_payment_request",{p_order_id:order.id,p_user_id:user.id,p_request_hash:claimHash,p_expected_total:Number(order.total)});
+    if(claimError) throw claimError;
+    if(!claimed) throw Object.assign(new Error("A payment is already in progress for this order. Check your order before trying again."),{status:409});
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY,{timeout:8000,maxNetworkRetries:0});
+    const intent = await stripe.paymentIntents.create({
+      ...parameters,
+      receipt_email: order.email,
+      return_url: `${process.env.SITE_URL || "https://goldonthespot.com"}/account?tab=orders&order=${encodeURIComponent(order.order_number)}&payment=return`,
+      metadata: {
+        order_id: String(order.id),
+        order_number: order.order_number,
+        user_id: user.id,
+        payment_claim: claimHash,
+      },
+    }, { idempotencyKey: `gots-ach-${order.id}-${confirmationTokenId}` });
+
+    // Binding and attempt initialization commit together. Even a successful
+    // charge must not hide a persistence failure; webhook/worker can recover it.
+    order=await bindCardIntent({db:service(),order,intent,requestHash:claimHash});
+    const result=await reconcileCardIntent({db:service(),stripe,order,intent});
+    if(result.expired)throw Object.assign(new Error('The price lock expired before payment could complete.'),{status:409});
+    const finalStatus=result.status;
+
+    return json(response, 200, {
+      order_id: order.id,
+      order_number: order.order_number,
+      status: finalStatus,
+      client_secret: intent.status === "requires_action" ? intent.client_secret : null,
+    });
+  } catch (error) {
+    securityLog("ach_confirmation_failed", error);
+    const intent = error?.payment_intent;
+    if (order && intent?.id && ["requires_payment_method", "canceled"].includes(intent.status)) {
+      try {
+        const stripe=new Stripe(process.env.STRIPE_SECRET_KEY,{timeout:8000,maxNetworkRetries:0});
+        const canonical=await stripe.paymentIntents.retrieve(intent.id);
+        const bound=await bindCardIntent({db:service(),order,intent:canonical,requestHash:claimHash});
+        // mark_payment_state releases the claim only after a definitive result
+        // and its matching binding are recorded. An outage retains the claim.
+        await reconcileCardIntent({db:service(),stripe,order:bound,intent:canonical});
+      } catch(recordError) { securityLog('stripe_decline_record_failed',recordError); }
+    }
+    const expired = error?.status === 409 && /expired/i.test(error.message || "");
+    return json(response, expired ? 409 : (error.status || (error?.type === "StripeCardError" ? 402 : 500)), {
+      error: expired
+        ? "The 10-minute price lock expired. Review the refreshed total before paying."
+        : (error.status ? error.message : error?.type === 'StripeCardError' ? safeMessage(error) : 'Payment could not be confirmed yet. Check your order before trying to pay again.'),
+      code: expired ? "price_expired" : (error?.code || "payment_failed"),
+      status: intent?.status || "requires_payment_method",
+    });
+  }
+}

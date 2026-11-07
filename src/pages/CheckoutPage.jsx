@@ -49,6 +49,7 @@ const defaults = {
   shipping_flat: 35,
   free_shipping_threshold: 5000,
   card_surcharge_percent: 4,
+  ach_order_maximum: 25000,
   accepting_orders: true,
   card_order_maximum: CARD_CHARGE_MAXIMUM,
   wire_order_maximum: 100000,
@@ -89,11 +90,11 @@ const CardFields = forwardRef(function CardFields({ amount, email }, ref) {
     () => ({
       async createToken(shipping) {
         if (!stripe || !elements)
-          throw new Error("The secure card form is still loading.");
+          throw new Error("The secure payment form is still loading.");
 
         const { error: submitError } = await elements.submit();
         if (submitError)
-          throw new Error(submitError.message || "Check your card details.");
+          throw new Error(submitError.message || "Check your payment details.");
 
         const { error, confirmationToken } =
           await stripe.createConfirmationToken({
@@ -101,19 +102,19 @@ const CardFields = forwardRef(function CardFields({ amount, email }, ref) {
             params: { shipping },
           });
         if (error || !confirmationToken) {
-          throw new Error(error?.message || "Check your card details.");
+          throw new Error(error?.message || "Check your payment details.");
         }
         return confirmationToken.id;
       },
       async handleNextAction(clientSecret) {
         if (!stripe)
-          throw new Error("The secure card form is still loading.");
+          throw new Error("The secure payment form is still loading.");
         const { error, paymentIntent } = await stripe.handleNextAction({
           clientSecret,
         });
         if (error) {
           throw new Error(
-            error.message || "Card verification was not completed.",
+            error.message || "Bank verification was not completed.",
           );
         }
         return paymentIntent;
@@ -126,6 +127,7 @@ const CardFields = forwardRef(function CardFields({ amount, email }, ref) {
     <PaymentElement
       options={{
         layout: { type: "tabs", defaultCollapsed: false },
+        wallets: { link: "never" },
         defaultValues: { billingDetails: { email } },
       }}
     />
@@ -450,10 +452,12 @@ export default function CheckoutPage() {
   const wireTotal = Number.isFinite(Number(pricing.wire_total))
     ? Number(pricing.wire_total)
     : Number(pricing.subtotal || 0) + Number(pricing.shipping || 0);
+  const achFee = Math.round(Number(pricing.subtotal || 0) * 2) / 100;
+  const achTotal = Math.round((wireTotal + achFee) * 100) / 100;
   const displayedTotal =
     form.paymentMethod === "card"
       ? Number(pricing.card_total || 0)
-      : wireTotal;
+      : form.paymentMethod === "ach" ? achTotal : wireTotal;
 
   const cardLimitError = cardLimitMessage(pricing.subtotal,pricing.card_total,settings.card_order_maximum);
   useEffect(()=>{
@@ -496,6 +500,7 @@ export default function CheckoutPage() {
 
   const validate = () => {
     if(form.paymentMethod==="card" && cardLimitError)return cardLimitError;
+    if(form.paymentMethod==="ach" && (!paymentConfig.ach || achTotal > 25000)) return "ACH is unavailable or the total exceeds $25,000 including fees.";
     if (!orderInfo && displayedTotal > settings[`${form.paymentMethod}_order_maximum`]) {
       return `The ${form.paymentMethod} payment maximum is ${money(settings[`${form.paymentMethod}_order_maximum`])}. Choose another payment method or reduce your order.`;
     }
@@ -608,9 +613,9 @@ export default function CheckoutPage() {
     setError("");
     try {
       let confirmationTokenId = null;
-      if (form.paymentMethod === "card") {
+      if (["card", "ach"].includes(form.paymentMethod)) {
         if (!cardRef.current) {
-          throw new Error("The secure card form is still loading.");
+          throw new Error("The secure payment form is still loading.");
         }
         confirmationTokenId = await cardRef.current.createToken(
           shippingPayload(),
@@ -626,11 +631,11 @@ export default function CheckoutPage() {
         return;
       }
 
-      if (form.paymentMethod === "card") {
+      if (["card", "ach"].includes(form.paymentMethod)) {
         let payment;
         try {
           payment = await authenticatedPost(
-            "/api/payments/confirm-card",
+            form.paymentMethod === "ach" ? "/api/payments/confirm-ach" : "/api/payments/confirm-card",
             {
               order_id: order.order_id,
               confirmation_token_id: confirmationTokenId,
@@ -659,7 +664,7 @@ export default function CheckoutPage() {
             !intent ||
             !["succeeded", "processing", "requires_capture"].includes(intent.status)
           ) {
-            throw new Error("Card verification was not completed.");
+            throw new Error("Bank verification was not completed.");
           }
           finalStatus = intent.status;
           if(intent.status==='requires_capture') {
@@ -675,11 +680,11 @@ export default function CheckoutPage() {
           !["succeeded", "processing"].includes(payment.status)
         ) {
           throw new Error(
-            "Your card was not charged. Check the card details or try another card.",
+            "Payment was not completed. Check your order before trying again.",
           );
         }
 
-        if (finalStatus === "succeeded") clear();
+        if (finalStatus === "succeeded" || (form.paymentMethod === "ach" && finalStatus === "processing")) clear();
         navigate(
           `/account?order=${encodeURIComponent(
             order.order_number,
@@ -754,11 +759,12 @@ export default function CheckoutPage() {
       mode: "payment",
       amount: Math.max(
         50,
-        Math.round(Number(pricing.card_total || 0) * 100),
+        Math.round(Number(form.paymentMethod === "ach" ? achTotal : pricing.card_total || 0) * 100),
       ),
       currency: "usd",
       paymentMethodCreation: "manual",
-      paymentMethodTypes: ["card"],
+      paymentMethodTypes: [form.paymentMethod === "ach" ? "us_bank_account" : "card"],
+      ...(form.paymentMethod === "ach" ? {paymentMethodOptions:{us_bank_account:{verification_method:"instant"}}} : {}),
       appearance: {
         theme: "stripe",
         variables: {
@@ -780,7 +786,7 @@ export default function CheckoutPage() {
         },
       },
     }),
-    [pricing.card_total],
+    [pricing.card_total, achTotal, form.paymentMethod],
   );
 
   if (
@@ -969,6 +975,10 @@ export default function CheckoutPage() {
                     : "Embedded card entry needs the Stripe publishable key")
                 }
               />
+              <PaymentOption value="ach" form={form} setForm={setForm}
+                disabled={!paymentConfig.ach || achTotal > 25000 || Boolean(orderInfo)}
+                title="ACH bank payment"
+                detail="2% fee on merchandise • Maximum $25,000 including fee • Payment confirmation takes 4–5 business days" />
               <PaymentOption
                 value="wire"
                 form={form}
@@ -995,21 +1005,20 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            {form.paymentMethod === "card" &&
-              paymentConfig.embedded_card && !cardLimitError &&
-              pricing.card_total > 0 && (
+            {((form.paymentMethod === "card" && paymentConfig.embedded_card && !cardLimitError) || (form.paymentMethod === "ach" && paymentConfig.ach && achTotal <= 25000)) &&
+              displayedTotal > 0 && (
                 <div className="embedded-card-box">
                   <div className="embedded-card-heading">
                     <CreditCard />
                     <span>
-                      <b>Card details</b>
+                      <b>{form.paymentMethod === "ach" ? "Bank account details" : "Card details"}</b>
                       <small>
                         Encrypted and sent directly to Stripe.
-                        GoldOnTheSpot never sees or stores the card number.
+                        GoldOnTheSpot never sees or stores your full payment account number.
                       </small>
                     </span>
                   </div>
-                  <Elements
+                  <Elements key={form.paymentMethod}
                     stripe={stripeClient(
                       paymentConfig.stripe_publishable_key,
                     )}
@@ -1182,6 +1191,7 @@ export default function CheckoutPage() {
                   : "Free"}
               </b>
             </div>
+            {form.paymentMethod === "ach" && <div><span>ACH fee (2%)</span><b>{money(achFee)}</b></div>}
             {form.paymentMethod === "card" &&
               Number(pricing.card_surcharge || 0) > 0 && (
                 <div>

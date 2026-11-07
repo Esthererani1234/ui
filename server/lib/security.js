@@ -24,6 +24,7 @@ export function stripeState(type,object) {
   return null;
 }
 export function stripeMatchesOrder(intent,order) {
+  if(order.payment_method === "ach" && (intent.payment_method_types?.length !== 1 || intent.payment_method_types[0] !== "us_bank_account")) return false;
   return intent.currency==="usd" && Number.isSafeInteger(intent.amount) && intent.amount>0
     && intent.amount===Math.round(Number(order.total)*100)
     && intent.metadata?.order_id===String(order.id) && intent.metadata?.user_id===order.user_id;

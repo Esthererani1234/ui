@@ -109,6 +109,7 @@ export async function customerOrder(orderId, userId) {
 }
 
 export function assertPayable(order, method) {
+  if(method==="ach" && (!Number.isFinite(Number(order.total)) || Number(order.total)>25000)) throw Object.assign(new Error("ACH maximum is $25,000 including fees"),{status:409});
   if(method==="card"){const error=cardLimitMessage(order.subtotal,order.total);if(error)throw Object.assign(new Error(error),{status:409});}
   if (order.payment_method !== method) throw Object.assign(new Error("Payment method does not match this order"), { status: 409 });
   if (["paid", "refunded", "disputed"].includes(order.payment_status)) throw Object.assign(new Error("This order cannot accept another payment"), { status: 409 });

@@ -20,7 +20,7 @@ function imageUrl(value) {
     return url.protocol === 'https:' && !url.username && !url.password && ['goldonthespot.com','www.goldonthespot.com','jwquqphzsnnijopabuhn.supabase.co'].includes(url.hostname) ? url.href : '';
   } catch { return ''; }
 }
-const paymentLabel = method => ({card:'Credit / debit card',wire:'Bank wire',crypto:'Cryptocurrency'}[method] || 'See order details');
+const paymentLabel = method => ({ach:'ACH bank payment',card:'Credit / debit card',wire:'Bank wire',crypto:'Cryptocurrency'}[method] || 'See order details');
 function renderWireInstructions(order, wire) {
   const invalid = () => Object.assign(new Error('Complete wire instructions are required'), {code:'wire_instructions_unavailable'});
   const required = ['bank_name','beneficiary_name','routing_number','account_number'];

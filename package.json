@@ -28,6 +28,6 @@
   "devDependencies": {
     "@electric-sql/pglite": "0.5.10",
     "@vitejs/plugin-react": "6.0.3",
-    "vite": "8.1.4"
+    "vite": "8.1.6"
   }
 }

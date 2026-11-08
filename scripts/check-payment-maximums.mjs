@@ -84,3 +84,14 @@ test('customers cannot call the settings RPC, spoof an admin, or execute the tri
  }
  await rejects(()=>scalar('select admin_set_payment_maximums($1,$2,$3)',['10000000-0000-4000-8000-000000000002',JSON.stringify(limits),'Test reason']),/Administrator/);
 }));
+
+test('million-dollar wire boundary permits exact total and rejects one cent over',()=>tx(async()=>{
+ await setLimits({card_order_maximum:10450,wire_order_maximum:1000000,crypto_order_maximum:2000000});
+ await db.exec('update products set fixed_price=1000000 where id=1');
+ const order=await orderFrom(await quote(),'wire');
+ assert.equal(Number(order.total),1000000);
+ await db.exec('update products set fixed_price=1000000.01 where id=1');
+ const overLimitQuote=await quote();
+ await rejects(()=>orderFrom(overLimitQuote,'wire'),/payment maximum/);
+ assert.equal(Number(await scalar("select value from app_settings where key='card_order_maximum'")),10450);
+}));

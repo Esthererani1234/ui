@@ -3,7 +3,7 @@
 Baseline main: af3d09743b29322adb099df19353f90819225ace. Production: GoldOnTheSpot.com. This is a bounded engineering audit, not a guarantee of security or a full penetration-test certification.
 
 ## Executed checks
-- Full `npm run check`: 245 tests passed (9 signup, 146 security/payment/database, 46 email, 44 support/selling/reviews), search checks and Vite production build passed after changes.
+- Full `npm run check`: 246 tests passed (9 signup, 147 security/payment/database, 46 email, 44 support/selling/reviews), search checks and Vite production build passed after changes.
 - Tests include wrong-owner access, ordinary users calling admin operations, revoked sessions, OTP expiration/attempt limits/replay, duplicate payment events, amount mismatches, price-lock expiration, payment maximums, risk holds, and private attachments. Most use mocked APIs or isolated PGlite fixtures; they are not live transaction tests.
 - `npm audit`: zero reported vulnerabilities after Vite patch; initial production-only audit also zero. Initial full audit identified Vite 8.1.4 advisories, including a high-severity development-server/editor issue.
 - Live HTTP: homepage, metals feed and payment config returned 200. Quote, card confirmation, ACH confirmation, card completion, wire settings, three admin endpoints and reconciliation rejected unauthenticated requests with 401. Unsigned Stripe webhook returned 400. POST wire-instructions returned 405 (method rejection, not an ownership test).
@@ -36,3 +36,6 @@ Do not treat this pass as full launch clearance for unrestricted high-value fulf
 
 ## Rollback
 Revert this code commit to baseline af3d09743b29322adb099df19353f90819225ace if necessary (restores vulnerable Vite build dependency; prefer forward fix). Wire cap can be restored through authorized admin settings to $100,000; preserve audit records and existing orders. No production data deleted or schema weakened.
+
+## Follow-up observed during deployment
+A pre-deployment browser tab navigating to Sell to Us failed to fetch a replaced lazy JS chunk and rendered a blank page. Added a top-level AppErrorBoundary with a safe, explicit reload button, order-history link and support link. No automatic reload or payment retry. Added fallback-rendering test; this validates recovery markup and error redaction, not a simulated live chunk outage. After refreshing the live site, retest current assets.

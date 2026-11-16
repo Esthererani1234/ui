@@ -1,3 +1,4 @@
+import OrderDocuments from "../components/OrderDocuments";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
@@ -1462,6 +1463,7 @@ function OrderDetailModal({ order, onClose, onSave, onReview }) {
             <div><span>Price lock</span><b>{order.price_locked_until ? new Date(order.price_locked_until).toLocaleString() : "Not recorded"}</b><small>Server-calculated snapshot</small></div>
           </div>
           <section className="order-detail-lines"><h3>Order items</h3>{(order.order_items || []).map((item) => <div key={item.id}><span><b>{item.quantity} × {item.product_name}</b><small>{item.sku} • {item.metal_weight_oz} oz {item.metal}</small></span><strong>{money(item.line_total)}</strong></div>)}</section>
+          <OrderDocuments key={order.id} orderId={order.id} />
           {order.customer_notes && <section className="order-customer-note"><h3>Customer note</h3><p>{order.customer_notes}</p></section>}
           <section className="order-customer-note"><h3>Payment contract</h3><p>Reference: {order.payment_reference || "Not recorded"}<br />Terms: {order.terms_version || "Legacy order"} • accepted {order.terms_accepted_at ? new Date(order.terms_accepted_at).toLocaleString() : "not recorded"}<br />Provider payment: {order.provider_payment_id || "Not created"}</p></section>
 

@@ -144,3 +144,17 @@ test('wire settings require an admin and save destination plus sanitized audit a
  await rejects(()=>scalar('select save_wire_settings_audited($1,$2,$3)',[U,{...settings,account_number:'87654321'},'Update instructions']),/audit unavailable/);
  assert.equal(await scalar('select count(*)::int from fixture_bank'),1);
 }));
+
+test('wire acceptance keeps a separate order confirmation across checkout retries',()=>tx(async()=>{
+ await db.exec(`alter table order_email_outbox add column available_at timestamptz;alter table orders add column if not exists tracking_number text;
+ create table order_delivery_info(order_id bigint primary key references orders(id), details jsonb);
+ create function private.queue_order_email() returns trigger language plpgsql as $$begin return new;end$$;
+ create trigger orders_queue_customer_email after insert or update of status,payment_status,tracking_number on orders for each row execute function private.queue_order_email();`);
+ const migration=(await readdir(new URL('../supabase/migrations/',import.meta.url))).find(n=>n.endsWith('_order_email_milestones.sql'));
+ await db.exec(await read('../supabase/migrations/'+migration));
+ const q=await quote(),o=await place(q);await accept(o.order_id);await place(q);
+ const events=()=>db.query("select event_type,status from order_email_outbox where order_id=$1 order by event_type",[o.order_id]).then(r=>r.rows);
+ assert.deepEqual(await events(),[{event_type:'placed',status:'pending'},{event_type:'wire_instructions',status:'pending'}]);
+ await db.query("update orders set status='cancelled' where id=$1",[o.order_id]);
+ assert.deepEqual(await events(),[{event_type:'cancelled',status:'pending'},{event_type:'placed',status:'pending'},{event_type:'wire_instructions',status:'skipped'}]);
+}));

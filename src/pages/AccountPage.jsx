@@ -12,7 +12,16 @@ import CustomerAccountNav from "../components/CustomerAccountNav";
 import { clearCheckoutRecovery, readCheckoutRecovery } from "../lib/checkoutRecovery";
 import "../styles/customerAccount.css";
 
-const orderFields = "id, order_number, user_id, first_name, last_name, email, phone, status, payment_status, payment_method, payment_provider, provider_checkout_url, payment_reference, payment_due_at, subtotal, payment_surcharge, shipping_amount, insurance_amount, total, spot_snapshot, price_locked_until, shipping_address, customer_notes, tracking_number, created_at, updated_at, order_items(*, products(image_url, image_urls, slug, category))";
+async function readAccountOrders(number) {
+  const {data:{session}}=await supabase.auth.getSession();
+  if(!session) throw Object.assign(new Error('Sign in again to view your orders.'),{status:401});
+  const query=number?'?'+new URLSearchParams({order:number}):'';
+  const res=await fetch('/api/payments/account-orders'+query,{headers:{Authorization:'Bearer '+session.access_token},cache:'no-store',signal:AbortSignal.timeout(15000)});
+  if(!res.ok) throw Object.assign(new Error('Order request failed'),{status:res.status});
+  const body=await res.json();
+  if(!Array.isArray(body.orders)) throw Error('Invalid order response');
+  return body.orders;
+}
 const tabs = ["orders", "profile", "security", "support"];
 
 const emptyProfile = { first_name: "", last_name: "", address_line_1: "", address_line_2: "", city: "", state: "", postal_code: "", marketing_opt_in: false };
@@ -45,6 +54,7 @@ export default function AccountPage() {
   const [loading, setLoading] = useState(true);
   const [refreshCount, setRefreshCount] = useState(0);
   const [loadError, setLoadError] = useState("");
+  const [orderAuthStatus, setOrderAuthStatus] = useState(null);
   const [ticketsLoading, setTicketsLoading] = useState(true);
   const [ticketsError, setTicketsError] = useState("");
   const [ticketRefreshCount, setTicketRefreshCount] = useState(0);
@@ -87,25 +97,28 @@ export default function AccountPage() {
   useEffect(() => {
     let activeRequest = true;
     const owner = user.id;
-    setLoading(true); setLoadError("");
+    setLoading(true); setLoadError(""); setOrderAuthStatus(null);
     async function loadOrders() {
       try {
-        const { data, error } = await supabase.from("orders").select(orderFields).eq("user_id", owner).order("created_at", { ascending: false });
+        const data = await readAccountOrders(highlightedOrder);
         if (!activeRequest || !isCurrent(owner)) return;
-        if (error) throw error;
         setOrders(current => (data || []).map(row => {
           const prior = current.find(item => item.id === row.id);
           return prior && new Date(prior.updated_at) > new Date(row.updated_at) ? prior : row;
         }));
-      } catch {
-        if (activeRequest && isCurrent(owner)) setLoadError("Your orders could not be loaded. Please try again.");
+      } catch (e) {
+        if (activeRequest && isCurrent(owner)) {
+          setOrderAuthStatus(e.status);
+          if (e.status===401 || e.status===403) setOrders([]);
+          setLoadError(e.status===401 ? "Your session expired. Sign in again to view your orders." : e.status===403 ? "Verify your phone for this session to view your orders." : "Your orders could not be loaded. Please try again.");
+        }
       } finally {
         if (activeRequest && isCurrent(owner)) setLoading(false);
       }
     }
     loadOrders();
     return () => { activeRequest = false; };
-  }, [user.id, refreshCount]);
+  }, [user.id, refreshCount, highlightedOrder]);
   useEffect(() => {
     let activeRequest = true;
     const owner = user.id;
@@ -133,10 +146,8 @@ export default function AccountPage() {
 
     const confirmPayment = async (attempt = 0) => {
       try {
-        const { data, error } = await supabase.from("orders").select(orderFields)
-          .eq("user_id", user.id).eq("order_number", highlightedOrder).maybeSingle();
+        const [data] = await readAccountOrders(highlightedOrder);
         if (!activeRequest) return;
-        if (error) throw error;
         if (data) setOrders((current) => {
           const prior = current.find((order) => order.id === data.id);
           if (prior && new Date(prior.updated_at) > new Date(data.updated_at)) return current;
@@ -237,6 +248,9 @@ export default function AccountPage() {
     }
   };
 
+  const recoverOrders = orderAuthStatus===403 || orderAuthStatus===401
+    ? <Link className="button button-outline" to={(orderAuthStatus===403?"/verify-phone":"/login")+"?return="+encodeURIComponent("/account"+(params.size?"?"+params:""))}>{orderAuthStatus===403?"Verify phone":"Sign in again"}</Link>
+    : <button type="button" className="text-button" disabled={loading} onClick={() => setRefreshCount(count => count + 1)}>Try again</button>;
   if (highlightedOrder && active === "orders") {
     const order = orders.find((item) => item.order_number === highlightedOrder);
     const canPay = order && !["cancelled", "shipped", "completed"].includes(order.status)
@@ -247,7 +261,7 @@ export default function AccountPage() {
           ? <><p className="field-help">Reference: <b>{order.payment_reference || order.order_number}</b>{order.payment_due_at && <><br />Due {new Date(order.payment_due_at).toLocaleString()}</>}</p><PaymentAction order={order} autoOpen={autoShowWire} /></>
           : canPay && paymentState !== "checking" ? <PaymentAction order={order} /> : null}
       </OrderReceipt> : loading ? <div className="catalog-loading" role="status">Loading your order details…</div>
-      : <div className="empty-state"><Package /><h1>Order details unavailable</h1><p>We couldn’t load this order for your account. Refresh to try again or return to your order history.</p><button className="button button-gold" onClick={() => setRefreshCount((count) => count + 1)}>Try again</button><Link className="button button-outline" to="/account?tab=orders">All orders</Link></div>}
+      : <div className="empty-state"><Package /><h1>Order details unavailable</h1><p>{loadError || "This order was not found in your account."}</p>{recoverOrders}<Link className="button button-outline" to="/account?tab=orders">All orders</Link></div>}
     </div></section>;
   }
 
@@ -258,7 +272,7 @@ export default function AccountPage() {
     <div className="customer-account-panel">
       {active === "orders" && <>
         <div className="customer-account-toolbar"><span>Order history</span><button type="button" className="customer-account-refresh" disabled={loading} onClick={() => setRefreshCount(count => count + 1)}><RefreshCw size={15} aria-hidden="true" /> {loading ? "Refreshing…" : "Refresh orders"}</button></div>
-        {loadError && <div className="form-message error" role="alert">{loadError}<button type="button" className="text-button" disabled={loading} onClick={() => setRefreshCount(count => count + 1)}>Try again</button></div>}
+        {loadError && <div className="form-message error" role="alert">{loadError}{recoverOrders}</div>}
         {(!loadError || orders.length > 0 || loading) && <OrdersPanel orders={orders} loading={loading} highlightedOrder={highlightedOrder} autoShowWire={autoShowWire} />}
       </>}
       {active === "profile" && <>

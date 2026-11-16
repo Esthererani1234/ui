@@ -92,7 +92,7 @@ const statuses = [
   "cancelled",
 ];
 const orderFields =
-  "id, order_number, user_id, first_name, last_name, email, phone, status, payment_status, payment_method, payment_provider, provider_payment_id, payment_reference, payment_due_at, paid_at, terms_version, terms_accepted_at, subtotal, payment_surcharge, shipping_amount, insurance_amount, total, spot_snapshot, price_locked_until, shipping_address, customer_notes, tracking_number, created_at, updated_at, order_items(*)";
+  "id, order_number, user_id, first_name, last_name, email, phone, status, payment_status, payment_method, payment_provider, provider_payment_id, payment_reference, payment_due_at, paid_at, terms_version, terms_accepted_at, subtotal, payment_surcharge, shipping_amount, insurance_amount, total, spot_snapshot, price_locked_until, shipping_address, customer_notes, tracking_number, created_at, updated_at, order_items!order_items_order_id_fkey(*)";
 const imagePath = (url) => {
   const marker = "/storage/v1/object/public/product-images/";
   return url?.includes(marker)
@@ -123,7 +123,9 @@ export default function AdminPage() {
     return Object.hasOwn(tabTitles, requested) ? requested : "overview";
   });
   const [products, setProducts] = useState([]);
-  const [orders, setOrders] = useState([]);
+  const [loadedOrders, setOrders] = useState(null);
+  const orders = loadedOrders ?? [];
+  const [orderLoadFailed, setOrderLoadFailed] = useState(false);
   const [editor, setEditor] = useState(null);
   const [shippingDefaults,setShippingDefaults]=useState({shipping_flat:35,free_shipping_threshold:5000});
   useEffect(()=>{supabase.from("app_settings").select("key,value").in("key",["shipping_flat","free_shipping_threshold"]).then(({data})=>{if(data)setShippingDefaults(current=>data.reduce((next,row)=>({...next,[row.key]:Number(row.value)}),current));});},[]);
@@ -157,6 +159,7 @@ export default function AdminPage() {
     ]);
     if (version !== loadVersion.current) return;
     if (!productError) setProducts(productData || []);
+    setOrderLoadFailed(Boolean(orderError));
     if (!orderError) setOrders(orderData || []);
     const failures = [
       productError && "products",
@@ -164,10 +167,10 @@ export default function AdminPage() {
     ].filter(Boolean);
     setMessage(
       failures.length
-        ? `${failures.join(", ")} could not be refreshed. Your last loaded data is still shown. Retry below.`
+        ? `${failures.join(", ")} could not be refreshed. Retry below.`
         : "",
     );
-    } catch { if (version === loadVersion.current) setMessage("The admin connection was interrupted. Retry loading your data."); }
+    } catch { if (version === loadVersion.current) { setOrderLoadFailed(true); setMessage("The admin connection was interrupted. Retry loading your data."); } }
     finally { if (version === loadVersion.current) setLoadBusy(false); }
   };
   useEffect(() => () => { loadVersion.current += 1; }, []);
@@ -528,10 +531,10 @@ export default function AdminPage() {
         </nav>
         <div className="admin-mobile-pulse" aria-label="Admin live overview">
           <button type="button" onClick={() => setTab("orders")}>
-            <b>{metrics.open}</b><span>Open</span>
+            <b>{loadedOrders === null ? "—" : metrics.open}</b><span>Open</span>
           </button>
           <button type="button" onClick={() => setTab("orders")}>
-            <b>{orders.length}</b><span>Orders</span>
+            <b>{loadedOrders === null ? "—" : orders.length}</b><span>Orders</span>
           </button>
           <button type="button" onClick={() => setTab("products")}>
             <b>{metrics.lowStock}</b><span>Low stock</span>
@@ -569,7 +572,7 @@ export default function AdminPage() {
                 <DollarSign />
                 <span>
                   <small>ORDER VALUE</small>
-                  <b>{money(metrics.revenue)}</b>
+                  <b>{loadedOrders === null ? "—" : money(metrics.revenue)}</b>
                   <em>non-cancelled reviewed orders</em>
                 </span>
               </button>
@@ -584,7 +587,7 @@ export default function AdminPage() {
                 <PackageCheck />
                 <span>
                   <small>OPEN ORDERS</small>
-                  <b>{metrics.open}</b>
+                  <b>{loadedOrders === null ? "—" : metrics.open}</b>
                   <em>requiring fulfillment activity</em>
                 </span>
               </button>
@@ -614,7 +617,7 @@ export default function AdminPage() {
                 <ShoppingBag />
                 <span>
                   <small>TOTAL ORDERS</small>
-                  <b>{orders.length}</b>
+                  <b>{loadedOrders === null ? "—" : orders.length}</b>
                   <em>latest 100 loaded</em>
                 </span>
               </button>
@@ -631,6 +634,7 @@ export default function AdminPage() {
               </div>
               <OrderTable
                 orders={orders.slice(0, 8)}
+                loaded={loadedOrders !== null} failed={orderLoadFailed}
                 onOpen={openOrderDetails}
               />
             </div>
@@ -835,6 +839,7 @@ export default function AdminPage() {
             </div>
             <OrderTable
               orders={filteredOrders}
+              loaded={loadedOrders !== null} failed={orderLoadFailed} filtered={orderFilter !== "all"}
               onOpen={openOrderDetails}
               detailed
             />
@@ -1379,7 +1384,8 @@ function AdminMfaGate({ onVerified }) {
   );
 }
 
-function OrderTable({ orders, onOpen }) {
+function OrderTable({ orders, onOpen, loaded, failed, filtered = false }) {
+  if (!loaded) return <p role="status">{failed ? "Orders are unavailable. Retry loading to see them." : "Loading orders…"}</p>;
   return (
     <div className="admin-order-list">
       {orders.map((order) => (
@@ -1403,7 +1409,7 @@ function OrderTable({ orders, onOpen }) {
           </div>
         </article>
       ))}
-      {!orders.length && <div className="empty-state compact"><h3>No orders yet</h3></div>}
+      {!orders.length && <div className="empty-state compact"><h3>{filtered ? "No orders match this filter" : "No orders yet"}</h3></div>}
     </div>
   );
 }

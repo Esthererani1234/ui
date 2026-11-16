@@ -1,0 +1,10 @@
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import {BrowserRouter} from 'react-router-dom';
+import AccountPage from '../../src/pages/AccountPage';
+import AdminPage from '../../src/pages/AdminPage';
+import {supabase} from '../../src/lib/supabase';
+import '../../src/styles.css';
+supabase.auth.getSession=async()=>({data:{session:{access_token:'fixture-test-only'}}});
+supabase.auth.mfa.getAuthenticatorAssuranceLevel=async()=>({data:{currentLevel:'aal2'}});
+createRoot(document.getElementById('root')).render(<BrowserRouter>{location.search.includes('admin=1')?<AdminPage/>:<AccountPage/>}</BrowserRouter>);

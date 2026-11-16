@@ -18,6 +18,11 @@ const SUPABASE_PUBLIC_KEY = process.env.SUPABASE_PUBLISHABLE_KEY
 const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY
   || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+export const customerReadClient = token => createClient(SUPABASE_URL,SUPABASE_PUBLIC_KEY,{
+  global:{headers:{Authorization:'Bearer '+token}},
+  auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},
+});
+
 export const service = () => {
   if(isProductionPreview(process.env.VERCEL_ENV,SUPABASE_URL))throw Object.assign(new Error('Production account operations are disabled in preview deployments.'),{status:503});
   if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) throw new Error("Payment service is not configured");
@@ -101,7 +106,7 @@ export async function requireAdmin(request) {
 
 export async function customerOrder(orderId, userId) {
   const { data, error } = await service().from("orders")
-    .select("id,order_number,user_id,email,first_name,last_name,phone,payment_method,payment_status,payment_provider,provider_payment_id,provider_checkout_url,payment_reference,payment_due_at,wire_agreement_version,wire_agreement_text,wire_accepted_at,subtotal,payment_surcharge,shipping_amount,total,spot_snapshot,price_locked_until,status,shipping_address,order_items(id,product_id,product_name,quantity,unit_price,line_total,products(image_url,image_urls,slug))")
+    .select("id,order_number,user_id,email,first_name,last_name,phone,payment_method,payment_status,payment_provider,provider_payment_id,provider_checkout_url,payment_reference,payment_due_at,wire_agreement_version,wire_agreement_text,wire_accepted_at,subtotal,payment_surcharge,shipping_amount,total,spot_snapshot,price_locked_until,status,shipping_address,order_items!order_items_order_id_fkey(id,product_id,product_name,quantity,unit_price,line_total,products(image_url,image_urls,slug))")
     .eq("id", orderId).eq("user_id", userId).maybeSingle();
   if (error) throw error;
   if (!data) throw Object.assign(new Error("Order not found"), { status: 404 });

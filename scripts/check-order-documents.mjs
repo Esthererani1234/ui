@@ -17,10 +17,12 @@ const write=async(a,v,s,user=admin,id=1)=>db.query('select public.order_document
 before(async()=>{db=new PGlite();await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;create schema storage;
 create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
 create table public.orders(id bigint primary key,user_id uuid,order_number text,created_at timestamptz,first_name text,last_name text,shipping_address jsonb,email text,payment_method text,payment_status text,status text,subtotal numeric,payment_surcharge numeric,insurance_amount numeric,shipping_amount numeric,total numeric,tracking_number text);
-create table public.order_items(id bigint primary key,order_id bigint,product_name text,sku text,metal text,metal_weight_oz numeric,quantity integer,unit_price numeric,line_total numeric,pricing_snapshot jsonb);
+create table public.order_items(id bigint primary key,order_id bigint references public.orders(id),product_name text,sku text,metal text,metal_weight_oz numeric,quantity integer,unit_price numeric,line_total numeric,pricing_snapshot jsonb);
 create table public.admin_users(user_id uuid);create table public.order_risk_reviews(order_id bigint,decision text);
 insert into public.admin_users values('${admin}');insert into orders values(1,'${owner}','TEST-001',now(),'Example','Recipient','{"address_line_1":"123 Example Street","city":"New York","state":"NY","postal_code":"10001"}','test@example.test','wire','paid','processing',3200,0,0,0,3200,null);insert into orders select 2,user_id,'TEST-002',created_at,first_name,last_name,shipping_address,email,payment_method,'unpaid','awaiting_payment',subtotal,0,0,0,total,null from orders;
-insert into order_items values(11,1,'Gold bar in assay','TEST-BAR','gold',1,2,1500,3000,'{"purity":".9999"}'),(12,1,'Silver coin','TEST-COIN','silver',1,1,200,200,'{}'),(21,2,'Gold bar','TEST','gold',1,1,1500,1500,'{}');insert into order_risk_reviews values(1,'approved'),(2,'pending');`);await db.exec(await readFile(new URL('../supabase/migrations/20261116173317_order_documents_delivery.sql',import.meta.url),'utf8'))});
+insert into order_items values(11,1,'Gold bar in assay','TEST-BAR','gold',1,2,1500,3000,'{"purity":".9999"}'),(12,1,'Silver coin','TEST-COIN','silver',1,1,200,200,'{}'),(21,2,'Gold bar','TEST','gold',1,1,1500,1500,'{}');insert into order_risk_reviews values(1,'approved'),(2,'pending');`);await db.exec(await readFile(new URL('../supabase/migrations/20261116173317_order_documents_delivery.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261116174123_restore_order_item_embedding.sql',import.meta.url),'utf8'));
+});
 after(()=>db.close());
 test('no client grants on documents/serials/logs, no client RPC execution, private media bucket',async()=>{
  for(const role of ['anon','authenticated'])for(const name of ['order_unit_tags','order_delivery_info','order_issued_documents','order_delivery_log'])for(const priv of ['SELECT','UPDATE','INSERT','DELETE','TRUNCATE'])assert.equal((await db.query('select has_table_privilege($1,$2,$3) v',[role,name,priv])).rows[0].v,false);
@@ -70,4 +72,15 @@ test('HTTP document issuance and archive, invoice reuse, ZIP, private media uplo
  media.set(key,new Blob([Buffer.alloc(bytes.length)]));assert.equal((await send('attach',{...metadata,key},revision)).code,400);
  media.set(key,new Blob([bytes]));assert.equal((await send('attach',{...metadata,key},revision)).code,200);const log=(await send('load')).body.logs.find(l=>l.action==='evidence');
  assert.equal((await send('view',{id:log.id},revision)).code,200);assert.deepEqual(signs,[[key,60]]);
+});
+
+test('order rows have a direct item relation and no competing serial-table join',async()=>{
+ const {rows}=await db.query(`select
+    exists(select 1 from pg_constraint where contype='f'
+      and conrelid='order_items'::regclass and confrelid='orders'::regclass) as direct,
+    exists(select 1 from pg_constraint pk
+      join pg_constraint a on a.contype='f' and a.conrelid=pk.conrelid and a.confrelid='orders'::regclass and pk.conkey @> a.conkey
+      join pg_constraint b on b.contype='f' and b.conrelid=pk.conrelid and b.confrelid='order_items'::regclass and pk.conkey @> b.conkey
+      where pk.contype='p') as competing_bridge`);
+ assert.deepEqual(rows,[{direct:true,competing_bridge:false}]);
 });

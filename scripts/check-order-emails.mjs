@@ -1,6 +1,6 @@
 import {test,before,after} from 'node:test';
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
+import {readFile,readdir} from 'node:fs/promises';
 import {PGlite} from '@electric-sql/pglite';
 import {EMAIL_EVENTS,renderOrderEmail,sampleOrder} from '../supabase/functions/_shared/orderEmail.js';
 import {deliverOrderEmails,sendOrderEmail} from '../supabase/functions/_shared/orderEmailDelivery.js';
@@ -20,6 +20,12 @@ before(async()=>{
  create function vault.create_secret(text,text,text) returns uuid language sql as $$insert into vault.secrets(secret,name)values($1,$2)returning id$$;
  create function vault.update_secret(uuid,text) returns void language sql as $$update vault.secrets set secret=$2 where id=$1$$;`);
  await db.exec(await readFile(new URL('../supabase/migrations/20261022155959_order_email_outbox.sql',import.meta.url),'utf8'));
+ const dir=new URL('../supabase/migrations/',import.meta.url);
+ const wire=await readFile(new URL('20261023030443_versioned_purchase_terms.sql',dir),'utf8');
+ await db.exec(wire.slice(0,wire.indexOf('end $$;')+7));
+ await db.exec('create table public.order_delivery_info(order_id bigint primary key references orders(id),details jsonb not null)');
+ const migration=(await readdir(dir)).find(n=>n.endsWith('_order_email_milestones.sql'));
+ await db.exec(await readFile(new URL(migration,dir),'utf8'));
 });
 after(()=>db.close());
 async function tx(run){await db.exec('begin');try{await run()}finally{await db.exec('rollback')}}
@@ -29,7 +35,7 @@ async function due(){await db.exec("update order_email_outbox set available_at=n
 test('emails are opt-in and migration does not notify historical orders',()=>tx(async()=>{await seed(false);assert.equal(await scalar('select count(*)::int from order_email_outbox'),0)}));
 test('order insertion and queue insertion share a transaction and use verified account recipient',()=>tx(async()=>{await seed();assert.equal(await scalar('select recipient from order_email_outbox'),'verified@example.test');assert.equal(await scalar('select event_type from order_email_outbox'),'placed');assert.equal(await scalar("select order_snapshot ? 'internal_notes' from order_email_outbox"),false)}));
 test('unverified account does not receive notifications',()=>tx(async()=>{await db.exec('update auth.users set email_confirmed_at=null');await seed();assert.equal(await scalar('select count(*)::int from order_email_outbox'),0)}));
-test('all fulfillment and payment milestones queue once despite webhook replays',()=>tx(async()=>{await seed();for(const sql of ["status='awaiting_payment'","payment_status='paid'","payment_status='paid'","status='processing'","status='shipped',tracking_number='TRACK'","status='completed'","payment_status='refunded'","payment_status='refunded'"])await db.exec('update orders set '+sql+' where id=1');assert.deepEqual((await db.query('select event_type from order_email_outbox order by sequence')).rows.map(r=>r.event_type),['placed','awaiting_payment','paid','processing','shipped','delivered','refunded']);assert.equal(await scalar("select count(*)::int from order_email_outbox where status='pending'"),1)}));
+test('all fulfillment and payment milestones queue once despite webhook replays',()=>tx(async()=>{await seed();for(const sql of ["status='awaiting_payment'","payment_status='paid'","payment_status='paid'","status='processing'","status='shipped',tracking_number='TRACK'","status='completed'","payment_status='refunded'","payment_status='refunded'"])await db.exec('update orders set '+sql+' where id=1');assert.deepEqual((await db.query('select event_type from order_email_outbox order by sequence')).rows.map(r=>r.event_type),['placed','awaiting_payment','paid','processing','shipped','delivered','refunded']);assert.deepEqual((await db.query("select event_type from order_email_outbox where status='pending' order by sequence")).rows.map(r=>r.event_type),['placed','paid','shipped','delivered','refunded'])}));
 test('cancellation is separate from refunds and tracking changes are deduplicated',()=>tx(async()=>{await seed();await db.exec("update orders set status='cancelled';update orders set payment_status='refunded'");assert.equal(await scalar("select count(*)::int from order_email_outbox where event_type in ('cancelled','refunded')"),2)}));
 test('queue claims are exclusive, preserve item snapshots, and reclaim expired leases',()=>tx(async()=>{await seed();await due();const first=(await db.query('select * from claim_order_emails(4)')).rows;assert.equal(first.length,1);assert.equal(first[0].items_snapshot[0].product_name,'Gold Coin');assert.equal((await db.query('select * from claim_order_emails(4)')).rows.length,0);await db.exec("update order_items set product_name='CHANGED';update order_email_outbox set lease_until=now()-interval '1 minute'");const second=(await db.query('select * from claim_order_emails(4)')).rows[0];assert.equal(second.id,first[0].id);assert.notEqual(second.lease_id,first[0].lease_id);assert.equal(second.items_snapshot[0].product_name,'Gold Coin')}));
 test('stale retries stop before provider deduplication expires',()=>tx(async()=>{await seed();await due();await db.exec("select claim_order_emails(4);update order_email_outbox set first_attempt_at=now()-interval '23 hours',lease_until=now()-interval '1 minute'");assert.equal((await db.query('select * from claim_order_emails(4)')).rows.length,0);assert.equal(await scalar('select status from order_email_outbox'),'failed')}));
@@ -43,3 +49,38 @@ test('disabled email sender does not claim or send jobs',async()=>{const result=
 
 test('tracking edits notify once per reference without claiming a new shipment',()=>tx(async()=>{await seed();await db.exec("update orders set status='shipped',tracking_number='ONE';update orders set tracking_number='TWO';update orders set tracking_number='TWO'");assert.equal(await scalar("select count(*)::int from order_email_outbox where event_type='tracking'"),1);assert.equal(await scalar("select order_snapshot->>'tracking_number' from order_email_outbox where event_type='tracking'"),'TWO')}));
 test('notification rolls back with failed order transaction',()=>tx(async()=>{await db.exec('savepoint checkout');await seed();await db.exec('rollback to savepoint checkout');assert.equal(await scalar('select count(*)::int from orders'),0);assert.equal(await scalar('select count(*)::int from order_email_outbox'),0)}));
+
+test('quick cancellation preserves the original confirmation and cancellation',()=>tx(async()=>{
+ await seed();await db.exec("update orders set status='cancelled';update orders set status='cancelled'");
+ assert.deepEqual((await db.query("select event_type from order_email_outbox where status='pending' order by sequence")).rows.map(r=>r.event_type),['placed','cancelled']);
+}));
+test('receipt, shipment and delivery go through the real queue and worker in order',()=>tx(async()=>{
+ await seed();await db.exec("update orders set payment_status='paid',status='shipped',tracking_number='TRACK-ABC';update orders set status='completed';update orders set status='completed'");
+ const transport={rpc:async()=>({data:(await db.query('select * from claim_order_emails(4)')).rows}),
+  from(name){assert.equal(name,'order_email_outbox');return {update(fields){const params=[],where=[];
+   const set=Object.entries(fields).map(([k,v])=>{params.push(k==='message'?JSON.stringify(v):v);return k+'=$'+params.length});
+   return {eq(k,v){params.push(v);where.push(k+'=$'+params.length);return this},is(k,v){assert.equal(v,null);where.push(k+' is null');return this},select(){return this},
+    async maybeSingle(){return {data:(await db.query('update order_email_outbox set '+set.join(',')+' where '+where.join(' and ')+' returning id',params)).rows[0]}}}}};
+  }};
+ const received=[];
+ for(let i=0;i<5;i++)await deliverOrderEmails(transport,{enabled:true,api_key:'fixture',from_email:'orders@example.test',reply_to:'support@example.test'},
+  {pause:async()=>{},send:(settings,message,key)=>sendOrderEmail(settings,message,key,async(url,init)=>{
+   const mail=JSON.parse(init.body);assert.deepEqual(mail.to,['verified@example.test']);received.push(mail);
+   return {ok:true,json:async()=>({id:'test-'+received.length})};
+  })});
+ assert.deepEqual(received.map(m=>m.subject.split(' · ')[0]),['Order received','Payment received','Order shipped','Order delivered']);
+ assert.match(received[2].text,/TRACK-ABC/);assert.match(received[3].html,/TRACK-ABC/);
+ assert.equal(await scalar("select count(*)::int from order_email_outbox where status='sent'"),4);
+}));
+test('delivery screen and order screen share one notice per milestone',()=>tx(async()=>{
+ await seed();await db.exec("update orders set payment_status='paid'");
+ const save=(method,status)=>db.query('insert into order_delivery_info values(1,$1) on conflict(order_id) do update set details=excluded.details',[JSON.stringify({method,status,tracking:'COURIER-1',notes:'private-test'})]);
+ await save('Shipping','Preparing');await save('Insured Courier','Out for Delivery');
+ await db.exec("update orders set status='shipped'");await save('Insured Courier','Delivered');await save('Insured Courier','Delivered');await db.exec("update orders set status='completed'");
+ const {rows}=await db.query("select event_type,order_snapshot,status from order_email_outbox where event_type in ('shipped','delivered') order by sequence");
+ assert.deepEqual(rows.map(r=>r.event_type),['shipped','delivered']);for(const r of rows){assert.equal(r.status,'pending');assert.equal(r.order_snapshot.tracking_number,'COURIER-1');assert.ok(!JSON.stringify(r.order_snapshot).includes('private-test'))}
+}));
+test('pickup does not announce shipment and an unpaid delivery record sends no delivery notice',()=>tx(async()=>{
+ await seed();await db.exec(`insert into order_delivery_info values (1,'{"method":"Customer Pickup","status":"Delivered"}');update orders set payment_status='paid';update order_delivery_info set details='{"method":"Customer Pickup","status":"Out for Delivery"}';update order_delivery_info set details='{"method":"Customer Pickup","status":"Delivered"}'`);
+ assert.deepEqual((await db.query("select event_type from order_email_outbox where event_type in ('shipped','delivered')")).rows,[{event_type:'delivered'}]);
+}));

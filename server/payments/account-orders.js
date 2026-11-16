@@ -1,4 +1,4 @@
-import {authenticateCustomer, customerReadClient, json} from '../lib/payments.js';
+import {authenticateCustomer, requireAdmin, tokenPayload, customerReadClient, json} from '../lib/payments.js';
 import {securityLog} from '../lib/security.js';
 
 // Read under the caller's JWT and existing row policies, never the service role.
@@ -8,11 +8,21 @@ const fields = [
   'spot_snapshot,price_locked_until,shipping_address,customer_notes,tracking_number,created_at,updated_at',
   'order_items!order_items_order_id_fkey(id,product_id,product_name,sku,metal,metal_weight_oz,quantity,unit_price,line_total,product_image_url,product_category,product_slug,products!order_items_product_id_fkey(image_url,image_urls,slug,category))',
 ].join(',');
-export function accountOrders({authenticate=authenticateCustomer,readClient=customerReadClient}={}) {
+export function accountOrders({authenticate=authenticateCustomer,authenticateAdmin=requireAdmin,readClient=customerReadClient}={}) {
   return async function handler(req,res) {
     if(req.method!=='GET') return json(res,405,{error:'Method not allowed'});
     try {
-      const {user,token}=await authenticate(req,{requireSms:true});
+      let identity;
+      try { identity=await authenticate(req,{requireSms:true}); }
+      catch (error) {
+        // Admins use authenticator MFA instead of customer SMS. Match the existing
+        // order policy while still restricting Account history to their own user id.
+        const token=(req.headers.authorization || '').replace(/^Bearer /,'');
+        if(error.status!==403 || tokenPayload(token).aal!=='aal2') throw error;
+        const user=await authenticateAdmin(req);
+        identity={user,token};
+      }
+      const {user,token}=identity;
       const number=new URL(req.url,'https://goldonthespot.com').searchParams.get('order');
       if(number!==null && (!number.trim() || number.length>100)) return json(res,400,{error:'Invalid order number.'});
       let q=readClient(token).from('orders').select(fields).eq('user_id',user.id);

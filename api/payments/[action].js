@@ -4,6 +4,7 @@ import {previewPaymentsAllowed,PRODUCTION_DATABASE_HOST} from '../../shared/depl
 // One Vercel function, fixed routing table. Preserve raw webhook bytes.
 export const config={api:{bodyParser:false}};
 const routes={
+ 'order-documents':()=>import('../../server/payments/order-documents.js'),
  'config':()=>import('../../server/payments/config.js'),
  'confirm-ach':()=>import('../../server/payments/confirm-ach.js'),
  'confirm-card':()=>import('../../server/payments/confirm-card.js'),

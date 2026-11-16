@@ -5,3 +5,10 @@ export const deliveryStates=['Pending','Preparing','Out for Delivery','Delivered
 export const money=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(n));
 export const timeLabel=v=>v?new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',dateStyle:'medium',timeStyle:'short'}).format(new Date(v))+' ET':'';
 export function unitText(u){return [u.serial&&'Serial: '+u.serial,u.manufacturer&&'Manufacturer: '+u.manufacturer,u.assay&&'Assay: '+u.assay,u.weight&&'Actual weight: '+u.weight,u.purity&&'Purity: '+u.purity].filter(Boolean).join('   ·   ')}
+
+// The actual handoff recipient can differ from the purchaser.
+export function deliveryRecipient(order, delivery) {
+  return [delivery?.recipient, order.shipping_address?.name,
+    [order.first_name,order.last_name].filter(Boolean).join(' ')]
+    .find(value => typeof value === 'string' && value.trim())?.trim() || '';
+}

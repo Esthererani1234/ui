@@ -12,7 +12,7 @@ try{
  for(const width of [390,1440]){
   const context=await browser.newContext({viewport:{width,height:860},acceptDownloads:true});
   const page=await context.newPage();page.setDefaultTimeout(8000);
-  const state={order:{id:42,order_number:'DEMO-42',total:480,status:'processing',payment_status:'paid',payment_method:'wire'},delivery:{},items:[{id:10,quantity:2,product_name:'Fixture silver bar',unit_price:240,line_total:480,units:[]}]};
+  const state={order:{id:42,order_number:'DEMO-42',first_name:'Fixture',last_name:'Purchaser',shipping_address:{name:'Fixture Recipient'},total:480,status:'processing',payment_status:'paid',payment_method:'wire'},delivery:{},items:[{id:10,quantity:2,product_name:'Fixture silver bar',unit_price:240,line_total:480,units:[]}]};
   const docs=[],logs=[],errors=[];let received;
   page.on('pageerror',e=>errors.push(e.message));
   await page.route('**/api/payments/order-documents',async route=>{
@@ -39,12 +39,13 @@ try{
   const dialog=page.getByRole('dialog');await dialog.waitFor();
   assert.match(await dialog.textContent(),/TEST-002/);assert.equal(state.delivery.status,'Pending');assert.equal(received,undefined);
   const sign=dialog.getByRole('button',{name:'Sign and confirm receipt'});assert.equal(await sign.isDisabled(),true);
-  await dialog.getByLabel('Recipient printed name').fill('Fixture Recipient');
+  const recipient=dialog.getByLabel('Receiving this order');assert.equal(await recipient.inputValue(),'Fixture Recipient');
+  if(width===1440)await recipient.fill('Alternate Recipient');
   await dialog.getByLabel('I confirm the listed').check();
   const pad=dialog.locator('canvas');await pad.scrollIntoViewIfNeeded();const b=await pad.boundingBox();
   await page.mouse.move(b.x+b.width*.1,b.y+b.height*.6);await page.mouse.down();await page.mouse.move(b.x+b.width*.5,b.y+b.height*.2,{steps:12});await page.mouse.up();
   await sign.click();await page.getByRole('link',{name:'Download last PDF'}).waitFor();await dialog.waitFor({state:'detached'});
-  assert.equal(received.name,'Fixture Recipient');assert.ok(received.strokes.length);assert.equal(state.delivery.status,'Pending');assert.deepEqual(errors,[]);
+  assert.equal(received.name,width===1440?'Alternate Recipient':'Fixture Recipient');assert.ok(received.strokes.length);assert.equal(state.delivery.status,'Pending');assert.deepEqual(errors,[]);
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   console.log('PASS '+width+'px: per-unit serial, delivery method, conditional consent, signature and PDF link');await context.close();
  }

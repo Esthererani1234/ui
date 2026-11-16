@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import {supabase} from '../lib/supabase';
-import {deliveryMethods,deliveryStates,acknowledgment,serialAcknowledgment,timeLabel,money,unitText} from '../../shared/deliveryDocs.js';
+import {deliveryMethods,deliveryStates,deliveryRecipient,acknowledgment,serialAcknowledgment,timeLabel,money,unitText} from '../../shared/deliveryDocs.js';
 import './orderDocuments.css';
 const captions={invoice:'Invoice',packing:'Packing slip',ack:'Delivery acknowledgment',signed:'Signed acknowledgment'};
 const blank={serial:'',manufacturer:'',assay:'',weight:'',purity:''};
@@ -48,12 +48,12 @@ export default function OrderDocuments({orderId}){
 }
 
 function Signature({state,busy,error,cancel,submit}){
- const ref=useRef(),canvas=useRef(),lines=useRef([]),active=useRef(null),[name,S]=useState(''),[ok,O]=useState(false),[id,I]=useState(false),[condition,C]=useState('Intact'),[drawn,D]=useState(false);
+ const ref=useRef(),canvas=useRef(),lines=useRef([]),active=useRef(null),[name,S]=useState(()=>deliveryRecipient(state.order,state.delivery)),[ok,O]=useState(false),[id,I]=useState(false),[condition,C]=useState('Intact'),[drawn,D]=useState(false);
  useEffect(()=>{ref.current?.showModal()},[]);
  function pos(e){const r=canvas.current.getBoundingClientRect();return [Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)),Math.max(0,Math.min(1,(e.clientY-r.top)/r.height))]}
  function move(e){if(active.current!==e.pointerId)return;const l=lines.current.at(-1),a=l.at(-1),b=pos(e);if(l.length>=2400)return;l.push(b);const ctx=canvas.current.getContext('2d');ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(a[0]*800,a[1]*180);ctx.lineTo(b[0]*800,b[1]*180);ctx.stroke();D(true)}
  return <dialog ref={ref} className="doc-sign" onCancel={e=>{e.preventDefault();if(!busy)cancel()}}><h2>Confirm your delivery</h2><p>{state.order.order_number} · {money(state.order.total)}</p>{state.items.map(i=><p key={i.id}><b>{i.quantity} × {i.product_name}</b>{i.units.map(u=><small key={u.unit}>{unitText(u)}</small>)}</p>)}<p>{acknowledgment}</p>{state.items.some(i=>i.units.some(u=>u.serial))&&<p>{serialAcknowledgment}</p>}
- <label>Recipient printed name<input maxLength={120} value={name} onChange={e=>S(e.target.value)}/></label><label>Package condition<select aria-label="Package condition" value={condition} onChange={e=>C(e.target.value)}><option>Intact</option><option>Damage noted</option></select></label>
+ <label>Receiving this order<input aria-describedby="recipient-help" autoComplete="off" maxLength={120} value={name} onChange={e=>S(e.target.value)}/></label><small id="recipient-help">Change the name if someone else is receiving the order.</small><label>Package condition<select aria-label="Package condition" value={condition} onChange={e=>C(e.target.value)}><option>Intact</option><option>Damage noted</option></select></label>
  <label><input type="checkbox" checked={id} onChange={e=>I(e.target.checked)}/> Representative checked recipient ID</label><label><input type="checkbox" checked={ok} onChange={e=>O(e.target.checked)}/> I confirm the listed merchandise was handed directly to me.</label>
  <canvas aria-label="Draw recipient signature" ref={canvas} width="800" height="180" onPointerDown={e=>{if(active.current!==null||lines.current.length>=100)return;active.current=e.pointerId;e.target.setPointerCapture(e.pointerId);lines.current.push([pos(e)])}} onPointerMove={move} onPointerUp={()=>{active.current=null}} onPointerCancel={()=>{active.current=null}}/>
  {error&&<p role="alert">{error}</p>}<div className="doc-actions"><button type="button" disabled={busy} onClick={()=>{canvas.current.getContext('2d').clearRect(0,0,800,180);lines.current=[];D(false)}}>Clear signature</button><button type="button" disabled={busy||!ok||!name.trim()||!drawn} onClick={()=>submit({name,confirmed:ok,idChecked:id,condition,strokes:lines.current.filter(s=>s.length>1)})}>Sign and confirm receipt</button><button type="button" disabled={busy} onClick={cancel}>Cancel</button></div></dialog>

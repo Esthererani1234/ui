@@ -1,7 +1,7 @@
 import {PDFDocument,rgb} from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import {readFile} from 'node:fs/promises';
-import {money,timeLabel,acknowledgment,serialAcknowledgment,unitText} from '../../shared/deliveryDocs.js';
+import {money,timeLabel,deliveryRecipient,acknowledgment,serialAcknowledgment,unitText} from '../../shared/deliveryDocs.js';
 const titles={invoice:'Customer invoice',packing:'Packing slip',ack:'Delivery acknowledgment',signed:'Delivery acknowledgment'};
 const assets=()=>Promise.all(['fonts/DejaVuSans.ttf','fonts/DejaVuSans-Bold.ttf','document-logo.png'].map(n=>readFile(new URL('../assets/'+n,import.meta.url))));
 export async function renderDeliveryPdf({order:o,items,delivery:d},kind,id,issued,receipt){
@@ -17,7 +17,26 @@ export async function renderDeliveryPdf({order:o,items,delivery:d},kind,id,issue
  function checks(labels){need(30);let x=40;for(const label of labels){p.drawRectangle({x,y:y-1,width:9,height:9,borderColor:ink,borderWidth:.8});put(label,x+14,y,9);x+=14+font.widthOfTextAtSize(label,9)+19}y-=23}
  function section(s){need(32);y-=5;para(s.toUpperCase(),{size:9,f:bold,color:gold})}
  function addr(ad){if(!ad)return;const a=ad.address||ad;para([a.address_line_1||a.line1,a.address_line_2||a.line2,[a.city,a.state,a.postal_code||a.zip].filter(Boolean).join(', '),a.country].filter(Boolean).join(' · '),{size:9})}
- page();section(kind==='invoice'?'Customer / ship to':'Deliver to');const customerName=[o.first_name,o.last_name].filter(Boolean).join(' ');para(customerName||o.shipping_address?.name,{f:bold});if(o.shipping_address?.name&&o.shipping_address.name!==customerName)para(o.shipping_address.name);addr(o.shipping_address);if(kind==='invoice'&&o.billing_address){section('Billing address');addr(o.billing_address)}
+ const deliveryForm=kind==='ack'||kind==='signed';
+ page();
+ if(deliveryForm){
+   section(receipt?'Received by':'Recipient');
+   const name=receipt?.name || deliveryRecipient(o,d);
+   if(name)para(name,{f:bold});
+   if(!receipt){
+     if(!name)y-=12;
+     line(40,415,y,muted);y-=13;
+     para(name?'If someone else receives this order, correct the name above before signing.':'Enter the name of the person receiving this order.',{size:8,color:muted});
+   }
+   addr(o.shipping_address);
+ }else{
+   section(kind==='invoice'?'Customer / ship to':'Deliver to');
+   const customerName=[o.first_name,o.last_name].filter(Boolean).join(' ');
+   para(customerName||o.shipping_address?.name,{f:bold});
+   if(o.shipping_address?.name&&o.shipping_address.name!==customerName)para(o.shipping_address.name);
+   addr(o.shipping_address);
+   if(kind==='invoice'&&o.billing_address){section('Billing address');addr(o.billing_address)}
+ }
  const financial=kind==='invoice';
  section('Merchandise');function table(){need(35);line(40,572,y);y-=14;put('DESCRIPTION',40,y,8,bold,muted);put('QTY',financial?360:528,y,8,bold,muted);if(financial){put('UNIT PRICE',404,y,8,bold,muted);put('AMOUNT',506,y,8,bold,muted)}y-=17}
  table();
@@ -31,8 +50,24 @@ export async function renderDeliveryPdf({order:o,items,delivery:d},kind,id,issue
  para([o.payment_method&&'Payment method: '+o.payment_method.toUpperCase(),o.payment_status&&'Payment status: '+o.payment_status.toUpperCase().replaceAll('_',' ')].filter(Boolean).join('    ·    '),{size:9,f:bold});}
  else if(kind==='packing'){section('Packing verification');checks(['Quantity verified','Items checked','Package sealed']);y-=15;para('Packed by: ______________________      Date: ______________________')}
  else{section('Handoff');para(['Order value: '+money(o.total),d.method,d.actual&&timeLabel(d.actual)].filter(Boolean).join('   ·   '));para(acknowledgment,{size:9});if(items.some(i=>i.units?.some(u=>u.serial)))para(serialAcknowledgment,{size:9});
- if(receipt){section('Confirmed in person');para('Recipient: '+receipt.name+'   ·   Signed '+timeLabel(issued));para('Direct handoff confirmed   ·   ID checked: '+(receipt.idChecked?'Yes':'No')+'   ·   Package: '+receipt.condition,{size:9});para(d.representative&&'Delivery representative: '+d.representative);para(d.notes&&'Notes: '+d.notes);need(66);for(const stroke of receipt.strokes)for(let n=1;n<stroke.length;n++){const point=([x,z])=>({x:44+x*290,y:y-z*53});p.drawLine({start:point(stroke[n-1]),end:point(stroke[n]),thickness:1.4,color:ink})}y-=60;line(40,344,y);y-=15;para('Recipient signature',{size:8,color:muted});need(30);y-=10;line(40,344,y,muted);y-=12;para('Delivery representative signature',{size:8,color:muted});}
- else{if(d.representative)para('Delivery representative: '+d.representative,{size:9});if(d.notes)para('Delivery notes: '+d.notes,{size:9});need(145);y-=8;checks(['Handed directly to recipient','ID verified','Package condition confirmed']);for(const pair of ['Recipient printed name:                              Recipient signature:','Delivery date and time:                               Delivery representative name:','Representative signature:                            Additional notes:']){y-=6;const labels=pair.split(/ {2,}/);put(labels[0],40,y,9);put(labels[1],308,y,9);y-=21;line(40,290,y,muted);line(308,572,y,muted);y-=14}}}
+ if(d.representative)para('Delivered by: '+d.representative,{size:9});
+ if(d.notes)para('Delivery notes: '+d.notes,{size:9});
+ if(receipt){
+   para('ID checked: '+(receipt.idChecked?'Yes':'No')+'   ·   Package: '+receipt.condition,{size:9});
+   need(95);y-=5;
+   for(const stroke of receipt.strokes)for(let n=1;n<stroke.length;n++){
+     const point=([x,z])=>({x:44+x*290,y:y-z*53});
+     p.drawLine({start:point(stroke[n-1]),end:point(stroke[n]),thickness:1.4,color:ink});
+   }
+   y-=60;line(40,348,y);y-=14;
+   para('Recipient signature   ·   Signed '+timeLabel(issued),{size:9,color:muted});
+ }else{
+   need(114);y-=6;
+   checks(['Handed directly to recipient','ID verified','Package condition confirmed']);
+   y-=30;line(40,355,y,ink);if(!d.actual)line(380,572,y,ink);
+   y-=13;put('Recipient signature',40,y,9,bold);if(!d.actual)put('Delivery date and time',380,y,9);
+   if(!d.notes){y-=28;put('Notes (optional)',40,y,9,font,muted);line(125,572,y,muted)}
+ }}
  pdf.getPages().forEach((pg,n)=>{p=pg;line(40,572,42);put('GOLD ON THE SPOT   /   '+o.order_number,40,27,8,font,muted);put((n+1)+' / '+pdf.getPageCount(),535,27,8,font,muted)});
  return Buffer.from(await pdf.save());
 }

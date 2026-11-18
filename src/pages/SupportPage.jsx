@@ -1,3 +1,4 @@
+import OfficeAddress from '../components/OfficeAddress';
 import DraftCaseImages,{useDraftCaseImages} from '../components/DraftCaseImages';
 import SupportAttachments from '../components/SupportAttachments';
 import { useEffect, useRef, useState } from "react";
@@ -263,6 +264,7 @@ export default function SupportPage() {
             <small>Keep your ticket number to track replies and status. Email updates link you back to your private conversation.</small>
           </form>
         </> : <div className="support-signin"><p>Sign in to keep your request, replies, and order details together securely.</p><Link className="button button-gold full" to={`/login?return=${encodeURIComponent("/support" + (params.toString() ? "?" + params.toString() : ""))}`}>Sign in to contact support <ArrowRight size={16} aria-hidden="true" /></Link><div className="support-signin-email"><span>Prefer email?</span><a href="mailto:support@goldonthespot.com">support@goldonthespot.com</a></div></div>}
+        <OfficeAddress />
       </aside>
     </div>
 

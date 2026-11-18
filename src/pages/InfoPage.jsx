@@ -1,3 +1,4 @@
+import OfficeAddress from '../components/OfficeAddress';
 import { useEffect } from 'react';
 import { Link, useLocation } from "react-router-dom";
 import { legalPolicies, POLICY_DATE, TERMS_VERSION } from '../lib/legalPolicies';
@@ -29,6 +30,7 @@ export default function InfoPage({ type }) {
         {archived && <p className="legal-note">Archived agreement for earlier orders. <Link to="/terms">View current terms.</Link></p>}
         {legal && <nav className="policy-contents" aria-label="On this page"><b>On this page</b>{page.sections.map(([title]) => <a href={`#${sectionId(title)}`} key={title}>{title}</a>)}</nav>}
         {page.sections.map(([title, body]) => <section key={title} id={sectionId(title)}><h2>{title}</h2><p>{body}</p></section>)}
+        {type === 'about' && <OfficeAddress />}
         {type === 'privacy' && <PrivacyChoices />}
         {type === 'terms' && !archived && <p><Link to="/terms?version=2026-10-22">Earlier terms: October 22, 2026 (original version)</Link></p>}
         <div className="legal-note">Questions about this page? <Link to="/support">Open the customer support center</Link> or email <a href="mailto:support@goldonthespot.com">support@goldonthespot.com</a>.</div>

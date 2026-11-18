@@ -1,3 +1,4 @@
+import {officeAddress} from '../../shared/business.js';
 import {PDFDocument,rgb} from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import {readFile} from 'node:fs/promises';
@@ -11,7 +12,7 @@ export async function renderDeliveryPdf({order:o,items,delivery:d},kind,id,issue
  let p,y;pdf.setTitle(titles[kind]+' · '+o.order_number);pdf.setAuthor('Gold On The Spot');
  function put(s,x,yy,size=10,f=font,color=ink){p.drawText(String(s).replace(/[\x00-\x1f]/g,' '),{x,y:yy,font:f,size,color})}
  function line(x1,x2,yy,color=gold){p.drawLine({start:{x:x1,y:yy},end:{x:x2,y:yy},thickness:.65,color})}
- function page(){p=pdf.addPage([612,792]);p.drawImage(logo,{x:40,y:712,width:44,height:44});put('Gold On The Spot',96,737,19,bold);put('goldonthespot.com   ·   support@goldonthespot.com',97,718,9,font,muted);line(40,572,702);y=676;put(titles[kind],40,y,20,bold);y-=20;put('Order '+o.order_number+'   ·   '+timeLabel(issued),40,y,9);y-=19;if(kind==='invoice'){put('Invoice INV-'+id,40,y,8,font,muted);y-=17}}
+ function page(){p=pdf.addPage([612,792]);p.drawImage(logo,{x:40,y:712,width:44,height:44});put('Gold On The Spot',96,737,19,bold);put('goldonthespot.com   ·   support@goldonthespot.com',97,718,9,font,muted);put(officeAddress.join(' · '),97,703,8,font,muted);line(40,572,692);y=666;put(titles[kind],40,y,20,bold);y-=20;put('Order '+o.order_number+'   ·   '+timeLabel(issued),40,y,9);y-=19;if(kind==='invoice'){put('Invoice INV-'+id,40,y,8,font,muted);y-=17}}
  function need(h){if(y-h<54)page()}
  function para(s,{x=40,width=532,size=10,f=font,color=ink}={}){if(!s)return;const rows=[];let buf='';for(const word of String(s).replace(/\s+/g,' ').trim().split(' ')){if(buf&&f.widthOfTextAtSize(buf+' '+word,size)>width){rows.push(buf);buf=''}for(const ch of (buf?' ':'')+word){if(buf&&f.widthOfTextAtSize(buf+ch,size)>width){rows.push(buf);buf=''}buf+=ch}}if(buf)rows.push(buf);for(const r of rows){need(size+4);put(r,x,y,size,f,color);y-=size+4}}
  function checks(labels){need(30);let x=40;for(const label of labels){p.drawRectangle({x,y:y-1,width:9,height:9,borderColor:ink,borderWidth:.8});put(label,x+14,y,9);x+=14+font.widthOfTextAtSize(label,9)+19}y-=23}

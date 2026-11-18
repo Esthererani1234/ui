@@ -12,3 +12,23 @@
 .sell-admin-card{border:1px solid #dfe3e3;border-radius:5px;margin-top:14px;padding:22px}.sell-admin-card summary{cursor:pointer;display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap}.sell-admin-card summary span{font-size:12px;color:#647174}.sell-admin-card p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}.sell-admin-contact{display:flex;gap:18px;flex-wrap:wrap;margin:18px 0}.sell-admin-contact a{overflow-wrap:anywhere}.sell-admin-card label{display:grid;gap:8px;margin:18px 0}.sell-admin-card textarea{min-height:120px}.sell-admin-reference{font-family:monospace;overflow-wrap:anywhere;font-size:11px}.sell-admin-panel .form-message{margin:15px 0}
 @media(max-width:1000px){.sell-hero-grid{gap:30px}.sell-workspace{gap:30px}.sell-form-card{padding:26px}.sell-contact-fields{grid-template-columns:1fr}.sell-item-grid{gap:14px}.sell-item-grid article{padding:22px}}
 @media(max-width:700px){.sell-hero{padding:44px 0}.sell-hero-grid,.sell-workspace{grid-template-columns:1fr}.sell-hero-grid{gap:34px}.sell-hero p{font-size:15px}.sell-metal{padding:19px}.sell-metal>span{font-size:38px}.sell-metal h2{font-size:17px}.sell-assurance>.container{flex-direction:column;gap:12px}.sell-section{padding-top:45px;padding-bottom:35px}.sell-item-grid{grid-template-columns:1fr}.sell-item-grid article{padding:22px}.sell-item-grid h3{margin-top:12px}.sell-workspace{gap:24px;padding-bottom:45px}.sell-process{padding-top:12px}.sell-form-card{padding:23px 19px}.sell-faq{padding-bottom:45px}.sell-admin-card{padding:15px}}
+
+.sell-phone-intro,.sell-phone-visit{display:none}
+@media(max-width:700px){
+  .sell-hero{padding:24px 0}
+  .sell-hero-grid{gap:0}
+  .sell-hero h1{font-size:34px;margin-bottom:10px}
+  .sell-hero .sell-eyebrow{margin-bottom:8px}
+  .sell-hero .sell-phone-intro{display:block;line-height:1.5;margin:0 0 14px}
+  .sell-hero .sell-desktop-intro,.sell-hero small,.sell-metal-grid,.sell-assurance{display:none}
+  .sell-hero .button,.sell-phone-visit{display:flex;justify-content:center;align-items:center;gap:8px;width:100%;min-height:44px;margin:0}
+  .sell-phone-visit{margin-top:8px;border:1px solid #839398;color:#fff;border-radius:4px;font-weight:700}
+  .sell-section{padding:24px 0}
+  .sell-section-heading{margin:0 0 14px;text-align:left}
+  .sell-item-grid{gap:0;border-top:1px solid #deded4}
+  .sell-item-grid article{display:grid;grid-template-columns:24px 1fr;gap:4px 10px;background:none;padding:12px 0;border:0;border-bottom:1px solid #deded4;border-radius:0}
+  .sell-item-grid svg{width:21px;height:21px}.sell-item-grid h3{font-size:17px;margin:0}.sell-item-grid p{grid-column:2}
+  .sell-form-card :is(input,textarea,select){font-size:16px;min-width:0;max-width:100%;scroll-margin-top:180px}
+  .sell-form-card select{width:100%;min-height:44px;padding:8px;border:1px solid #ccd3d1;background:#fff;color:#142a34;border-radius:4px}
+  .selling-centre .sell-form-card{scroll-margin-top:180px}
+}

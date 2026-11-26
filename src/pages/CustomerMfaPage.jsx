@@ -22,7 +22,7 @@ export default function CustomerMfaPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const destination = useMemo(() => {
-    return authDestination(params.get("return"), params.get("purpose") === "signup" ? "/" : "/account");
+    return authDestination(params.get("return"), "/");
   }, [params]);
   const requestedPurpose = params.get("purpose");
   const purpose = ["signup", "signin", "recovery", "enrollment"].includes(requestedPurpose) ? requestedPurpose : "signin";

@@ -847,6 +847,7 @@ export default function AdminPage() {
             />
           </div>
         )}
+        {tab === "orders" && <SupportAdminPanel pickupsOnly />}
         {tab === "sales" && <SalesAdminPanel />}
         {tab === "traffic" && <TrafficAnalyticsPanel />}
         {tab === "support" && <SupportAdminPanel />}

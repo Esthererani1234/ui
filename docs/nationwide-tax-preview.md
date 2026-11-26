@@ -6,6 +6,12 @@ Open `/tax-preview` on the preview deployment to search all 50 states and Washin
 
 Checkout keeps all 50 states available for shipping. It displays a minimum notice only when the eligible order is short. The store floors are $1,000.01 for New York and Maryland, $2,000 for California, and $1,000 for Massachusetts and Connecticut. Connecticut's current floor ends on June 30, 2027. New Jersey has a product-specific coin test. A positive customer charge appears as one **Tax** line. Zero, exempt, pending and noncollection statuses have no customer tax row. Failed verification is handled before payment; it never produces an assumed zero. New York investment purchasers confirm their purchase purpose in the existing agreement.
 
+## Delivery address correction
+
+The cart, checkout and account address editor use a nationwide street lookup. A street plus ZIP can fill missing city and state. Equivalent street abbreviations are standardized and unit information is preserved. Customers confirm changes to existing names or ZIP codes. Competing matches or different house numbers require an edit. Payments, the order, a saved default address and the tax assessment use the same confirmed destination. Pickup uses the fixed office address.
+
+The preview at `/tax-preview#delivery-address` allows a read-only test using the [US Census Geocoder](https://www.census.gov/data/developers/data-sets/Geocoding-services.html). Its street ranges establish a geographic match. Apartment occupancy and carrier deliverability are outside that coverage. In an authorized USPS shipping integration, `USPS_ADDRESS_ENABLED=true` with server-only `USPS_CLIENT_ID` and `USPS_CLIENT_SECRET` selects [USPS Addresses](https://developers.usps.com/addressesv3) for delivery-point confirmation. The preview uses Census and has no USPS credentials. The system never treats an unanswered lookup as a successful postal verification.
+
 ## Checkout and accounting
 
 - Delivery uses a full street address. Pickup uses the store’s New York address. Cart estimates and final checkout use the same calculation service. Discounts are allocated across merchandise, and reviewed rules determine how shipping and payment charges affect the taxable base.

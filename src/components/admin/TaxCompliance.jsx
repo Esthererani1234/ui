@@ -1,3 +1,4 @@
+import AddressPreview from '../checkout/AddressPreview';
 import {useEffect,useState} from 'react';
 import states from '../../../shared/taxSources.json';
 import {supabase} from '../../lib/supabase';
@@ -82,7 +83,7 @@ export default function TaxCompliance({researchOnly=false}){
   const exportReport=async()=>{try{const blob=await adminRequest('?format=csv&state='+selected+'&from='+from+'&to='+to);const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=selected+'-tax-'+from+'-'+to+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}catch(e){setError(e.message);}};
   return <section className="admin-panel tax-workspace">
     <header><h2>{researchOnly?'State tax research':'Sales Tax & Compliance'}</h2><p>{researchOnly?'Official sources and review status for all 50 states and Washington, DC.':'Review obligations, sales, filings and payment confirmations.'}</p></header>
-    {researchOnly&&<PreviewCalculator/>}
+    {researchOnly&&<><AddressPreview/><PreviewCalculator/></>}
     {!researchOnly&&<div className="tax-period"><label>Period start<input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></label><label>Period end<input type="date" value={to} onChange={e=>setTo(e.target.value)}/></label></div>}
     {error&&<p className="form-message error" role="alert">{error}</p>}
     {data&&<><div className="metric-grid">{Object.entries({merchandise:'Recorded sales',taxable:'Taxable merchandise',exempt:'Exempt merchandise',tax:'Tax collected',remitted:'Remitted'}).map(([k,v])=><article key={k}><small>{v}</small><b>{currency(aggregate(k))}</b></article>)}</div>

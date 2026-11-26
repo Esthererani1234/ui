@@ -1,5 +1,7 @@
+import {DeliveryAddressCheck,useDeliveryAddress} from '../components/checkout/DeliveryAddressCheck';
+import {addressFields,fillAddressFields,draftAddress} from '../../shared/deliveryAddress.js';
 import {belowOrderMinimum, businessDay} from '../../shared/bullionMinimums.js';
-import {officeAddress} from '../../shared/business.js';
+import {officeAddress,pickupAddress} from '../../shared/business.js';
 
 import {cardLimitMessage,CARD_CHARGE_MAXIMUM} from "../../shared/cardLimits.js";
 import {WIRE_AGREEMENT_TEXT, WIRE_AGREEMENT_VERSION} from "../../supabase/functions/_shared/wireAgreement.js";
@@ -486,11 +488,13 @@ function ShippingCheckout() {
   const [investment,setInvestment] = useState(true);
   const [assessment,setAssessment] = useState(null);
   const needsTax = !orderInfo && !resumeOrderId;
-  const destinationState = pickup ? 'NY' : form.state?.trim().toUpperCase();
-  const addressEntered = pickup || Boolean(form.address1.trim() && form.city.trim() && /^[A-Z]{2}$/.test(destinationState) && /^\d{5}(-\d{4})?$/.test(form.postalCode.trim()));
+  const deliveryCheck = useDeliveryAddress(draftAddress(form),needsTax && !pickup);
+  const confirmedAddress = deliveryCheck.canonical;
+  const destinationState = pickup ? 'NY' : confirmedAddress?.state;
+  const addressEntered = pickup || Boolean(confirmedAddress);
   const earlyMinimum = needsTax && addressEntered && quote ? belowOrderMinimum(destinationState, Math.round(Number(quote.subtotal) * 100), businessDay()) : '';
   const taxRequest = JSON.stringify({quote_id:quote?.quote_id,method:form.paymentMethod,fulfillment:pickup?'pickup':'delivery',investment,
-    address:pickup?undefined:{address_line_1:form.address1,address_line_2:form.address2,city:form.city,state:form.state,postal_code:form.postalCode,country:'US'}});
+    address:pickup?undefined:confirmedAddress});
   useEffect(()=>{setForm(f=>f.agree || f.wireAgree ? {...f,agree:false,wireAgree:false}:f);},[taxRequest]);
   const taxReady = needsTax && assessment?.key===taxRequest && assessment?.data?.id;
   const taxMessage=assessment?.key===taxRequest?assessment.message:null;
@@ -539,17 +543,12 @@ function ShippingCheckout() {
     0,
   );
 
-  const shippingPayload = () => ({
-    name: `${form.firstName.trim()} ${form.lastName.trim()}`.trim(),
-    address: {
-      line1: form.address1.trim(),
-      line2: form.address2.trim() || undefined,
-      city: form.city.trim(),
-      state: form.state.trim().toUpperCase(),
-      postal_code: form.postalCode.trim(),
-      country: "US",
-    },
-  });
+  const shippingPayload = () => {
+    const address=pickup ? pickupAddress : confirmedAddress || quote?.shipping_address || draftAddress(form);
+    return {name:[form.firstName.trim(),form.lastName.trim()].join(' ').trim(),address:{
+      line1:address.address_line_1,line2:address.address_line_2 || undefined,city:address.city,
+      state:address.state,postal_code:address.postal_code,country:'US'}};
+  };
 
   const validate = () => {
     if(form.paymentMethod==="card" && cardLimitError)return cardLimitError;
@@ -570,15 +569,8 @@ function ShippingCheckout() {
     ) {
       return "Complete your name and phone number.";
     }
-    if (!pickup && (!form.address1.trim() || !form.city.trim())) {
-      return "Enter a complete insured-delivery address.";
-    }
-    if (!pickup && !/^[A-Za-z]{2}$/.test(form.state.trim())) {
-      return "Enter a two-letter US state code.";
-    }
-    if (!pickup && !/^\d{5}(?:-\d{4})?$/.test(form.postalCode.trim())) {
-      return "Enter a valid US ZIP code.";
-    }
+    if (needsTax && !pickup && !confirmedAddress) return deliveryCheck.result?.message ||
+      (deliveryCheck.result?.status==='suggestion'?'Choose the correct delivery address.':'Finish checking your delivery address before continuing.');
     if (minimumNotice) return minimumNotice;
     if (needsTax && !taxReady) return 'We couldn’t confirm the order total for this address. Check the address and try again.';
     if (form.paymentMethod === "wire" && !form.wireAgree) return "Read and accept the bank-wire purchase agreement.";
@@ -608,20 +600,14 @@ function ShippingCheckout() {
             email: user.email,
             phone: form.phone.trim(),
           },
-          shipping: pickup?{}:{
-            address_line_1: form.address1.trim(),
-            address_line_2: form.address2.trim(),
-            city: form.city.trim(),
-            state: form.state.trim().toUpperCase(),
-            postal_code: form.postalCode.trim(),
-            country: "US",
-          },
+          shipping: pickup?{}:confirmedAddress,
           payment_method: form.paymentMethod,
           notes: form.notes.trim(),
           terms: { accepted: true, version: TERMS_VERSION, ...(investmentAgreement ? {investment_purchase:true} : {}) },
           ...(form.paymentMethod === "wire" ? {wire_agreement: {accepted: form.wireAgree, version: WIRE_AGREEMENT_VERSION}} : {}),
       });
 
+    if(!pickup && confirmedAddress)setForm(f=>({...f,...addressFields(confirmedAddress)}));
     setOrderInfo({...data,fulfillment:pickup?"pickup":"delivery"});
     saveCheckoutRecovery({
       orderId: data.order_id,
@@ -634,18 +620,18 @@ function ShippingCheckout() {
   };
 
   const saveAddress = async () => {
-    if (pickup || !form.saveAddress) return;
+    if (pickup || !form.saveAddress || !confirmedAddress) return;
     await supabase
       .from("profiles")
       .update({
         first_name: form.firstName.trim(),
         last_name: form.lastName.trim(),
         // Contact phone on this order must not revoke the verified sign-in phone.
-        address_line_1: form.address1.trim(),
-        address_line_2: form.address2.trim() || null,
-        city: form.city.trim(),
-        state: form.state.trim().toUpperCase(),
-        postal_code: form.postalCode.trim(),
+        address_line_1: confirmedAddress.address_line_1,
+        address_line_2: confirmedAddress.address_line_2 || null,
+        city: confirmedAddress.city,
+        state: confirmedAddress.state,
+        postal_code: confirmedAddress.postal_code,
       })
       .eq("id", user.id);
     await refreshProfile();
@@ -982,7 +968,7 @@ function ShippingCheckout() {
                 State
                 <input
                   required
-                  maxLength="2"
+                  maxLength="30"
                   autoComplete="address-level1"
                   placeholder="NY"
                   value={form.state}
@@ -1008,6 +994,8 @@ function ShippingCheckout() {
                 />
               </label>
             </div>
+            <DeliveryAddressCheck check={deliveryCheck} onFill={(a,keys)=>setForm(f=>fillAddressFields(f,a,keys))} onUse={a=>setForm(f=>({...f,...addressFields(a),agree:false,wireAgree:false}))}
+              onEdit={()=>document.querySelector('[autocomplete="address-line1"]')?.focus()}/>
             <label className="checkout-check">
               <input
                 type="checkbox"

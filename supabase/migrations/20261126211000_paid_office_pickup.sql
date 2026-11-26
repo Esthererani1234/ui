@@ -1,22 +1,23 @@
 create table private.pickup_tax_approvals (
- quote_id uuid primary key references public.checkout_quotes(id),
+ pay_method text not null check(pay_method in ('card','wire')),
+ quote_id uuid not null references public.checkout_quotes(id),
  calculation_ref text not null unique,
  tax numeric(14,2) not null check(tax>=0),
- subtotal numeric(14,2) not null check(subtotal>0)
+ subtotal numeric(14,2) not null check(subtotal>0), primary key(quote_id,pay_method)
 );
 alter table public.orders add column fulfillment_method text not null default 'delivery' check(fulfillment_method in ('delivery','pickup')), add column pickup_tax numeric(14,2) not null default 0 check(pickup_tax>=0), add column pickup_ready_at timestamptz;
 create index orders_office_pickup on public.orders(created_at desc) where fulfillment_method='pickup';
-create function public.record_pickup_calculation(qid uuid,uid uuid,ref text,tax_cents bigint,subtotal_cents bigint) returns jsonb language plpgsql security definer set search_path='' as $$
+create function public.record_pickup_calculation(qid uuid,uid uuid,ref text,tax_cents bigint,subtotal_cents bigint,p_method text) returns jsonb language plpgsql security definer set search_path='' as $$
 declare q public.checkout_quotes; calc private.pickup_tax_approvals;
 begin
  select * into strict q from public.checkout_quotes where id=qid and user_id=uid and status='active' and expires_at>clock_timestamp() for update;
  if q.subtotal*100<>subtotal_cents or tax_cents<0 or ref !~ '^taxcalc_[a-zA-Z0-9]+$' then raise exception 'Invalid calculation'; end if;
- insert into private.pickup_tax_approvals values(qid,ref,tax_cents/100.0,q.subtotal) on conflict(quote_id) do nothing;
- select * into strict calc from private.pickup_tax_approvals where quote_id=qid;
- return jsonb_build_object('quote_id',qid,'pickup_tax',calc.tax,'total',q.subtotal+calc.tax,'expires_at',q.expires_at);
+ insert into private.pickup_tax_approvals values(p_method,qid,ref,tax_cents/100.0,q.subtotal) on conflict(quote_id,pay_method) do nothing;
+ select * into strict calc from private.pickup_tax_approvals where quote_id=qid and pay_method=p_method;
+ return jsonb_build_object('quote_id',qid,'pickup_tax',calc.tax,'method',p_method,'total',q.subtotal+calc.tax+case when p_method='card' then q.card_surcharge else 0 end,'expires_at',q.expires_at);
 end $$;
-revoke all on function public.record_pickup_calculation(uuid,uuid,text,bigint,bigint) from public,anon,authenticated;
-grant execute on function public.record_pickup_calculation(uuid,uuid,text,bigint,bigint) to service_role;
+revoke all on function public.record_pickup_calculation(uuid,uuid,text,bigint,bigint,text) from public,anon,authenticated;
+grant execute on function public.record_pickup_calculation(uuid,uuid,text,bigint,bigint,text) to service_role;
 CREATE OR REPLACE FUNCTION public.create_order_from_quote(p_user_id uuid, p_quote_id uuid, p_contact jsonb, p_shipping jsonb, p_payment_method text, p_notes text DEFAULT NULL::text)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -58,8 +59,8 @@ begin
   end if;
 
   if pickup then
-    if p_payment_method<>'wire' then raise exception 'Unsupported pickup payment'; end if;
-    select tax into strict tax_due from private.pickup_tax_approvals where quote_id=v_quote.id and subtotal=v_quote.subtotal;
+    if p_payment_method not in ('wire','card') then raise exception 'Unsupported pickup payment'; end if;
+    select tax into strict tax_due from private.pickup_tax_approvals where quote_id=v_quote.id and subtotal=v_quote.subtotal and pay_method=p_payment_method;
     p_shipping:=p_shipping||jsonb_build_object('pickup_tax',tax_due);
     v_quote.shipping_amount:=0;
   end if;
@@ -133,3 +134,8 @@ declare o public.orders; begin
 end $$;
 revoke all on function public.notify_pickup_ready(bigint) from public,anon;
 grant execute on function public.notify_pickup_ready(bigint) to authenticated;
+
+-- Pickup prices and fulfillment cannot be changed by a delivery re-quote or payment-method conversion.
+create function private.freeze_pickup_financials() returns trigger language plpgsql set search_path='' as $$ begin
+if old.fulfillment_method='pickup' and (new.fulfillment_method,new.subtotal,new.total,new.payment_surcharge,new.shipping_amount,new.pickup_tax,new.payment_method,new.price_locked_until) is distinct from (old.fulfillment_method,old.subtotal,old.total,old.payment_surcharge,old.shipping_amount,old.pickup_tax,old.payment_method,old.price_locked_until) then raise exception 'Pickup order must be quoted again separately';end if; return new;end $$;
+create trigger freeze_pickup_financials before update on public.orders for each row execute function private.freeze_pickup_financials();

@@ -17,7 +17,7 @@ export default async function handler(request, response) {
       if(error?.code==='P2010') return json(response,409,{error:'This promo code is unavailable or does not apply to this order.'});
       if(error?.code==='P2011') return json(response,409,{error:'This price lock is no longer active. Refresh checkout to review current prices.'});
       if(error) throw error;
-      return json(response,200,data);
+      return json(response,200,{...data,server_time_ms:Date.now()});
     }
     if (body.order_id != null) {
       const orderId = Number(body.order_id);
@@ -27,9 +27,9 @@ export default async function handler(request, response) {
       if (["paid", "refunded", "disputed"].includes(order.payment_status)) {
         return json(response, 409, { error: "This order can no longer accept payment." });
       }
-      return json(response, 200, { ...(await refreshCardOrder(order.id)), order_number: order.order_number });
+      return json(response, 200, { ...(await refreshCardOrder(order.id)), order_number: order.order_number, server_time_ms: Date.now() });
     }
-    return json(response, 201, await createQuote(user.id, body.cart, body.promo_code));
+    return json(response, 201, { ...(await createQuote(user.id, body.cart, body.promo_code)), server_time_ms: Date.now() });
   } catch (error) {
     securityLog("checkout quote failed", error);
     return json(response, error.status || 500, {

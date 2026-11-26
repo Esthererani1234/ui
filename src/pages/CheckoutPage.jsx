@@ -67,8 +67,12 @@ const stripeClient = (key) => {
   return stripeClients.get(key);
 };
 
-const secondsUntil = (date) =>
-  Math.max(0, Math.ceil((new Date(date).getTime() - Date.now()) / 1000));
+const displayDeadline = (expires, serverTime, now = Date.now()) => {
+  const remaining = Date.parse(expires) - (Number.isFinite(serverTime) ? serverTime : now);
+  return now + (Number.isFinite(remaining) ? Math.max(0, Math.min(600000, remaining)) : 0);
+};
+const secondsUntil = (deadline, now = Date.now()) =>
+  Math.max(0, Math.min(600, Math.ceil((deadline - now) / 1000)));
 
 const clock = (seconds) =>
   `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(
@@ -332,9 +336,12 @@ function ShippingCheckout() {
         );
 
         promoRef.current=next.promo_code||'';
+        const deadline = displayDeadline(next.expires_at, next.server_time_ms);
+        next.displayDeadline = quoteRef.current?.expires_at === next.expires_at
+          ? Math.min(deadline, quoteRef.current.displayDeadline) : deadline;
         quoteRef.current = next;
         setQuote(next);
-        setSecondsLeft(secondsUntil(next.expires_at));
+        setSecondsLeft(secondsUntil(next.displayDeadline));
 
         if (automatic) {
           setForm((currentForm) => ({ ...currentForm, agree: false, wireAgree: false }));
@@ -414,12 +421,12 @@ function ShippingCheckout() {
   }, [user, cartReady, cartSignature, resumeOrderId, getFreshQuote]);
 
   useEffect(() => {
-    if (!quote?.expires_at) return undefined;
-    const tick = () => setSecondsLeft(secondsUntil(quote.expires_at));
+    if (!quote?.displayDeadline) return undefined;
+    const tick = () => setSecondsLeft(secondsUntil(quote.displayDeadline));
     tick();
     const timer = window.setInterval(tick, 250);
     return () => window.clearInterval(timer);
-  }, [quote?.expires_at]);
+  }, [quote?.displayDeadline]);
 
   useEffect(() => {
     if (

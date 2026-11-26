@@ -1,5 +1,5 @@
 import {officeAddress} from '../../shared/business.js';
-import OfficePickupRequest from '../components/OfficePickupRequest';
+
 import {cardLimitMessage,CARD_CHARGE_MAXIMUM} from "../../shared/cardLimits.js";
 import {WIRE_AGREEMENT_TEXT, WIRE_AGREEMENT_VERSION} from "../../supabase/functions/_shared/wireAgreement.js";
 import { TERMS_VERSION } from '../lib/legalPolicies';
@@ -106,7 +106,7 @@ const CardFields = forwardRef(function CardFields({ amount, email }, ref) {
         const { error, confirmationToken } =
           await stripe.createConfirmationToken({
             elements,
-            params: { shipping },
+            params: shipping ? {shipping} : {},
           });
         if (error || !confirmationToken) {
           throw new Error(error?.message || "Check your payment details.");
@@ -149,8 +149,7 @@ function FulfillmentChoice({pickup=false}) {
   </nav>;
 }
 export default function CheckoutPage() {
-  const [params]=useSearchParams();
-  return params.get('fulfillment')==='pickup' && !params.has('resume_order') ? <OfficePickupRequest choice={<FulfillmentChoice pickup/>}/> : <ShippingCheckout/>;
+  return <ShippingCheckout/>;
 }
 function ShippingCheckout() {
   const { items, clear, reconcileProducts } = useCart();
@@ -158,6 +157,7 @@ function ShippingCheckout() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const resumeOrderId = Number(searchParams.get("resume_order"));
+  const [recipient,setRecipient]=useState('');
   const cardRef = useRef(null);
   const [promoDraft,setPromoDraft]=useState('');
   const promoRef=useRef('');
@@ -472,7 +472,10 @@ function ShippingCheckout() {
     };
   }, [items, settings]);
 
-  const pricing = quote || fallbackEstimate;
+  const pickup=orderInfo ? (orderInfo.fulfillment==='pickup'||quote?.shipping_address?.fulfillment==='pickup') : !resumeOrderId && searchParams.get('fulfillment')==='pickup';
+  useEffect(()=>{setForm(v=>({...v,agree:false,wireAgree:false}))},[pickup]);
+  const basePricing=quote || fallbackEstimate;
+  const pricing=pickup ? {...basePricing,shipping:0,wire_total:Number(basePricing.subtotal),card_total:Math.round((Number(basePricing.subtotal)+Number(basePricing.card_surcharge))*100)/100}:basePricing;
   const wireTotal = Number.isFinite(Number(pricing.wire_total))
     ? Number(pricing.wire_total)
     : Number(pricing.subtotal || 0) + Number(pricing.shipping || 0);
@@ -541,13 +544,13 @@ function ShippingCheckout() {
     ) {
       return "Complete your name and phone number.";
     }
-    if (!form.address1.trim() || !form.city.trim()) {
+    if (!pickup && (!form.address1.trim() || !form.city.trim())) {
       return "Enter a complete insured-delivery address.";
     }
-    if (!/^[A-Za-z]{2}$/.test(form.state.trim())) {
+    if (!pickup && !/^[A-Za-z]{2}$/.test(form.state.trim())) {
       return "Enter a two-letter US state code.";
     }
-    if (!/^\d{5}(?:-\d{4})?$/.test(form.postalCode.trim())) {
+    if (!pickup && !/^\d{5}(?:-\d{4})?$/.test(form.postalCode.trim())) {
       return "Enter a valid US ZIP code.";
     }
     if (form.paymentMethod === "wire" && !form.wireAgree) return "Read and accept the bank-wire purchase agreement.";
@@ -568,6 +571,7 @@ function ShippingCheckout() {
     if (orderInfo) return orderInfo;
     const data = await invokeFunction(supabase, "create-order", {
           quote_id: quote.quote_id,
+          ...(pickup?{fulfillment:"pickup",pickup_name:recipient.trim()||[form.firstName.trim(),form.lastName.trim()].join(" ")}:{}),
           cart: cartPayload,
           contact: {
             first_name: form.firstName.trim(),
@@ -575,7 +579,7 @@ function ShippingCheckout() {
             email: user.email,
             phone: form.phone.trim(),
           },
-          shipping: {
+          shipping: pickup?{}:{
             address_line_1: form.address1.trim(),
             address_line_2: form.address2.trim(),
             city: form.city.trim(),
@@ -589,7 +593,7 @@ function ShippingCheckout() {
           ...(form.paymentMethod === "wire" ? {wire_agreement: {accepted: form.wireAgree, version: WIRE_AGREEMENT_VERSION}} : {}),
       });
 
-    setOrderInfo(data);
+    setOrderInfo({...data,fulfillment:pickup?"pickup":"delivery"});
     saveCheckoutRecovery({
       orderId: data.order_id,
       orderNumber: data.order_number,
@@ -601,7 +605,7 @@ function ShippingCheckout() {
   };
 
   const saveAddress = async () => {
-    if (!form.saveAddress) return;
+    if (pickup || !form.saveAddress) return;
     await supabase
       .from("profiles")
       .update({
@@ -643,7 +647,7 @@ function ShippingCheckout() {
           throw new Error("The secure payment form is still loading.");
         }
         confirmationTokenId = await cardRef.current.createToken(
-          shippingPayload(),
+          pickup ? undefined : shippingPayload(),
         );
       }
 
@@ -835,7 +839,7 @@ function ShippingCheckout() {
           <div className="checkout-title">
             <span className="eyebrow dark">SECURE CHECKOUT</span>
             <h1>Checkout</h1>
-            {!orderInfo && !busy && !resumeOrderId && <FulfillmentChoice/>}
+            {!orderInfo && !busy && !resumeOrderId && <FulfillmentChoice pickup={pickup}/>}
             <p>
               Your 10-minute market-price lock began when this checkout
               opened.
@@ -906,7 +910,7 @@ function ShippingCheckout() {
             </div>
           </fieldset>
 
-          <fieldset disabled={Boolean(orderInfo)}>
+          {pickup?<fieldset disabled={Boolean(orderInfo)}><legend>2. Free office pickup</legend><address>{officeAddress.join(', ')}</address><p>Pay below. We’ll call and email when your items are ready. Please wait for a confirmed pickup time.</p><label>Pickup name, if different from the buyer<input maxLength={120} value={recipient} onChange={e=>setRecipient(e.target.value)}/></label><small>Bring photo ID matching the pickup name.</small></fieldset>:<fieldset disabled={Boolean(orderInfo)}>
             <legend>2. Insured shipping address</legend>
 
             <label>
@@ -985,7 +989,7 @@ function ShippingCheckout() {
               />
               Save this as my default delivery address
             </label>
-          </fieldset>
+          </fieldset>}
 
           {!orderInfo && <fieldset className="checkout-promo-box" disabled={busy || quoteLoading || quoteRefreshing} aria-labelledby="promo-label">
             <label id="promo-label" htmlFor="checkout-promo">Promo code <small>Optional</small></label>
@@ -1223,7 +1227,7 @@ function ShippingCheckout() {
               <b>{money(pricing.subtotal || 0)}</b>
             </div>
             <div>
-              <span>Insured shipping</span>
+              <span>{pickup?'Office pickup':'Insured shipping'}</span>
               <b>
                 {Number(pricing.shipping || 0)
                   ? money(pricing.shipping)

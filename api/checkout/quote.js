@@ -1,3 +1,4 @@
+import {pickupTotal} from '../../server/lib/pickupTax.js';
 import { service } from "../../server/lib/payments.js";
 import { rateLimit, strictObject, securityLog } from "../../server/lib/security.js";
 import { authenticateCustomer, customerOrder, json, readJson } from "../../server/lib/payments.js";
@@ -10,7 +11,8 @@ export default async function handler(request, response) {
   try {
     const { user } = await authenticateCustomer(request, { requireSms: true });
     await rateLimit(service(), "price_quote", user.id, 20, 600);
-    const body = strictObject(await readJson(request), ['order_id', 'cart', 'promo_code', 'quote_id']);
+    const body = strictObject(await readJson(request), ['order_id', 'cart', 'promo_code', 'quote_id','pickup_quote_id']);
+    if(Object.hasOwn(body,'pickup_quote_id')){if(Object.keys(body).length!==1)return json(response,400,{error:'Invalid pickup request.'});return json(response,200,await pickupTotal(service(),user.id,body.pickup_quote_id));}
     if (Object.hasOwn(body,'quote_id')) {
       if(Object.keys(body).length!==2 || typeof body.quote_id!=='string' || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(body.quote_id) || typeof body.promo_code!=='string' || (body.promo_code!=='' && !/^[A-Z0-9_-]{3,32}$/.test(body.promo_code))) return json(response,400,{error:'Invalid promo request.'});
       const {data,error}=await service().rpc('revise_checkout_promo',{p_user_id:user.id,p_quote_id:body.quote_id,p_code:body.promo_code});

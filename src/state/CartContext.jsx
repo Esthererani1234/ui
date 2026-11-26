@@ -32,6 +32,7 @@ export function CartProvider({ children }) {
       return [];
     }
   });
+  const [deliveryDraft,setDeliveryDraft] = useState({});
   const [lastAdded, setLastAdded] = useState(null);
 
   useEffect(() => {
@@ -56,7 +57,7 @@ export function CartProvider({ children }) {
 
   const value = useMemo(
     () => ({
-      items,
+      items, deliveryDraft, setDeliveryDraft,
       count: items.reduce((sum, item) => sum + item.quantity, 0),
       lastAdded,
       clearLastAdded() {
@@ -146,7 +147,7 @@ export function CartProvider({ children }) {
         setLastAdded(null);
       },
     }),
-    [items, lastAdded, reconcileProducts],
+    [items, lastAdded, reconcileProducts, deliveryDraft],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

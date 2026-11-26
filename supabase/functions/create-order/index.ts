@@ -86,7 +86,7 @@ Deno.serve(async (request: Request) => {
       return json(request, { error: "Checkout request must be valid JSON." }, 400);
     }
 
-    if(Object.keys(body).some(key=>!["quote_id","cart","contact","shipping","payment_method","notes","terms","wire_agreement","fulfillment","pickup_name"].includes(key)))
+    if(Object.keys(body).some(key=>!["quote_id","cart","contact","shipping","payment_method","notes","terms","wire_agreement","fulfillment","pickup_name","tax_assessment_id"].includes(key)))
       return json(request,{error:"Invalid checkout fields."},400);
     const admin = createClient(supabaseUrl, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
     const sessionId = String(jwtPayload(token).session_id || "");
@@ -160,6 +160,11 @@ Deno.serve(async (request: Request) => {
     const ipDigest = forwardedIp && ipSalt
       ? Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${forwardedIp}|${ipSalt}`))), byte => byte.toString(16).padStart(2, "0")).join("")
       : null;
+    if (body.tax_assessment_id !== undefined) {
+      if (typeof body.tax_assessment_id !== 'string' || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(body.tax_assessment_id))
+        return json(request, {error: "Refresh the checkout tax calculation."}, 400);
+      address.tax_assessment_id = body.tax_assessment_id;
+    }
     const { data, error } = await admin.rpc("place_checkout_order", {
       p_user_id: user.id, p_quote_id: quoteId, p_contact: contact, p_shipping: body.shipping || {},
       p_payment_method: requestedPaymentMethod, p_notes: typeof body.notes === "string" ? body.notes.slice(0,1000) : null,

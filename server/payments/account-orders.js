@@ -4,7 +4,7 @@ import {securityLog} from '../lib/security.js';
 // Read under the caller's JWT and existing row policies, never the service role.
 const fields = [
   'id,order_number,first_name,last_name,email,phone,status,payment_status,payment_method,payment_provider',
-  'provider_checkout_url,payment_reference,payment_due_at,subtotal,payment_surcharge,shipping_amount,insurance_amount,total',
+  'provider_checkout_url,payment_reference,payment_due_at,subtotal,tax_amount,payment_surcharge,shipping_amount,insurance_amount,total',
   'pickup_ready_at,spot_snapshot,price_locked_until,shipping_address,customer_notes,tracking_number,created_at,updated_at',
   'order_items!order_items_order_id_fkey(id,product_id,product_name,sku,metal,metal_weight_oz,quantity,unit_price,line_total,product_image_url,product_category,product_slug,products!order_items_product_id_fkey(image_url,image_urls,slug,category))',
 ].join(',');

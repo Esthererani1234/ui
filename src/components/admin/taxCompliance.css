@@ -1,0 +1,5 @@
+.tax-workspace{margin:1rem auto;max-width:76rem;padding:clamp(1rem,3vw,2.5rem);color:#163753;background:white}
+.tax-workspace header,.tax-workspace h3{margin-bottom:1rem}.tax-workspace h3{margin-top:1.3rem}
+.tax-workspace label{display:grid;gap:.3rem;font-size:.9rem}.tax-workspace input,.tax-workspace select,.tax-workspace textarea{max-width:100%;padding:.55rem;border:1px solid #b8c8cf;border-radius:.2rem}
+.tax-table{overflow:auto}.tax-table table{width:100%;margin-top:1rem;border-collapse:collapse}.tax-table th,.tax-table td{text-align:left;padding:.65rem;border-bottom:1px solid #dce4e8}.tax-workspace .text-button{color:#184c6a;text-decoration:underline}
+.tax-fields,.tax-period{display:grid;grid-template-columns:repeat(auto-fit,minmax(13rem,1fr));gap:.8rem;margin:1rem 0}.tax-workspace li{margin:.45rem 0}

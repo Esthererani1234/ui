@@ -152,7 +152,7 @@ export default function CheckoutPage() {
   return <ShippingCheckout/>;
 }
 function ShippingCheckout() {
-  const { items, clear, reconcileProducts } = useCart();
+  const { items, clear, reconcileProducts, deliveryDraft = {} } = useCart();
   const { user, profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -186,11 +186,11 @@ function ShippingCheckout() {
     firstName: profile?.first_name || "",
     lastName: profile?.last_name || "",
     phone: profile?.phone || "",
-    address1: profile?.address_line_1 || "",
-    address2: profile?.address_line_2 || "",
-    city: profile?.city || "",
-    state: profile?.state || "",
-    postalCode: profile?.postal_code || "",
+    address1: deliveryDraft.address1 || profile?.address_line_1 || "",
+    address2: deliveryDraft.address2 || profile?.address_line_2 || "",
+    city: deliveryDraft.city || profile?.city || "",
+    state: deliveryDraft.state || profile?.state || "",
+    postalCode: deliveryDraft.postalCode || profile?.postal_code || "",
     paymentMethod: "card",
     notes: "",
     saveAddress: true,
@@ -481,12 +481,31 @@ function ShippingCheckout() {
     : Number(pricing.subtotal || 0) + Number(pricing.shipping || 0);
   const achFee = Math.round(Number(pricing.subtotal || 0) * 2) / 100;
   const achTotal = Math.round((wireTotal + achFee) * 100) / 100;
-  const displayedTotal =
+  const [investment,setInvestment] = useState(false);
+  const [assessment,setAssessment] = useState(null);
+  const needsTax = !orderInfo && !resumeOrderId;
+  const taxRequest = JSON.stringify({quote_id:quote?.quote_id,method:form.paymentMethod,fulfillment:pickup?'pickup':'delivery',investment,
+    address:pickup?undefined:{address_line_1:form.address1,address_line_2:form.address2,city:form.city,state:form.state,postal_code:form.postalCode,country:'US'}});
+  useEffect(()=>{setForm(f=>f.agree || f.wireAgree ? {...f,agree:false,wireAgree:false}:f);},[taxRequest]);
+  const taxReady = needsTax && assessment?.key===taxRequest && assessment?.data?.id;
+  const taxMessage=assessment?.key===taxRequest?assessment.message:null;
+  useEffect(()=>{
+    if(!needsTax || !quote?.quote_id || (!pickup && (!form.address1 || !form.city || !form.state || !form.postalCode))) return;
+    let active=true;
+    const timer=setTimeout(async()=>{
+      try {
+        const data=await authenticatedPost('/api/checkout/tax',JSON.parse(taxRequest));
+        if(active)setAssessment({key:taxRequest,data});
+      } catch(e) { if(active)setAssessment({key:taxRequest,message:e.message}); }
+    },350);
+    return ()=>{active=false;clearTimeout(timer);};
+  },[taxRequest,needsTax,pickup,quote?.quote_id,authenticatedPost]);
+  const displayedTotal = taxReady ? assessment.data.total / 100 :
     form.paymentMethod === "card"
       ? Number(pricing.card_total || 0)
       : form.paymentMethod === "ach" ? achTotal : wireTotal;
 
-  const cardLimitError = cardLimitMessage(pricing.subtotal,pricing.card_total,settings.card_order_maximum);
+  const cardLimitError = cardLimitMessage(pricing.subtotal,form.paymentMethod==="card" && taxReady ? displayedTotal : pricing.card_total,settings.card_order_maximum);
   useEffect(()=>{
     if(cardLimitError && paymentConfig.wire && !busy) setForm(current=>current.paymentMethod==="card"?{...current,paymentMethod:"wire",agree:false,wireAgree:false}:current);
   },[cardLimitError,paymentConfig.wire,busy,form.paymentMethod]);
@@ -526,6 +545,7 @@ function ShippingCheckout() {
   });
 
   const validate = () => {
+    if(needsTax && !taxReady)return taxMessage || "Verify the delivery or pickup tax before paying.";
     if(form.paymentMethod==="card" && cardLimitError)return cardLimitError;
     if(form.paymentMethod==="ach" && (!paymentConfig.ach || achTotal > 25000)) return "ACH is unavailable or the total exceeds $25,000 including fees.";
     if (!orderInfo && displayedTotal > settings[`${form.paymentMethod}_order_maximum`]) {
@@ -571,6 +591,7 @@ function ShippingCheckout() {
     if (orderInfo) return orderInfo;
     const data = await invokeFunction(supabase, "create-order", {
           quote_id: quote.quote_id,
+          tax_assessment_id: assessment?.data?.id,
           ...(pickup?{fulfillment:"pickup",pickup_name:recipient.trim()||[form.firstName.trim(),form.lastName.trim()].join(" ")}:{}),
           cart: cartPayload,
           contact: {
@@ -788,7 +809,7 @@ function ShippingCheckout() {
       mode: "payment",
       amount: Math.max(
         50,
-        Math.round(Number(form.paymentMethod === "ach" ? achTotal : pricing.card_total || 0) * 100),
+        Math.round(Number(displayedTotal || 0) * 100),
       ),
       currency: "usd",
       paymentMethodCreation: "manual",
@@ -815,7 +836,7 @@ function ShippingCheckout() {
         },
       },
     }),
-    [pricing.card_total, achTotal, form.paymentMethod],
+    [displayedTotal, form.paymentMethod],
   );
 
   if (
@@ -1138,6 +1159,7 @@ function ShippingCheckout() {
               quoteRefreshing ||
               !quote ||
               displayedTotal <= 0 ||
+              (needsTax && !taxReady) ||
               !cartReady ||
               !settings.accepting_orders ||
               (form.paymentMethod === "card" && Boolean(cardLimitError))
@@ -1242,9 +1264,12 @@ function ShippingCheckout() {
                   <b>{money(pricing.card_surcharge)}</b>
                 </div>
               )}
+            {needsTax && <div><span>Sales tax</span><b>{taxReady ? (assessment.data.status==='exempt'?'Exempt':assessment.data.status==='not_collected'?'Not collected':money(assessment.data.tax/100)):'Pending verification'}</b></div>}
+            {needsTax && (pickup || form.state?.toUpperCase()==='NY') && <label><input type="checkbox" checked={investment} onChange={e=>setInvestment(e.target.checked)}/> I am buying the eligible metals for investment and intend to hold them in their purchased form.</label>}
+            {needsTax && taxMessage && <p role="alert">{taxMessage}</p>}
             <div className="checkout-total">
               <span>Total</span>
-              <strong>{money(displayedTotal)}</strong>
+              <strong>{needsTax && !taxReady ? "Pending tax" : money(displayedTotal)}</strong>
             </div>
           </div>
 

@@ -1,3 +1,4 @@
+import PickupOrders from '../components/admin/PickupOrders';
 import PromoCodes from '../components/admin/PromoCodes';
 import OrderDocuments from "../components/OrderDocuments";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -72,7 +73,7 @@ const ADMIN_PAGE_SIZE = 25;
 const tabTitles = {
   overview: "Dashboard",
   products: "Products & pricing",
-  orders: "Order management",
+  orders: "Order management", pickups:"Customer pickups",
   sales: "Sales reporting",
   traffic: "Storefront traffic",
   support: "Customer support",
@@ -475,7 +476,7 @@ export default function AdminPage() {
             onClick={() => setTab("orders")}
           >
             <ShoppingBag /> Orders
-          </button>
+          </button><button className={tab==="pickups"?"active":""} onClick={()=>setTab("pickups")}><Store/> Customer pickups</button>
           <button
             className={tab === "sales" ? "active" : ""}
             onClick={() => setTab("sales")}
@@ -848,6 +849,7 @@ export default function AdminPage() {
             />
           </div>
         )}
+        {tab === "pickups" && <PickupOrders/>}
         {tab === "orders" && <SupportAdminPanel pickupsOnly />}
         {tab === "sales" && <SalesAdminPanel />}
         {tab === "traffic" && <TrafficAnalyticsPanel />}

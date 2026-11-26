@@ -1,0 +1,24 @@
+.checkout-form fieldset.checkout-promo-box {
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+  max-width: 24rem;
+  display: block;
+  padding: 10px 12px;
+  border: 1px solid #ddd1b3;
+  border-left: 3px solid #b78933;
+  border-radius: 5px;
+  background: #fcfaf4;
+  color: #19364a;
+}
+.checkout-promo-box label#promo-label {display:flex;align-items:baseline;gap:7px;margin:0 0 6px;font-size:13px;font-weight:700}
+.checkout-promo-box label small {color:#635f53;font-weight:400;font-size:12px}
+.checkout-promo-box .promo-entry {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px}
+.checkout-promo-box #checkout-promo {width:100%;min-width:0;height:40px;padding:0 10px;margin:0;background:#fff;border:1px solid #bcb8ac;border-radius:4px;color:#19364a;font-size:16px}
+.checkout-promo-box #apply-promo {min-height:40px;height:auto;padding:0 15px;margin:0;border:1px solid #19364a;border-radius:4px;background:#19364a;color:white}
+.checkout-promo-box #apply-promo:hover:not(:disabled) {background:#264a61}
+.checkout-promo-box #apply-promo:disabled {background:#ece8dc;color:#645f54;border-color:#d8d1bf;opacity:1}
+.checkout-promo-box :is(input,button):focus-visible {outline:2px solid #946a1f;outline-offset:2px}
+.checkout-promo-box .text-button {min-height:32px}
+.checkout-promo-box p[role=status] {margin:2px 0;color:#28543f;font-size:13px;overflow-wrap:anywhere}
+@media(max-width:700px){.checkout-promo-box #checkout-promo,.checkout-promo-box #apply-promo,.checkout-promo-box .text-button{min-height:44px}}

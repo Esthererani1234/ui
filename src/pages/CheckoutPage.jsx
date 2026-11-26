@@ -2,6 +2,7 @@ import {cardLimitMessage,CARD_CHARGE_MAXIMUM} from "../../shared/cardLimits.js";
 import {WIRE_AGREEMENT_TEXT, WIRE_AGREEMENT_VERSION} from "../../supabase/functions/_shared/wireAgreement.js";
 import { TERMS_VERSION } from '../lib/legalPolicies';
 import '../styles/legalPolicies.css';
+import '../styles/checkoutPromo.css';
 import {invokeFunction} from "../lib/functionRequest.js";
 import {estimateShipping} from "../lib/shipping";
 import {
@@ -964,13 +965,13 @@ export default function CheckoutPage() {
             </label>
           </fieldset>
 
-          {!orderInfo && <fieldset disabled={busy || quoteLoading || quoteRefreshing}>
-            <legend>Promo code (optional)</legend>
-            <label htmlFor="checkout-promo">Enter your code</label>
-            <input id="checkout-promo" maxLength={32} autoCapitalize="characters" spellCheck={false} value={promoDraft}
+          {!orderInfo && <fieldset className="checkout-promo-box" disabled={busy || quoteLoading || quoteRefreshing} aria-labelledby="promo-label">
+            <label id="promo-label" htmlFor="checkout-promo">Promo code <small>Optional</small></label>
+            <div className="promo-entry">
+            <input placeholder="Enter code" id="checkout-promo" maxLength={32} autoCapitalize="characters" spellCheck={false} value={promoDraft}
               onChange={e=>setPromoDraft(e.target.value.toUpperCase())}
               onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();document.getElementById('apply-promo')?.click()}}}/>
-            <button id="apply-promo" type="button" className="button button-outline" disabled={!promoDraft.trim()} onClick={async()=>{setForm(f=>({...f,agree:false,wireAgree:false}));await getFreshQuote({revisePromo:true,promo:promoDraft.trim()})}}>Apply code</button>
+            <button id="apply-promo" type="button" className="button button-outline" disabled={!promoDraft.trim()} onClick={async()=>{setForm(f=>({...f,agree:false,wireAgree:false}));await getFreshQuote({revisePromo:true,promo:promoDraft.trim()})}}>Apply</button></div>
             {(promoDraft || quote?.promo_code) && <button className="text-button" type="button" onClick={async()=>{setForm(f=>({...f,agree:false,wireAgree:false}));if(await getFreshQuote({revisePromo:true,promo:''}))setPromoDraft('')}}>Remove</button>}
             {quote?.promo_code && <p role="status">{quote.promo_code} applied · {money(quote.discount_amount)} off</p>}
           </fieldset>}

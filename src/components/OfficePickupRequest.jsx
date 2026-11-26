@@ -2,9 +2,9 @@ import {useRef,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {useCart} from '../state/CartContext';
 import {supportRequest,requestReference} from '../lib/supportRequests';
-import OfficeAddress from './OfficeAddress';
+import {officeAddress} from '../../shared/business.js';
 
-export default function OfficePickupRequest(){
+export default function OfficePickupRequest({choice}){
  const {items}=useCart(),[when,setWhen]=useState(''),[receipt,setReceipt]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),lock=useRef(false),ref=useRef(null);
  async function submit(e){
   e.preventDefault();if(lock.current||!items.length)return;
@@ -16,10 +16,10 @@ export default function OfficePickupRequest(){
   }catch(e){setError(e.message||'Could not submit. Please try again.')}finally{lock.current=false;setBusy(false)}
  }
  return <section className="section container narrow"><div className="checkout-form"><span className="eyebrow dark">GOLD ON THE SPOT</span>
- {receipt?<><h1>Pickup requested</h1><p>Reference: <b>{receipt}</b>. Your appointment is not confirmed. Please wait for our email before coming to the office.</p><Link className="button button-gold" to={'/support?ticket='+encodeURIComponent(receipt)}>Track pickup request</Link></>:<><h1>Office pickup by appointment</h1><p>No shipping charge. We’ll review availability and the final price, including any applicable tax, with you before payment. This request does not place an order, reserve inventory, or lock a price.</p>
- <OfficeAddress/><p><b>Please wait for your confirmed appointment before visiting.</b> We’ll arrange a time after payment clears and your items are ready.</p>
+ {receipt?<><h1>Pickup requested</h1><p>Reference: <b>{receipt}</b>.<br/>{officeAddress.join(\', \')}<br/> Your appointment is not confirmed. Please wait for our email before coming to the office.</p><Link className="button button-gold" to={'/support?ticket='+encodeURIComponent(receipt)}>Track pickup request</Link></>:<><h1>Checkout</h1>{!busy && choice}<h2>Arrange pickup</h2><p>Request your items below. We’ll email availability and your total before you pay. Items and prices aren’t reserved yet. There’s no shipping charge.</p>
+ <p>Visit only after we confirm your appointment.</p>
  {items.length?<form onSubmit={submit}><fieldset disabled={busy}><legend>Items for pickup</legend><ul>{items.map(i=><li key={i.product.id}>{i.quantity} × {i.product.name}</li>)}</ul><label>Preferred day or time (optional, New York time)<input maxLength={160} value={when} onChange={e=>setWhen(e.target.value)} placeholder="For example, Tuesday afternoon"/></label></fieldset>
  {error&&<p role="alert">{error}</p>}<button className="button button-gold" disabled={busy}>{busy?'Sending…':'Request office pickup'}</button></form>:<p>Your cart is empty. <Link to="/shop">Browse bullion</Link></p>}
- {!busy&&<p><Link to="/checkout">Return to shipping checkout</Link></p>}</>}
+ </>}
  </div></section>
 }

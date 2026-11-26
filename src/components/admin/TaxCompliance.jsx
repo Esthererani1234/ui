@@ -57,15 +57,17 @@ function StateControls({row,save,profile,filings}){
   </>;
 }
 function PreviewCalculator(){
+  const [place,setPlace]=useState('olympia');
   const [state,setState]=useState('NY'),[amount,setAmount]=useState('750.00'),[out,result]=useState(null);
   useEffect(()=>{let live=true;result(null);if(!/^\d+(\.\d{1,2})?$/.test(amount))return;
-    const timer=setTimeout(async()=>{try{const r=await fetch('/api/checkout/tax?state='+state+'&cents='+Math.round(Number(amount)*100));
+    const timer=setTimeout(async()=>{try{const r=await fetch('/api/checkout/tax?state='+state+'&cents='+Math.round(Number(amount)*100)+'&place='+encodeURIComponent(place));
       if(!r.ok)throw Error();const d=await r.json();if(live)result(d);}catch{if(live)result({message:'The example calculator is unavailable.'});}},250);
-    return()=>{live=false;clearTimeout(timer);};},[state,amount]);
-  const examples = {NY:'New York',CA:'California',CT:'Connecticut',MA:'Massachusetts',MD:'Maryland',WA:'Washington · published example',ME:'Maine',VT:'Vermont · Burlington',DC:'Washington, DC',HI:'Hawaii · Honolulu',NM:'New Mexico · published example'};
+    return()=>{live=false;clearTimeout(timer);};},[state,amount,place]);
+  const examples = {NY:'New York',CA:'California',CT:'Connecticut',MA:'Massachusetts',MD:'Maryland',WA:'Washington',ME:'Maine',VT:'Vermont · Burlington',DC:'Washington, DC',HI:'Hawaii · Honolulu',NM:'New Mexico · published example'};
   return <details open id="checkout-example"><summary>Try a sample order</summary>
     <p>One gold bar paid by wire. Taxable examples assume a registered seller. Hawaii and New Mexico illustrate passing the seller tax on to the buyer. Published example rates are for demonstration.</p>
     <div className="tax-fields"><label>Destination<select value={state} onChange={e=>setState(e.target.value)}>{Object.entries(examples).map(([code,name])=><option key={code} value={code}>{name}</option>)}</select></label>
+    {state==='WA'&&<label>Delivery address<select value={place} onChange={e=>setPlace(e.target.value)}><option value="olympia">601 4th Ave E, Olympia, WA 98501</option><option value="tumwater">6400 Linderson Way SW, Tumwater, WA 98501</option></select></label>}
     <label>Purchase amount ($)<input value={amount} onChange={e=>setAmount(e.target.value)} inputMode="decimal"/></label></div>
     <div aria-live="polite">{out?.message && <p>{out.message}</p>}{out?.tax>0 && <p>Tax <strong>{currency(out.tax)}</strong></p>}
     {out?.total!=null && <p>Total <strong>{currency(out.total)}</strong></p>}</div></details>;

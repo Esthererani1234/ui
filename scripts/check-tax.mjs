@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {PGlite} from '@electric-sql/pglite';
 import {assess,allocate,cents} from '../server/tax/engine.js';
-import {washingtonResult} from '../server/tax/washington.js';
+import {washingtonResult,washingtonStreetCode} from '../server/tax/washington.js';
 import {normalizeAddress} from '../server/tax/quote.js';
 import states from '../shared/taxSources.json' with {type:'json'};
 const day='2026-11-26';
@@ -26,13 +26,24 @@ test('mixed merchandise, discount, charges and combined rounding reconcile',()=>
  const q=input(300000);q.subtotal=299997;q.lines.push({id:2,quantity:1,gross:100000,classification:{...product,treatment:'taxable'}});q.shipping=321;q.fee=100;
  const r=assess(q);assert.equal(r.taxable,74999);assert.equal(r.exempt,224998);assert.equal(r.tax,6694);assert.equal(r.total,307112);assert.equal(r.breakdown.reduce((a,b)=>a+b.cents,0),r.tax);
 });
-test('official WA full address response accepts exact matches only',()=>{
- const fixture='<response loccode="3406" localrate="0.019" rate="0.084" code="0"/>';
- const a=washingtonResult(fixture,day);assert.deepEqual(a.rates.map(r=>r.ppm),[65000,19000]);
- assert.throws(()=>washingtonResult(fixture.replace('code="0"','code="4"'),day));
- const q=input(2000000);q.address=a;q.state='WA';q.policy={...policy,state:'WA',first_eligible_cent:0};q.lines[0].classification={...product,treatment:'taxable'};
- assert.equal(assess(q).tax,168000); // $20,000 at the DOR example 8.4% rate
- q.policy.collection='no_obligation';assert.equal(assess(q).status,'not_collected');
+const waRows=Buffer.from('601,699,O,4TH AVE E,WA,98501,1112,Q42026,3403,N,Thurston PTBA,\n6400,6498,E,LINDERSON WAY SW,WA,98501,6516,Q42026,3406,N,Thurston PTBA,\n');
+const waExamples=[
+  {place:'olympia',street:'4TH AVE E',number:601,code:'3403',local:'.035',total:'.100',zip4:'1112',tax:200000},
+  {place:'tumwater',street:'LINDERSON WAY SW',number:6400,code:'3406',local:'.033',total:'.098',zip4:'6516',tax:196000},
+];
+for(const e of waExamples) test('WA delivery in '+e.place+' uses its Q4 rate within ZIP 98501',()=>{
+  const destination={address_line_1:e.number+' '+e.street,city:e.place,state:'WA',postal_code:'98501'};
+  const code=washingtonStreetCode(waRows,destination);
+  const fixture=`<response loccode="${e.code}" localrate="${e.local}" rate="${e.total}" code="2"><addressline code="${e.code}" street="${e.street}" househigh="${e.number}" houselow="${e.number}" evenodd="${e.number%2?'O':'E'}" state="WA" zip="98501" plus4="${e.zip4}" period="Q42026"/><rate code="${e.code}" staterate=".065" localrate="${e.local}"/></response>`;
+  const address=washingtonResult(fixture,day,destination,code);
+  assert.equal(code,e.code);
+  const q=input(2000000);q.address=address;q.state='WA';q.policy={...policy,state:'WA',first_eligible_cent:0};q.lines[0].classification={...product,treatment:'taxable'};
+  assert.equal(assess(q).tax,e.tax);assert.equal(previewExample('WA',2000000,e.place).tax,e.tax);
+  q.policy.collection='no_obligation';assert.equal(assess(q).status,'not_collected');
+  for(const change of [['code="2"','code="1"'],['code="2"','code="5"'],['Q42026','Q32026'],['staterate=".065"','staterate=".05"']])assert.throws(()=>washingtonResult(fixture.replace(...change),day,destination,code));
+  assert.throws(()=>washingtonResult(fixture,day,{...destination,postal_code:'98501-9999'},code));
+  assert.throws(()=>washingtonStreetCode(waRows,{...destination,address_line_1:(e.number+1)+' '+e.street}));
+  assert.throws(()=>washingtonStreetCode(Buffer.concat([waRows,Buffer.from(waRows.toString().replaceAll(e.code,'9999'))]),destination));
 });
 test('seller levies accrue separately and never increase the customer total',()=>{
  const q=input(140000);q.policy={...policy,seller_taxes:[{kind:'gross_receipts',base:'merchandise',code:'fixture',ppm:5000}]};
@@ -119,7 +130,7 @@ test('California checks statutory market value separately from the store subtota
   q.address={...address,state:'CA'};q.lines[0].classification={...product,market_unit_cents:199999};
   assert.equal(assess(q).taxable,205000);
 });
-for(const [state,expected] of Object.entries({WA:168000,DC:120000,ME:110000,VT:140000,HI:94240,NM:168750})) {
+for(const [state,expected] of Object.entries({WA:200000,DC:120000,ME:110000,VT:140000,HI:94240,NM:168750})) {
   test(state+' charged example on $20,000 returns one combined customer amount',()=>{
     assert.equal(previewExample(state,2000000).tax,expected);
     assert.equal(previewExample(state,2000000).total,2000000+expected);

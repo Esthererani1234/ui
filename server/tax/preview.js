@@ -22,11 +22,11 @@ const references = {
 };
 export function previewExample(state, amount, place = 'olympia', verifiedAddress=null) {
   if (!(Object.hasOwn(samples,state) || Object.hasOwn(bullionMinimums,state)) ||
-      !Number.isSafeInteger(amount) || amount < 1 || amount > 10000000)
-    return {status:'invalid', message:'Choose a sample and an amount up to $100,000.'};
+      !Number.isSafeInteger(amount) || amount < 1 || amount > 100000000)
+    return {status:'invalid', message:'Choose a sample and an amount up to $1,000,000.'};
   let sample = samples[state];
   if (state==='WA') {
-    const code = {olympia:'3403',tumwater:'3406'}[place];
+    const code = {olympia:'3403',tumwater:'3406',spokane:'3210',seattle:'1726'}[place];
     if (typeof code!=='string') return {status:'invalid',message:'Choose a Washington sample address.'};
     const [stateRate, localRate] = quarter.rates[code];
     sample = {...sample,rates:[['state','WA',stateRate],['combined_local',code,localRate]]};
@@ -45,12 +45,14 @@ export function previewExample(state, amount, place = 'olympia', verifiedAddress
 }
 
 const washingtonSamples = {
+  spokane: {address_line_1:'808 W Spokane Falls Blvd',city:'Spokane',state:'WA',postal_code:'99201'},
+  seattle: {address_line_1:'600 4th Ave',city:'Seattle',state:'WA',postal_code:'98104'},
   olympia: {address_line_1:'601 4th Ave E', city:'Olympia',state:'WA',postal_code:'98501'},
   tumwater: {address_line_1:'6400 Linderson Way SW',city:'Tumwater',state:'WA',postal_code:'98501'},
 };
 const sampleLookups = new Map();
 export async function previewCheckout(state,amount,place='olympia') {
-  if(state!=='WA' || !Object.hasOwn(washingtonSamples,place) || !Number.isSafeInteger(amount) || amount<1 || amount>10000000)
+  if(state!=='WA' || !Object.hasOwn(washingtonSamples,place) || !Number.isSafeInteger(amount) || amount<1 || amount>100000000)
     return previewExample(state,amount,place);
   try {
     let entry=sampleLookups.get(place);

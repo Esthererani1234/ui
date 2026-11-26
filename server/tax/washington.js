@@ -75,7 +75,8 @@ export function washingtonResult(xml,day,address,streetCode) {
   if(ppm(main.rate)!==state+local || ppm(main.localrate)!==local || ppm(rate.staterate)!==state || ppm(rate.localrate)!==local) throw failure();
   return {state:'WA',source,approval:'approved',valid_from:day,valid_until:day,verified_on:day,
     version:['WA-DOR',quarter.period,streetCode,state,local].join('/'),
-    rates:[{level:'state',code:'WA',ppm:state},{level:'combined_local',code:streetCode,ppm:local}]};
+    rates:[{level:'state',code:'WA',ppm:state},{level:'combined_local',code:streetCode,ppm:local,
+      name:record[5] || rate.name,county:record[4],districts:[street.ptba,street.rta==='Y'?'Regional Transit Authority':null].filter(Boolean)}]};
 }
 
 export async function washingtonAddress(address,day,fetcher=fetch,loadRanges=loadWashingtonRanges) {

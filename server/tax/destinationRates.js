@@ -2,6 +2,7 @@ import {TaxReview} from './engine.js';
 
 const census = 'https://geocoding.geo.census.gov/geocoder/geographies/address';
 const publications = {
+  NY: ['36','https://www.nyc.gov/site/finance/business/business-nys-sales-tax.page'],
   ME: ['23','https://www.maine.gov/revenue/taxes/sales-use-service-provider-tax/rates-due-dates'],
   DC: ['11','https://otr.cfo.dc.gov/release/notice-oct-1-2026-tax-changes'],
   HI: ['15','https://tax.hawaii.gov/geninfo/countysurcharge/'],
@@ -35,7 +36,18 @@ export function censusRates(address, day, matches) {
   const state = address.state;
   const rates = [];
   let maxPassOn;
-  if (state==='DC' || state==='ME') {
+  if (state==='NY') {
+    const counties=geography.Counties;
+    const cities=geography['Incorporated Places'];
+    if (counties?.length!==1 || !['36005','36047','36061','36081','36085'].includes(counties[0].GEOID) ||
+        cities?.length!==1 || cities[0].GEOID!=='3651000') {
+      return {state,source:census,approval:'approved',verified_on:day,valid_from:day,valid_until:day,
+        version:'Census/'+day+'/'+geography.States[0].GEOID,rates:[]};
+    }
+    rates.push({level:'state',code:'NY',name:'New York State',ppm:40000},
+      {level:'city',code:'NYC',name:'New York City',county:counties[0].NAME,ppm:45000},
+      {level:'district',code:'MCTD',name:'Metropolitan Commuter Transportation District',ppm:3750});
+  } else if (state==='DC' || state==='ME') {
     rates.push({level:state==='DC'?'district':'state',code:state,ppm:state==='DC'?60000:55000});
   } else if (state==='HI') {
     const counties = geography.Counties;

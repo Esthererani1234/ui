@@ -437,3 +437,19 @@ declare q jsonb; result jsonb;begin
 end $$;
 revoke all on function public.tax_cart_inputs(uuid,jsonb,jsonb,jsonb) from public,anon,authenticated;
 grant execute on function public.tax_cart_inputs(uuid,jsonb,jsonb,jsonb) to service_role;
+
+
+-- Aggregate posted sales and confirmed refunds with the jurisdiction metadata preserved at checkout.
+create function public.tax_period_components(p_state text,p_from date,p_to date) returns jsonb
+language sql stable security definer set search_path='' as $$
+ select coalesce(jsonb_agg(component || jsonb_build_object('cents',net) order by component->>'code'),'[]')
+ from (
+   select item-'cents' as component,sum((item->>'cents')::bigint) as net
+   from public.tax_period_rows(p_state,p_from,p_to) r
+   cross join lateral jsonb_array_elements(r.breakdown) item
+   where r.kind in ('sale','refund')
+   group by item-'cents'
+ ) parts
+$$;
+revoke all on function public.tax_period_components(text,date,date) from public,anon,authenticated;
+grant execute on function public.tax_period_components(text,date,date) to service_role;

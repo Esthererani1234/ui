@@ -28,6 +28,10 @@ export function validateVersion(state,v){
   }else if(kind==='address'){
     const addr=normalizeAddress(JSON.parse(subject));check(addr.state===state,'The address must match the selected state.');
     check(Array.isArray(data.rates)&&data.rates.length>0&&data.rates.every(r=>num(r.ppm)&&r.ppm<=1000000&&typeof r.code==='string'&&r.code.trim()&&['state','county','city','district','combined_local','combined'].includes(r.level)),'Enter verified jurisdiction components and integer rates per million.');
+    check(new Set(data.rates.map(r=>r.code)).size===data.rates.length &&
+      data.rates.every(r=>(r.name==null || typeof r.name==='string') && (r.county==null || typeof r.county==='string') &&
+      (r.districts==null || (Array.isArray(r.districts) && r.districts.every(d=>typeof d==='string')))),
+      'Enter unique jurisdiction codes and valid names for the county and taxing districts.');
   }else if(kind==='nexus'){
     check(subject==='state'&&['current_or_prior_calendar','rolling_12_months','ny_four_completed_quarters'].includes(data.period)&&['gross','taxable'].includes(data.base)&&['and','or'].includes(data.operator)&&
       (num(data.revenue_trigger_cents,1)||num(data.transaction_trigger,1))&&typeof data.deduct_refunds==='boolean'&&typeof data.include_marketplace==='boolean','Check the nexus window, included sales, first triggering cent or transaction, and threshold operator.');

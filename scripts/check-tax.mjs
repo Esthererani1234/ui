@@ -4,6 +4,7 @@ import {readFile} from 'node:fs/promises';
 import {PGlite} from '@electric-sql/pglite';
 import {assess,allocate,cents} from '../server/tax/engine.js';
 import {washingtonResult,washingtonStreetCode} from '../server/tax/washington.js';
+import {orderTotalCents} from '../server/tax/orderAmounts.js';
 import {normalizeAddress} from '../server/tax/quote.js';
 import states from '../shared/taxSources.json' with {type:'json'};
 const day='2026-11-26';
@@ -87,7 +88,7 @@ test('preview migration, permissions, exact address, order and filing accounting
  await assert.rejects(place(address),/tax and total/);
  const date=await val("select (now() at time zone 'America/New_York')::date::text");
  await db.query("insert into private.tax_versions(state,kind,subject,valid_from,valid_until,verified_on,source,approval,data,actor) values('NY','policy','state',current_date-1,current_date+1,current_date,'https://www.tax.ny.gov/','approved','{}',$1)",[actor]);
- const id=await val("select public.store_tax_assessment($1,$2,$3,'wire','pickup',$4,(select revision from private.tax_revision))",[actor,qid,address,{day:date,state:'NY',collection:'collect',subtotal:10000,taxable:10000,exempt:0,tax:888,total:10888,breakdown:[]}]);
+ const id=await val("select public.store_tax_assessment($1,$2,$3,'wire','pickup',$4,(select revision from private.tax_revision))",[actor,qid,address,{day:date,state:'NY',collection:'collect',subtotal:10000,taxable:10000,exempt:0,tax:888,total:10888,breakdown:[{level:'state',code:'NY',ppm:40000,cents:400},{level:'city',code:'NYC',ppm:45000,cents:450},{level:'district',code:'MCTD',ppm:3750,cents:38}]}]);
  await assert.rejects(place({...address,fulfillment:'pickup',tax_assessment_id:id,city:'Changed'}));
  const order=await place({...address,fulfillment:'pickup',tax_assessment_id:id});assert.equal(order.total,108.88);
  await db.exec("update orders set payment_status='paid'");await db.exec("update orders set payment_status='paid'");
@@ -95,8 +96,33 @@ test('preview migration, permissions, exact address, order and filing accounting
  assert.equal(await val("select tax::int from private.tax_ledger where kind='sale' and state='NY'"),888);
  await db.query("select public.tax_refund_entry($1,'NY',1,'test-refund',$2,5000,5000,0,'[]')",[actor,date]);
  await assert.rejects(db.query("select public.tax_refund_entry($1,'NY',1,'test-refund-again',$2,6000,6000,0,'[]')",[actor,date]),/exceeds/);
+ const components=await val("select public.tax_period_components('NY',$1,$1)",[date]);assert.equal(components.reduce((n,c)=>n+c.cents,0),888);
  const period=await val("select public.tax_report_rows('NY',$1,$1)",[date]);assert.ok(period.some(r=>r.kind==='refund'));
  await assert.rejects(db.exec("update orders set total=100"),/new checkout/);
+ await db.query("insert into private.tax_versions(state,kind,subject,valid_from,valid_until,verified_on,source,approval,data,actor) values('WA','policy','state',current_date-1,current_date+1,current_date,'https://dor.wa.gov/','approved','{}',$1)",[actor]);
+ for (const [city,street,zip,code,expectedTax] of [
+   ['Spokane','808 W SPOKANE FALLS BLVD','99201','3210',4550000],
+   ['Seattle','600 4TH AVE','98104','1726',5275000],
+ ]) {
+   const ship={address_line_1:street,city,state:'WA',postal_code:zip,country:'US'};
+   const xml=await readFile(new URL('./fixtures/tax/'+city.toLowerCase()+'-q42026.xml',import.meta.url),'utf8');
+   const purchase=input(50000000);
+   purchase.state='WA';purchase.policy={...policy,state:'WA',first_eligible_cent:0};
+   purchase.address=washingtonResult(xml,day,ship,code);
+   purchase.lines[0].classification={...product,treatment:'taxable'};
+   const result=assess(purchase);
+   const quoteId=await val("insert into checkout_quotes values(gen_random_uuid(),$1,'active',now()+interval '10 minutes',now(),500000,0,0,'[]','{}') returning id",[actor]);
+   const assessmentId=await val("select public.store_tax_assessment($1,$2,$3,'wire','delivery',$4,(select revision from private.tax_revision))",[actor,quoteId,ship,{...result,day:date}]);
+   const placed=await val("select public.create_order_from_quote($1,$2,$3,$4,'wire',null)",[actor,quoteId,contact,{...ship,tax_assessment_id:assessmentId}]);
+   const stored=(await db.query("update orders set payment_status='paid' where id=$1 returning *",[placed.order_id])).rows[0];
+   assert.equal(cents(stored.tax_amount),expectedTax);
+   assert.equal(orderTotalCents(stored),50000000+expectedTax);
+   assert.equal(cents(placed.total),orderTotalCents(stored));
+   assert.equal(await val("select tax::int from private.tax_ledger where order_id=$1",[placed.order_id]),expectedTax);
+   assert.throws(()=>orderTotalCents({...stored,tax_amount:'0.01'}),/reconciliation/);
+ }
+ const waReport=await val("select public.tax_period_components('WA',$1,$1)",[date]);
+ assert.equal(waReport.reduce((sum,row)=>sum+row.cents,0),9825000);
  }finally{await db.close();}
 });
 
@@ -160,4 +186,31 @@ test('New Mexico checks the complete street match and the government location co
   const mock=async()=>({ok:true,json:async()=>({results:[row]})});
   assert.equal((await newMexicoAddress(a,day,mock)).rates[0].ppm,78750);
   row.source='Mapquest Geocode';await assert.rejects(newMexicoAddress(a,day,mock));
+});
+
+for(const e of [
+  {place:'spokane',city:'Spokane',street:'W SPOKANE FALLS BLVD',number:808,zip:'99201',code:'3210',local:'.026',total:'.091',county:'Spokane',tax:4550000},
+  {place:'seattle',city:'Seattle',street:'4TH AVE',number:600,zip:'98104',code:'1726',local:'.0405',total:'.1055',county:'King',tax:5275000}
+]) test(e.city+': verified $500,000 bullion benchmark reconciles state, local, and total',async()=>{
+  const xml=await readFile(new URL('./fixtures/tax/'+e.place+'-q42026.xml',import.meta.url),'utf8');
+  const address={state:'WA',city:e.city,address_line_1:e.number+' '+e.street,postal_code:e.zip};
+  const result=washingtonResult(xml,day,address,e.code);
+  const q=input(50000000);q.state='WA';q.address=result;q.policy={...policy,state:'WA',first_eligible_cent:0};
+  q.lines[0].classification={...product,treatment:'taxable'};
+  const charge=assess(q);
+  assert.equal(charge.tax,e.tax);assert.equal(charge.total,50000000+e.tax);
+  assert.equal(charge.breakdown[0].cents,3250000);assert.equal(charge.breakdown[1].county,e.county);
+  assert.equal(charge.breakdown[1].cents,e.tax-3250000);assert.ok(charge.breakdown[1].districts.length);
+  assert.equal(previewExample('WA',50000000,e.place).tax,e.tax);
+  q.policy.collection='no_obligation';const other=assess(q);assert.equal(other.tax,0);assert.equal(other.taxable,50000000);
+});
+test('real-WA benchmark difference is $7,250 for the same taxable merchandise',()=>{
+  assert.equal(previewExample('WA',50000000,'seattle').tax-previewExample('WA',50000000,'spokane').tax,725000);
+});
+test('NYC pickup or delivery requires a matching county and city geography for the general NYC rate',()=>{
+  const a={address_line_1:'149 MADISON AVE',city:'NEW YORK',state:'NY',postal_code:'10016'};
+  const m={matchedAddress:'149 MADISON AVE, NEW YORK, NY, 10016',addressComponents:{zip:'10016',state:'NY',city:'NEW YORK'},
+    geographies:{States:[{STUSAB:'NY',GEOID:'36'}],Counties:[{GEOID:'36061',NAME:'New York County'}],'Incorporated Places':[{GEOID:'3651000'}]}};
+  assert.deepEqual(censusRates(a,day,[m]).rates.map(c=>c.ppm),[40000,45000,3750]);
+  m.geographies.Counties=[{GEOID:'36119'}];assert.deepEqual(censusRates(a,day,[m]).rates,[]);
 });

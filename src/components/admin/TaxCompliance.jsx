@@ -68,7 +68,7 @@ function PreviewCalculator(){
   return <details open id="checkout-example"><summary>Try a sample order</summary>
     <p>One gold bar paid by wire. Taxable examples assume a registered seller. Hawaii and New Mexico illustrate passing the seller tax on to the buyer. Published example rates are for demonstration.</p>
     <div className="tax-fields"><label>Destination<select value={state} onChange={e=>setState(e.target.value)}>{Object.entries(examples).map(([code,name])=><option key={code} value={code}>{name}</option>)}</select></label>
-    {state==='WA'&&<label>Delivery address<select value={place} onChange={e=>setPlace(e.target.value)}><option value="olympia">601 4th Ave E, Olympia, WA 98501</option><option value="tumwater">6400 Linderson Way SW, Tumwater, WA 98501</option></select></label>}
+    {state==='WA'&&<label>Delivery address<select value={place} onChange={e=>setPlace(e.target.value)}><option value="spokane">808 W Spokane Falls Blvd, Spokane, WA 99201</option><option value="seattle">600 Fourth Ave, Seattle, WA 98104</option><option value="olympia">601 4th Ave E, Olympia, WA 98501</option><option value="tumwater">6400 Linderson Way SW, Tumwater, WA 98501</option></select></label>}
     <label>Purchase amount ($)<input value={amount} onChange={e=>setAmount(e.target.value)} inputMode="decimal"/></label></div>
     <div aria-live="polite">{out?.message && <p>{out.message}</p>}{out?.tax>0 && <p>Tax <strong>{currency(out.tax)}</strong></p>}
     {out?.total!=null && <p>Total <strong>{currency(out.total)}</strong></p>}</div></details>;
@@ -77,7 +77,7 @@ export default function TaxCompliance({researchOnly=false}){
   const [filter,setFilter]=useState(''),[selected,select]=useState(null),[data,setData]=useState(null),[profile,setProfile]=useState(null),[error,setError]=useState(''),[refresh,setRefresh]=useState(0);
   const [from,setFrom]=useState(today().slice(0,4)+'-01-01'),[to,setTo]=useState(today());
   useEffect(()=>{if(researchOnly)return;let live=true;setError('');setData(null);adminRequest('?from='+from+'&to='+to).then(d=>{if(live)setData(d);}).catch(e=>{if(live)setError(e.message);});return()=>{live=false;};},[researchOnly,from,to,refresh]);
-  useEffect(()=>{let live=true;setProfile(null);if(selected&&!researchOnly)adminRequest('?state='+selected+'&to='+to).then(d=>{if(live)setProfile(d);}).catch(e=>{if(live)setError(e.message);});return()=>{live=false;};},[selected,researchOnly,to,refresh]);
+  useEffect(()=>{let live=true;setProfile(null);if(selected&&!researchOnly)adminRequest('?state='+selected+'&from='+from+'&to='+to).then(d=>{if(live)setProfile(d);}).catch(e=>{if(live)setError(e.message);});return()=>{live=false;};},[selected,researchOnly,from,to,refresh]);
   const rows=states.map(r=>({...r,...data?.states?.find(s=>s.state===r.code)})),row=rows.find(r=>r.code===selected);
   const aggregate=k=>data?.states.reduce((n,s)=>n+Number(s.period?.[k]||0),0);
   const exportReport=async()=>{try{const blob=await adminRequest('?format=csv&state='+selected+'&from='+from+'&to='+to);const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=selected+'-tax-'+from+'-'+to+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}catch(e){setError(e.message);}};
@@ -91,6 +91,9 @@ export default function TaxCompliance({researchOnly=false}){
     {data.alerts?.length>0&&<details><summary>Compliance alerts ({data.alerts.length})</summary>{data.alerts.map(a=><p key={a.event_key}>{a.state} · {a.message}</p>)}</details>}</>}
     {row?<><button className="text-button" onClick={()=>select(null)}>← All jurisdictions</button><h3>{row.name}</h3>
       <p>{row.finding||'Product treatment awaits verification.'}</p><p>Source research {row.researchDate} · {row.effectiveFrom?'Source provision effective '+row.effectiveFrom+' · ':''}Checkout approval requires separate review.</p>
+      {profile?.components?.length>0 && <details><summary>Tax by jurisdiction for this period</summary><table><thead><tr><th>Jurisdiction</th><th>Rate</th><th>Net tax</th></tr></thead><tbody>
+        {profile.components.map((c,i)=><tr key={i}><td>{[c.name || c.code,c.county,c.districts?.join(', ')].filter(Boolean).join(' · ')}</td><td>{Number(c.ppm)/10000}%</td><td>{currency(c.cents)}</td></tr>)}
+      </tbody></table></details>}
       {profile?.nexus&&<p>Nexus threshold reached: {profile.nexus.percentage}% · {profile.nexus.reached?'Registration review due':'Monitoring'}</p>}
       <h3>Government sources</h3><ul>{row.sources.map(s=><li key={s.url}><a href={s.url} target="_blank" rel="noreferrer">{s.title||s.url}</a> <small>{s.purpose}</small></li>)}</ul>
       {data&&<><button className="button button-outline" onClick={exportReport}>Download period ledger (CSV)</button><StateControls key={row.code} row={row} profile={profile} filings={data.filings.filter(f=>f.state===row.code)} save={async(action,values)=>{await adminRequest('',{state:row.code,action,data:values});setRefresh(i=>i+1);}}/></>}

@@ -22,8 +22,8 @@ export default async function handler(req,res){
           const {data,error}=await db.storage.from('tax-compliance-private').createSignedUrl(path,60,{download:true});
           if(error)throw Error();return json(res,200,{url:data.signedUrl});
         }
-        const [profile,documents]=await Promise.all([rpc(db,'tax_state_profile',{p_state:state,p_day:to}),rpc(db,'tax_documents_for_state',{p_state:state})]);
-        return json(res,200,{...profile,documents});
+        const [profile,documents,components]=await Promise.all([rpc(db,'tax_state_profile',{p_state:state,p_day:to}),rpc(db,'tax_documents_for_state',{p_state:state}),rpc(db,'tax_period_components',{p_state:state,p_from:from,p_to:to})]);
+        return json(res,200,{...profile,documents,components});
       }
       return json(res,200,await rpc(db,'tax_admin_overview',{p_from:from,p_to:to}));
     }

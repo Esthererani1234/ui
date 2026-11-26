@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {Readable} from 'node:stream';
 import Stripe from 'stripe';
+import {orderTotalCents} from '../server/tax/orderAmounts.js';
 import {bindCardIntent,recoverCardIntent} from '../server/lib/cardRecovery.js';
 import {reconcileCardIntent} from '../server/lib/cardCapture.js';
 import {stripeMatchesOrder,stripeState,requestHash,strictObject} from '../server/lib/security.js';
@@ -10,7 +11,7 @@ import {readJson,readRaw,json,assertPayable} from '../server/lib/payments.js';
 
 // All provider and database calls are local fixtures. No network or credentials.
 const U='10000000-0000-4000-8000-000000000001',H=requestHash('ctoken_fixture');
-const order={id:1,user_id:U,total:100,subtotal:100,order_number:'TEST',payment_method:'card',payment_status:'unpaid',status:'awaiting_payment',payment_provider:'stripe',provider_payment_id:null,price_locked_until:new Date(Date.now()+600000).toISOString()};
+const order={id:1,user_id:U,total:100,subtotal:92,tax_amount:8,order_number:'TEST',payment_method:'card',payment_status:'unpaid',status:'awaiting_payment',payment_provider:'stripe',provider_payment_id:null,price_locked_until:new Date(Date.now()+600000).toISOString()};
 const intent={id:'pi_recovery',object:'payment_intent',amount:10000,amount_received:10000,currency:'usd',status:'succeeded',capture_method:'automatic',metadata:{order_id:'1',user_id:U,payment_claim:H}};
 function harness({matches=[intent],canonical=intent,legacy=false,bindingError=false,request=true}={}) {
  const calls=[];let current={...order};
@@ -79,7 +80,7 @@ test('confirm-card cannot report success when a settled intent fails atomic bind
  process.env.STRIPE_ENABLED='true';process.env.STRIPE_SECRET_KEY='sk_test_fixture';
  const h=harness({bindingError:true});
  const handler=await loadHandler('../server/payments/confirm-card.js',{
-  service:()=>h.db,rateLimit:async()=>{},strictObject,securityLog:()=>{},requestHash,
+  orderTotalCents,service:()=>h.db,rateLimit:async()=>{},strictObject,securityLog:()=>{},requestHash,
   Stripe:class{constructor(){return h.stripe}},reconcileCardIntent,bindCardIntent,assertPayable,
   authenticateCustomer:async()=>({user:{id:U}}),customerOrder:async()=>order,json,readJson,
  });
@@ -87,6 +88,7 @@ test('confirm-card cannot report success when a settled intent fails atomic bind
  assert.equal(res.statusCode,500);assert.match(res.body.error,/Check your order/);
  assert.equal(h.calls.some(c=>c.name==='release_card_payment'),false);
  assert.equal(h.calls.find(c=>c.name==='create').args.metadata.payment_claim,H);
+ assert.equal(h.calls.find(c=>c.name==='create').args.amount,10000);
 });
 test('a signed success webhook recovers an unbound intent before applying its payment event',async()=>{
  process.env.STRIPE_SECRET_KEY='sk_test_fixture';process.env.STRIPE_WEBHOOK_SECRET='whsec_fixture';

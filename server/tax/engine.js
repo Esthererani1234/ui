@@ -134,7 +134,11 @@ export function assess({day,state,policy,address,lines,subtotal,shipping,fee,inv
     const measure=levy.base==='merchandise'?subtotal:levy.base==='taxable_merchandise'?taxable:integer(subtotal+shipping+fee);
     return {kind:levy.kind,code:levy.code,base:measure,ppm:levy.ppm,cents:roundRatio(measure,levy.ppm,1000000)};
   });
+  for (let i=0;i<breakdown.length;i++) {
+    const {name,county,districts}=address.rates[i];
+    Object.assign(breakdown[i],{name,county,districts});
+  }
   if (destinationLevy) sellerTaxes.push(destinationLevy);
-  return {seller_taxes:sellerTaxes,state,day,collection:policy.collection,status:collect?(base?'taxable':'exempt'):'not_collected',subtotal,shipping,fee,tax,total:integer(subtotal+shipping+fee+tax),taxable,exempt:subtotal-taxable,base,breakdown,policy_version:policy.version,address_version:address.version,registration:policy.registration,lines:lines.map((l,i)=>({id:l.id,net:net[i],exempt:qualified[i]&&meetsExemption,version:l.classification.version}))};
+  return {rate_source:address.source,rate_verified_on:address.verified_on,rate_effective_from:address.valid_from,rate_valid_until:address.valid_until,policy_source:policy.source,seller_taxes:sellerTaxes,state,day,collection:policy.collection,status:collect?(base?'taxable':'exempt'):'not_collected',subtotal,shipping,fee,tax,total:integer(subtotal+shipping+fee+tax),taxable,exempt:subtotal-taxable,base,breakdown,policy_version:policy.version,address_version:address.version,registration:policy.registration,lines:lines.map((l,i)=>({id:l.id,net:net[i],exempt:qualified[i]&&meetsExemption,version:l.classification.version}))};
 }
 export const usd=c=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(c/100);

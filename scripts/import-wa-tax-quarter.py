@@ -7,6 +7,7 @@ import json
 import re
 import struct
 import urllib.request
+import xml.etree.ElementTree as ET
 import zipfile
 from datetime import date
 from decimal import Decimal
@@ -16,6 +17,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('rates_url')
 parser.add_argument('address_url')
 parser.add_argument('output', type=Path)
+parser.add_argument('--locations-url', required=True, help='Quarterly DOR alphabetical rate workbook')
 args = parser.parse_args()
 
 def download(url, kind):
@@ -46,6 +48,30 @@ with zipfile.ZipFile(io.BytesIO(rates_bytes)) as archive:
                 raise ValueError('Inconsistent government location rate')
             rows[code] = [state,local,start,end]
 
+if not re.fullmatch(r'https://dor\.wa\.gov/sites/default/files/[0-9-]+/[\w.-]+\.xlsx',args.locations_url):
+    raise ValueError('Choose the official quarterly DOR workbook.')
+with urllib.request.urlopen(args.locations_url,timeout=30) as response:
+    workbook=zipfile.ZipFile(io.BytesIO(response.read()))
+ns={'x':'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
+strings=[''.join(cell.itertext()) for cell in ET.fromstring(workbook.read('xl/sharedStrings.xml'))]
+sheet=ET.fromstring(workbook.read('xl/worksheets/sheet1.xml'))
+for row in sheet.findall('.//x:row',ns):
+    values={}
+    for cell in row.findall('x:c',ns):
+        value=cell.findtext('x:v','',ns)
+        if value:
+            values[re.sub(r'\d+', '', cell.get('r'))]=strings[int(value)] if cell.get('t')=='s' else value
+    code=values.get('C','').zfill(4)
+    if code not in rows or not values.get('A') or not values.get('B'):
+        continue
+    if any(round(Decimal(values[col])*1000000)!=expected for col,expected in zip('DEF',[rows[code][1],rows[code][0],sum(rows[code][:2])])):
+        raise ValueError('Rate publications disagree at '+code)
+    labels=[values['A'],values['B']]
+    if len(rows[code])==4:
+        rows[code].extend(labels)
+    elif rows[code][4:]!=labels:
+        raise ValueError('Conflicting location descriptions for '+code)
+
 data = download(args.address_url, 'State')
 with zipfile.ZipFile(io.BytesIO(data)) as archive:
     item = archive.getinfo('State_'+quarter+'.txt')
@@ -58,7 +84,7 @@ with zipfile.ZipFile(io.BytesIO(data)) as archive:
         if headers[:9] != ['ADDR_LOW','ADDR_HIGH','ODD_EVEN','STREET','STATE','ZIP','PLUS4','PERIOD','CODE']:
             raise ValueError('Address file format changed')
         count = sum(1 for line in raw if line.strip())
-manifest = dict(period=quarter[2:]+'20'+quarter[:2], rates_url=args.rates_url,address_url=args.address_url,
+manifest = dict(period=quarter[2:]+'20'+quarter[:2], locations_url=args.locations_url,rates_url=args.rates_url,address_url=args.address_url,
     sha256=hashlib.sha256(data).hexdigest(), archive_bytes=len(data), offset=offset,
     compressed_bytes=item.compress_size, uncompressed_bytes=item.file_size,address_ranges=count,rates=rows)
 args.output.write_text(json.dumps(manifest,indent=2)+'\n')

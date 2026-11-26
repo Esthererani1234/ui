@@ -323,10 +323,13 @@ function ShippingCheckout() {
     return result;
   }, []);
 
+  const attemptedCart = useRef(null);
   const getFreshQuote = useCallback(
     async ({ automatic = false, orderId = null, promo = promoRef.current, revisePromo = false } = {}) => {
       if (quoteRequestRef.current) return null;
       quoteRequestRef.current = true;
+      const requestedSignature = revisePromo ? quoteRef.current?.cartSignature : cartSignature;
+      if (!orderId) attemptedCart.current = requestedSignature;
       if (automatic) setQuoteRefreshing(true);
       else setQuoteLoading(true);
       setError("");
@@ -338,6 +341,7 @@ function ShippingCheckout() {
           revisePromo ? { quote_id: quoteRef.current?.quote_id || null, promo_code: promo } : orderId ? { order_id: orderId } : { cart: cartPayload, ...(promo?{promo_code:promo}:{}) },
         );
 
+        next.cartSignature = requestedSignature;
         promoRef.current=next.promo_code||'';
         const deadline = displayDeadline(next.expires_at, next.server_time_ms);
         next.displayDeadline = quoteRef.current?.expires_at === next.expires_at
@@ -372,7 +376,7 @@ function ShippingCheckout() {
         setQuoteRefreshing(false);
       }
     },
-    [authenticatedPost, cartPayload],
+    [authenticatedPost, cartPayload, cartSignature],
   );
 
   useEffect(() => {
@@ -411,18 +415,9 @@ function ShippingCheckout() {
   }, [resumeOrderId, getFreshQuote]);
 
   useEffect(() => {
-    if (Number.isSafeInteger(resumeOrderId) && resumeOrderId > 0) return;
-    if (
-      !user ||
-      !cartReady ||
-      !cartSignature ||
-      quoteRef.current ||
-      quoteRequestRef.current
-    ) {
-      return;
-    }
+    if (orderInfo || resumeOrderId || !user || !cartReady || !cartSignature || quoteRequestRef.current || attemptedCart.current===cartSignature) return;
     getFreshQuote();
-  }, [user, cartReady, cartSignature, resumeOrderId, getFreshQuote]);
+  }, [orderInfo,user,cartReady,cartSignature,resumeOrderId,getFreshQuote,quoteLoading,quoteRefreshing]);
 
   useEffect(() => {
     if (!quote?.displayDeadline) return undefined;
@@ -496,7 +491,7 @@ function ShippingCheckout() {
   const taxRequest = JSON.stringify({quote_id:quote?.quote_id,method:form.paymentMethod,fulfillment:pickup?'pickup':'delivery',investment,
     address:pickup?undefined:confirmedAddress});
   useEffect(()=>{setForm(f=>f.agree || f.wireAgree ? {...f,agree:false,wireAgree:false}:f);},[taxRequest]);
-  const taxReady = needsTax && assessment?.key===taxRequest && assessment?.data?.id;
+  const taxReady = needsTax && quote?.cartSignature===cartSignature && assessment?.key===taxRequest && assessment?.data?.id;
   const taxMessage=assessment?.key===taxRequest?assessment.message:null;
   const minimumNotice = earlyMinimum || (assessment?.key===taxRequest && assessment.code==='ORDER_MINIMUM' ? taxMessage : '');
   const investmentAgreement = taxReady && destinationState==='NY' && investment && assessment.data.exempt>0;

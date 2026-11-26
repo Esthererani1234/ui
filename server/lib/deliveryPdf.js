@@ -1,3 +1,4 @@
+import {orderTotalCents} from '../tax/orderAmounts.js';
 import {officeAddress} from '../../shared/business.js';
 import {PDFDocument,rgb} from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
@@ -39,6 +40,7 @@ export async function renderDeliveryPdf({order:o,items,delivery:d},kind,id,issue
    if(kind==='invoice'&&o.billing_address){section('Billing address');addr(o.billing_address)}
  }
  const financial=kind==='invoice';
+ if(financial && o.tax_amount!=null)orderTotalCents(o);
  section('Merchandise');function table(){need(35);line(40,572,y);y-=14;put('DESCRIPTION',40,y,8,bold,muted);put('QTY',financial?360:528,y,8,bold,muted);if(financial){put('UNIT PRICE',404,y,8,bold,muted);put('AMOUNT',506,y,8,bold,muted)}y-=17}
  table();
  for(const i of items){if(y<99){page();table()}const top=y;

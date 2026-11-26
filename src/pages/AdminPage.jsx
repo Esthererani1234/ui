@@ -1,3 +1,4 @@
+import PromoCodes from '../components/admin/PromoCodes';
 import OrderDocuments from "../components/OrderDocuments";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -516,6 +517,7 @@ export default function AdminPage() {
           >
             <Settings /> Security
           </button>
+          <button className={tab === "promos" ? "active" : ""} onClick={()=>setTab("promos")}><Store /> Promo codes</button>
           <button
             className={tab === "store" ? "active" : ""}
             onClick={() => setTab("store")}
@@ -852,6 +854,7 @@ export default function AdminPage() {
         {tab === "customers" && <CustomerAdminPanel />}
         {tab === "risk" && <RiskAdminPanel />}
         {tab === "security" && <SecurityAdminPanel />}
+        {tab === "promos" && <PromoCodes />}
         {tab === "store" && <StoreAdminPanel />}
         {tab === "audit" && <AuditAdminPanel />}
       </div>

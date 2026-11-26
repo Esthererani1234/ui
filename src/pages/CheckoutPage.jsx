@@ -964,6 +964,17 @@ export default function CheckoutPage() {
             </label>
           </fieldset>
 
+          {!orderInfo && <fieldset disabled={busy || quoteLoading || quoteRefreshing}>
+            <legend>Promo code (optional)</legend>
+            <label htmlFor="checkout-promo">Enter your code</label>
+            <input id="checkout-promo" maxLength={32} autoCapitalize="characters" spellCheck={false} value={promoDraft}
+              onChange={e=>setPromoDraft(e.target.value.toUpperCase())}
+              onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();document.getElementById('apply-promo')?.click()}}}/>
+            <button id="apply-promo" type="button" className="button button-outline" disabled={!promoDraft.trim()} onClick={async()=>{setForm(f=>({...f,agree:false,wireAgree:false}));await getFreshQuote({promo:promoDraft.trim()})}}>Apply code</button>
+            {(promoDraft || quote?.promo_code) && <button className="text-button" type="button" onClick={async()=>{setForm(f=>({...f,agree:false,wireAgree:false}));if(await getFreshQuote({promo:''}))setPromoDraft('')}}>Remove</button>}
+            {quote?.promo_code && <p role="status">{quote.promo_code} applied · {money(quote.discount_amount)} off</p>}
+          </fieldset>}
+
           <fieldset>
             <legend>3. Payment information</legend>
             <div className="payment-options">
@@ -1182,7 +1193,6 @@ export default function CheckoutPage() {
             </div>
           ))}
 
-          {!orderInfo && <fieldset disabled={busy||quoteLoading||quoteRefreshing}><label>Promo code (optional)<input maxLength={32} value={promoDraft} onChange={e=>setPromoDraft(e.target.value.toUpperCase())}/></label><button type="button" className="button button-outline" onClick={async()=>{setForm(f=>({...f,agree:false,wireAgree:false}));await getFreshQuote({promo:promoDraft.trim()})}}>Apply code</button>{(promoDraft||quote?.promo_code)&&<button type="button" onClick={async()=>{setForm(f=>({...f,agree:false,wireAgree:false}));if(await getFreshQuote({promo:''}))setPromoDraft('')}}>Remove</button>}</fieldset>}
           <div className="checkout-totals">
             {pricing.discount_amount>0&&<div><span>Promo · {pricing.promo_code}</span><b>−{money(pricing.discount_amount)}</b></div>}
             <div>

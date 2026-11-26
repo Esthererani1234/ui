@@ -86,7 +86,7 @@ Deno.serve(async (request: Request) => {
       return json(request, { error: "Checkout request must be valid JSON." }, 400);
     }
 
-    if(Object.keys(body).some(key=>!["quote_id","cart","contact","shipping","payment_method","notes","terms","wire_agreement"].includes(key)))
+    if(Object.keys(body).some(key=>!["quote_id","cart","contact","shipping","payment_method","notes","terms","wire_agreement","fulfillment"].includes(key)))
       return json(request,{error:"Invalid checkout fields."},400);
     const admin = createClient(supabaseUrl, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
     const sessionId = String(jwtPayload(token).session_id || "");
@@ -134,6 +134,11 @@ Deno.serve(async (request: Request) => {
       const value = body[key];
       if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).some(field => !(allowed as readonly string[]).includes(field)))
         return json(request, {error:"Checkout contains invalid fields."},400);
+    }
+    if(body.fulfillment!==undefined && body.fulfillment!=="pickup")return json(request,{error:"Invalid fulfillment method."},400);
+    if(body.fulfillment==="pickup"){
+      if(!["card","wire"].includes(requestedPaymentMethod))return json(request,{error:"Choose card or bank wire for office pickup."},400);
+      body.shipping={address_line_1:"149 Madison Avenue",address_line_2:"Floor 6, Room 614",city:"New York",state:"NY",postal_code:"10016",country:"US",fulfillment:"pickup"};
     }
     const address = body.shipping as Record<string, unknown>;
     const details = body.contact as Record<string, unknown>;

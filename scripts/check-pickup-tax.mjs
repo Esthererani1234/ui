@@ -1,0 +1,16 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {pickupTotal} from '../server/lib/pickupTax.js';
+const uid='fake-user',qid='11111111-2222-3333-4444-555555555555',env={PICKUP_STRIPE_TAX_CODES:'{"BAR":"txcd_12345678"}',STRIPE_SECRET_KEY:'test-only'};
+function fixture(){const q={subtotal:2500,line_items:[{sku:'BAR',quantity:1,line_total:2500}],status:'active',expires_at:new Date(Date.now()+600000).toISOString()};const db={from(){return this},select(){return this},eq(){return this},maybeSingle(){return {data:q}},rpc(name,args){assert.equal(args.tax_cents,222);return {data:{total:2502.22}}}};return {db,q}}
+test('Uses verified office address, quote price and tax; excludes shipping',async()=>{const {db}=fixture();const result=await pickupTotal(db,uid,qid,env,async(url,{body})=>{assert.equal(body.get('customer_details[address][postal_code]'),'10016');assert.equal(body.get('line_items[0][amount]'),'250000');return {ok:true,json:async()=>({id:'taxcalc_test',tax_amount_exclusive:222,amount_total:250222,tax_breakdown:[{taxability_reason:'standard_rated'}]})}});assert.equal(result.total,2502.22)});
+test('Missing classification, unallocated discount and expired lock block payment',async()=>{for(const mutate of [q=>q.line_items[0].sku='UNKNOWN',q=>q.subtotal=2300,q=>q.expires_at='2000-01-01']){let {db,q}=fixture();mutate(q);await assert.rejects(pickupTotal(db,uid,qid,env,()=>assert.fail('unexpected provider call')),e=>e.status===409)}});
+test('Unregistered tax result is not an exemption',async()=>{const {db}=fixture();await assert.rejects(pickupTotal(db,uid,qid,env,async()=>({ok:true,json:async()=>({tax_amount_exclusive:0,amount_total:250000,tax_breakdown:[{taxability_reason:'not_collecting'}]})})),e=>e.status===409)});
+test('Card calculation includes the confirmed fee; wire has no card fee', async()=>{
+ for (const method of ['card','wire']){
+ const {db,q}=fixture();q.card_surcharge=100;
+ const result=await pickupTotal(db,uid,qid,{...env,PICKUP_STRIPE_TAX_CODES:JSON.stringify({BAR:'txcd_12345678',__card_fee:'txcd_12345678'})},async(_u,{body})=>{
+ assert.equal(body.get('line_items[1][amount]'),method==='card'?'10000':null);
+ return {ok:true,json:async()=>({id:'taxcalc_test',tax_amount_exclusive:222,amount_total:method==='card'?260222:250222,tax_breakdown:[{taxability_reason:'standard_rated'}]})};
+ },method);
+ assert.ok(result);
+ }
+});

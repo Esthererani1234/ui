@@ -1,5 +1,5 @@
 import {officeAddress} from '../../shared/business.js';
-import OfficePickupRequest from '../components/OfficePickupRequest';
+import PickupPayment from '../components/PickupPayment';
 import {cardLimitMessage,CARD_CHARGE_MAXIMUM} from "../../shared/cardLimits.js";
 import {WIRE_AGREEMENT_TEXT, WIRE_AGREEMENT_VERSION} from "../../supabase/functions/_shared/wireAgreement.js";
 import { TERMS_VERSION } from '../lib/legalPolicies';
@@ -150,9 +150,9 @@ function FulfillmentChoice({pickup=false}) {
 }
 export default function CheckoutPage() {
   const [params]=useSearchParams();
-  return params.get('fulfillment')==='pickup' && !params.has('resume_order') ? <OfficePickupRequest choice={<FulfillmentChoice pickup/>}/> : <ShippingCheckout/>;
+  return <ShippingCheckout pickup={params.get('fulfillment')==='pickup' && !params.has('resume_order')}/>;
 }
-function ShippingCheckout() {
+function ShippingCheckout({pickup}) {
   const { items, clear, reconcileProducts } = useCart();
   const { user, profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
@@ -822,6 +822,7 @@ function ShippingCheckout() {
     return <Navigate to="/cart" replace />;
   }
 
+  if(pickup) return <PickupPayment key={quote?.quote_id||'waiting'} quote={quote} seconds={secondsLeft} timer={clock(secondsLeft)} profile={profile} user={user} post={authenticatedPost} setCheckoutBusy={setBusy} parentError={error} choice={<FulfillmentChoice pickup/>} clear={clear}/>;
   const timerClass = quoteRefreshing
     ? "refreshing"
     : secondsLeft <= 60

@@ -130,7 +130,7 @@ Deno.serve(async (request: Request) => {
     const requestedPaymentMethod = typeof body.payment_method === "string" ? body.payment_method : "";
     if (!["wire", "card", "crypto", "ach"].includes(requestedPaymentMethod))
       return json(request, { error: "Unsupported payment method" }, 400);
-    for (const [key, allowed] of [["contact", ["first_name","last_name","email","phone"]], ["shipping", ["address_line_1","address_line_2","city","state","postal_code","country"]], ["terms", ["accepted","version"]]] as const) {
+    for (const [key, allowed] of [["contact", ["first_name","last_name","email","phone"]], ["shipping", ["address_line_1","address_line_2","city","state","postal_code","country"]], ["terms", ["accepted","version","investment_purchase"]]] as const) {
       const value = body[key];
       if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).some(field => !(allowed as readonly string[]).includes(field)))
         return json(request, {error:"Checkout contains invalid fields."},400);
@@ -149,6 +149,9 @@ Deno.serve(async (request: Request) => {
     const terms = body.terms && typeof body.terms === "object" ? body.terms as Record<string, unknown> : {};
     if (terms.accepted !== true || !["2026-10-22", "2026-10-22-v2"].includes(String(terms.version)))
       return json(request, { error: "Accept the current Terms of Purchase before placing the order." }, 400);
+    if (terms.investment_purchase !== undefined && terms.investment_purchase !== true)
+      return json(request, {error:"Invalid purchase agreement."}, 400);
+    if (terms.investment_purchase === true) address.investment_purchase = true;
     if (requestedPaymentMethod === "wire" && !validWireAgreement(body.wire_agreement))
       return json(request, { error: "Accept the bank-wire purchase agreement before continuing." }, 400);
     const contact =

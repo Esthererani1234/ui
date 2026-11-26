@@ -1,3 +1,4 @@
+import {belowOrderMinimum, businessDay} from '../../shared/bullionMinimums.js';
 import {officeAddress} from '../../shared/business.js';
 
 import {cardLimitMessage,CARD_CHARGE_MAXIMUM} from "../../shared/cardLimits.js";
@@ -386,6 +387,7 @@ function ShippingCheckout() {
       if (!next) return;
       setOrderInfo({
         order_id: next.order_id,
+        total: next.card_total, tax_amount: next.tax_amount,
         order_number: next.order_number,
         price_locked_until: next.expires_at,
       });
@@ -481,26 +483,31 @@ function ShippingCheckout() {
     : Number(pricing.subtotal || 0) + Number(pricing.shipping || 0);
   const achFee = Math.round(Number(pricing.subtotal || 0) * 2) / 100;
   const achTotal = Math.round((wireTotal + achFee) * 100) / 100;
-  const [investment,setInvestment] = useState(false);
+  const [investment,setInvestment] = useState(true);
   const [assessment,setAssessment] = useState(null);
   const needsTax = !orderInfo && !resumeOrderId;
+  const destinationState = pickup ? 'NY' : form.state?.trim().toUpperCase();
+  const addressEntered = pickup || Boolean(form.address1.trim() && form.city.trim() && /^[A-Z]{2}$/.test(destinationState) && /^\d{5}(-\d{4})?$/.test(form.postalCode.trim()));
+  const earlyMinimum = needsTax && addressEntered && quote ? belowOrderMinimum(destinationState, Math.round(Number(quote.subtotal) * 100), businessDay()) : '';
   const taxRequest = JSON.stringify({quote_id:quote?.quote_id,method:form.paymentMethod,fulfillment:pickup?'pickup':'delivery',investment,
     address:pickup?undefined:{address_line_1:form.address1,address_line_2:form.address2,city:form.city,state:form.state,postal_code:form.postalCode,country:'US'}});
   useEffect(()=>{setForm(f=>f.agree || f.wireAgree ? {...f,agree:false,wireAgree:false}:f);},[taxRequest]);
   const taxReady = needsTax && assessment?.key===taxRequest && assessment?.data?.id;
   const taxMessage=assessment?.key===taxRequest?assessment.message:null;
+  const minimumNotice = earlyMinimum || (assessment?.key===taxRequest && assessment.code==='ORDER_MINIMUM' ? taxMessage : '');
+  const investmentAgreement = taxReady && destinationState==='NY' && investment && assessment.data.exempt>0;
   useEffect(()=>{
-    if(!needsTax || !quote?.quote_id || (!pickup && (!form.address1 || !form.city || !form.state || !form.postalCode))) return;
+    if(!needsTax || !quote?.quote_id || !addressEntered || earlyMinimum) return;
     let active=true;
     const timer=setTimeout(async()=>{
       try {
         const data=await authenticatedPost('/api/checkout/tax',JSON.parse(taxRequest));
         if(active)setAssessment({key:taxRequest,data});
-      } catch(e) { if(active)setAssessment({key:taxRequest,message:e.message}); }
+      } catch(e) { if(active)setAssessment({key:taxRequest,message:e.message,code:e.code}); }
     },350);
     return ()=>{active=false;clearTimeout(timer);};
-  },[taxRequest,needsTax,pickup,quote?.quote_id,authenticatedPost]);
-  const displayedTotal = taxReady ? assessment.data.total / 100 :
+  },[taxRequest,needsTax,addressEntered,earlyMinimum,quote?.quote_id,authenticatedPost]);
+  const displayedTotal = orderInfo?.total != null ? Number(orderInfo.total) : taxReady ? assessment.data.total / 100 :
     form.paymentMethod === "card"
       ? Number(pricing.card_total || 0)
       : form.paymentMethod === "ach" ? achTotal : wireTotal;
@@ -545,7 +552,6 @@ function ShippingCheckout() {
   });
 
   const validate = () => {
-    if(needsTax && !taxReady)return taxMessage || "Verify the delivery or pickup tax before paying.";
     if(form.paymentMethod==="card" && cardLimitError)return cardLimitError;
     if(form.paymentMethod==="ach" && (!paymentConfig.ach || achTotal > 25000)) return "ACH is unavailable or the total exceeds $25,000 including fees.";
     if (!orderInfo && displayedTotal > settings[`${form.paymentMethod}_order_maximum`]) {
@@ -573,6 +579,8 @@ function ShippingCheckout() {
     if (!pickup && !/^\d{5}(?:-\d{4})?$/.test(form.postalCode.trim())) {
       return "Enter a valid US ZIP code.";
     }
+    if (minimumNotice) return minimumNotice;
+    if (needsTax && !taxReady) return 'We couldn’t confirm the order total for this address. Check the address and try again.';
     if (form.paymentMethod === "wire" && !form.wireAgree) return "Read and accept the bank-wire purchase agreement.";
     if (!orderInfo && promoDraft.trim().toUpperCase()!==(quote?.promo_code||'')) return 'Apply or clear your promo code before placing the order.';
     if (!form.agree) {
@@ -610,7 +618,7 @@ function ShippingCheckout() {
           },
           payment_method: form.paymentMethod,
           notes: form.notes.trim(),
-          terms: { accepted: true, version: TERMS_VERSION },
+          terms: { accepted: true, version: TERMS_VERSION, ...(investmentAgreement ? {investment_purchase:true} : {}) },
           ...(form.paymentMethod === "wire" ? {wire_agreement: {accepted: form.wireAgree, version: WIRE_AGREEMENT_VERSION}} : {}),
       });
 
@@ -1012,6 +1020,7 @@ function ShippingCheckout() {
             </label>
           </fieldset>}
 
+          {minimumNotice && <p role="status" className="form-message">{minimumNotice}</p>}
           {!orderInfo && <fieldset className="checkout-promo-box" disabled={busy || quoteLoading || quoteRefreshing} aria-labelledby="promo-label">
             <label id="promo-label" htmlFor="checkout-promo">Promo code <small>Optional</small></label>
             <div className="promo-entry">
@@ -1102,6 +1111,7 @@ function ShippingCheckout() {
               )}
           </fieldset>
 
+          <details><summary>Order notes and options <span>(optional)</span></summary>
           <label>
             Order notes <span>(optional)</span>
             <textarea
@@ -1115,6 +1125,10 @@ function ShippingCheckout() {
             />
           </label>
 
+            {needsTax && destinationState==='NY' && taxReady && (investmentAgreement || !investment) &&
+              <label className="checkout-check"><input type="checkbox" checked={investment} onChange={event=>setInvestment(event.target.checked)}/> Buying to hold for investment</label>}
+          </details>
+
           {form.paymentMethod === "wire" && <section className="wire-agreement" aria-labelledby="wire-agreement-heading">
             <h3 id="wire-agreement-heading">Bank-wire purchase agreement</h3>
             <p>{WIRE_AGREEMENT_TEXT}</p>
@@ -1127,6 +1141,7 @@ function ShippingCheckout() {
             <input
               type="checkbox"
               checked={form.agree}
+              disabled={Boolean(needsTax && !taxReady)}
               onChange={(event) =>
                 setForm({ ...form, agree: event.target.checked })
               }
@@ -1135,7 +1150,7 @@ function ShippingCheckout() {
             understand this bullion order is a binding purchase obligation
             at the currently displayed locked total of{" "}
             <b>{money(displayedTotal)}</b>, subject to GoldOnTheSpot
-            acceptance and the stated payment deadline.</span>
+            acceptance and the stated payment deadline.{investmentAgreement && ' I confirm that I am buying the qualifying bullion as an investment and will hold it in its purchased form.'}</span>
           </label>
 
           {priceNotice && (
@@ -1159,7 +1174,7 @@ function ShippingCheckout() {
               quoteRefreshing ||
               !quote ||
               displayedTotal <= 0 ||
-              (needsTax && !taxReady) ||
+              Boolean(minimumNotice) ||
               !cartReady ||
               !settings.accepting_orders ||
               (form.paymentMethod === "card" && Boolean(cardLimitError))
@@ -1171,7 +1186,7 @@ function ShippingCheckout() {
                 ? "Refreshing market price…"
                 : quoteLoading
                   ? "Locking your price…"
-                  : form.paymentMethod === "card"
+                  : needsTax && !taxReady ? "Review order" : form.paymentMethod === "card"
                     ? `Pay ${money(displayedTotal)} securely`
                     : "Agree & place secure order"}
           </button>
@@ -1264,12 +1279,11 @@ function ShippingCheckout() {
                   <b>{money(pricing.card_surcharge)}</b>
                 </div>
               )}
-            {needsTax && <div><span>Sales tax</span><b>{taxReady ? (assessment.data.status==='exempt'?'Exempt':assessment.data.status==='not_collected'?'Not collected':money(assessment.data.tax/100)):'Pending verification'}</b></div>}
-            {needsTax && (pickup || form.state?.toUpperCase()==='NY') && <label><input type="checkbox" checked={investment} onChange={e=>setInvestment(e.target.checked)}/> I am buying the eligible metals for investment and intend to hold them in their purchased form.</label>}
-            {needsTax && taxMessage && <p role="alert">{taxMessage}</p>}
+            {taxReady && assessment.data.tax > 0 && <div><span>Tax</span><b>{money(assessment.data.tax/100)}</b></div>}
+            {!needsTax && Number(orderInfo?.tax_amount ?? quote?.tax_amount)>0 && <div><span>Tax</span><b>{money(orderInfo?.tax_amount ?? quote.tax_amount)}</b></div>}
             <div className="checkout-total">
-              <span>Total</span>
-              <strong>{needsTax && !taxReady ? "Pending tax" : money(displayedTotal)}</strong>
+              <span>{needsTax && !taxReady ? "Estimated total" : "Total"}</span>
+              <strong>{money(displayedTotal)}</strong>
             </div>
           </div>
 

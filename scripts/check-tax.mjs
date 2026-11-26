@@ -88,3 +88,65 @@ test('preview migration, permissions, exact address, order and filing accounting
  await assert.rejects(db.exec("update orders set total=100"),/new checkout/);
  }finally{await db.close();}
 });
+
+import {belowOrderMinimum,storeFloor} from '../shared/bullionMinimums.js';
+import {previewExample} from '../server/tax/preview.js';
+import {censusRates} from '../server/tax/destinationRates.js';
+import {newMexicoAddress} from '../server/tax/newMexico.js';
+
+for (const [state,floor] of Object.entries({NY:100001,CA:200000,MD:100001,MA:100000,CT:100000})) {
+  test(state+' shows its store minimum only below the cutoff',()=>{
+    assert.ok(belowOrderMinimum(state,floor-1,day));
+    assert.equal(belowOrderMinimum(state,floor,day),'');
+    assert.equal(belowOrderMinimum(state,floor+1,day),'');
+    assert.equal(previewExample(state,floor-1).remaining,1);
+    assert.equal(previewExample(state,floor).tax,0);
+  });
+}
+test('destination switch removes the minimum; NJ uses individual coin values; CT floor expires',()=>{
+  assert.equal(belowOrderMinimum('WA',50000,day),'');
+  assert.equal(storeFloor('NJ',day),0);
+  assert.equal(storeFloor('CT','2027-07-01'),0);
+});
+test('minimum message can be shown before reviewing an exemption or requesting consent',()=>{
+  const q=input(100000);q.policy=null;q.investment=false;
+  assert.throws(()=>assess(q),e=>e.code==='ORDER_MINIMUM' && /New York.*\$1,000.01/.test(e.message));
+  const above=input(110000);above.investment=false;
+  assert.equal(assess(above).tax,9763);
+});
+test('California checks statutory market value separately from the store subtotal',()=>{
+  const q=input(205000);q.state='CA';q.policy={...policy,state:'CA',first_eligible_cent:200000};
+  q.address={...address,state:'CA'};q.lines[0].classification={...product,market_unit_cents:199999};
+  assert.equal(assess(q).taxable,205000);
+});
+for(const [state,expected] of Object.entries({WA:168000,DC:120000,ME:110000,VT:140000,HI:94240,NM:168750})) {
+  test(state+' charged example on $20,000 returns one combined customer amount',()=>{
+    assert.equal(previewExample(state,2000000).tax,expected);
+    assert.equal(previewExample(state,2000000).total,2000000+expected);
+  });
+}
+test('Hawaii seller liability is distinct from the amount passed to the buyer',()=>{
+  const q=input(2000000);q.state='HI';q.lines[0].classification={...product,treatment:'taxable'};
+  q.address={...address,state:'HI',rates:[{level:'state',code:'HI',ppm:40000},{level:'county',code:'15003',ppm:5000}],max_pass_on_ppm:47120};
+  q.policy={...policy,state:'HI',first_eligible_cent:0,seller_levy_treatment:'absorb'};
+  assert.equal(assess(q).tax,0);assert.equal(assess(q).seller_taxes[0].cents,90000);
+  q.policy.seller_levy_treatment='pass_through';
+  assert.equal(assess(q).seller_taxes[0].customer_funded_cents,94240);
+  q.address.max_pass_on_ppm=47500;assert.throws(()=>assess(q));
+});
+test('full-address review distinguishes Vermont municipalities and refuses unknown locations',()=>{
+  const a={address_line_1:'149 Church Street',city:'Burlington',state:'VT',postal_code:'05401'};
+  const m={matchedAddress:'149 CHURCH ST, BURLINGTON, VT, 05401',addressComponents:{city:'BURLINGTON',state:'VT',zip:'05401'},
+    geographies:{States:[{STUSAB:'VT',GEOID:'50'}],Counties:[{GEOID:'50007'}],'County Subdivisions':[{GEOID:'5000710675',NAME:'Burlington city'}]}};
+  assert.deepEqual(censusRates(a,day,[m]).rates.map(r=>r.ppm),[60000,10000]);
+  assert.throws(()=>censusRates({...a,address_line_1:'151 Church Street'},day,[m]));
+  assert.throws(()=>censusRates(a,'2027-01-01',[m]));
+  m.geographies['County Subdivisions'][0].NAME='Unreviewed town';assert.throws(()=>censusRates(a,day,[m]));
+});
+test('New Mexico checks the complete street match and the government location code',async()=>{
+  const a={address_line_1:'3804 Central Ave SE',city:'Albuquerque',state:'NM',postal_code:'87108'};
+  const row={street_number:'3804',street_name:'CENTRAL',street_suffix:'AVE',street_post_directional:'SE',city:'ALBUQUERQUE',zipcode:'87108',county:'Bernalillo',source:'NM E911',success:true,location_code:'02-100',tax_rate:'7.875'};
+  const mock=async()=>({ok:true,json:async()=>({results:[row]})});
+  assert.equal((await newMexicoAddress(a,day,mock)).rates[0].ppm,78750);
+  row.source='Mapquest Geocode';await assert.rejects(newMexicoAddress(a,day,mock));
+});

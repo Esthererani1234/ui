@@ -1,6 +1,6 @@
 import { service } from "../../server/lib/payments.js";
 import { rateLimit, strictObject, securityLog } from "../../server/lib/security.js";
-import { authenticateCustomer, customerOrder, json, readJson } from "../../server/lib/payments.js";
+import { assertPayable, authenticateCustomer, customerOrder, json, readJson } from "../../server/lib/payments.js";
 import { createQuote, refreshCardOrder } from "../../server/lib/quotes.js";
 
 export const config = { api: { bodyParser: false } };
@@ -26,6 +26,13 @@ export default async function handler(request, response) {
       if (order.payment_method !== "card") return json(response, 409, { error: "Only card orders can be refreshed here." });
       if (["paid", "refunded", "disputed"].includes(order.payment_status)) {
         return json(response, 409, { error: "This order can no longer accept payment." });
+      }
+      if (order.tax_amount != null) {
+        assertPayable(order,'card');
+        return json(response,200,{order_id:order.id,order_number:order.order_number,first_name:order.first_name,
+          last_name:order.last_name,phone:order.phone,shipping_address:order.shipping_address,line_items:order.order_items,
+          subtotal:order.subtotal,shipping:order.shipping_amount,card_surcharge:order.payment_surcharge,
+          tax_amount:order.tax_amount,card_total:order.total,expires_at:order.price_locked_until,server_time_ms:Date.now()});
       }
       return json(response, 200, { ...(await refreshCardOrder(order.id)), order_number: order.order_number, server_time_ms: Date.now() });
     }

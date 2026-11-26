@@ -62,9 +62,13 @@ function PreviewCalculator(){
     const timer=setTimeout(async()=>{try{const r=await fetch('/api/checkout/tax?state='+state+'&cents='+Math.round(Number(amount)*100));
       if(!r.ok)throw Error();const d=await r.json();if(live)result(d);}catch{if(live)result({message:'The example calculator is unavailable.'});}},250);
     return()=>{live=false;clearTimeout(timer);};},[state,amount]);
-  return <details><summary>Try a sample calculation</summary><p>Both examples assume an obligated seller and a wire purchase. The New York example uses a qualifying investment bar. Washington uses the DOR’s published 8.4% sample location rate.</p>
-    <div className="tax-fields"><label>Example<select value={state} onChange={e=>{setState(e.target.value);setAmount(e.target.value==='NY'?'750.00':'20000.00');}}><option value="NY">New York minimum</option><option value="WA">Washington taxable bullion</option></select></label><label>Purchase amount ($)<input value={amount} onChange={e=>setAmount(e.target.value)} inputMode="decimal"/></label></div>
-    <p role="status">{out?.message || (out?.total!=null?'Tax '+currency(out.tax)+' · Total '+currency(out.total):'Enter an amount to calculate.')}</p></details>;
+  const examples = {NY:'New York',CA:'California',CT:'Connecticut',MA:'Massachusetts',MD:'Maryland',WA:'Washington · published example',ME:'Maine',VT:'Vermont · Burlington',DC:'Washington, DC',HI:'Hawaii · Honolulu',NM:'New Mexico · published example'};
+  return <details open id="checkout-example"><summary>Try a sample order</summary>
+    <p>One gold bar paid by wire. Taxable examples assume a registered seller. Hawaii and New Mexico illustrate passing the seller tax on to the buyer. Published example rates are for demonstration.</p>
+    <div className="tax-fields"><label>Destination<select value={state} onChange={e=>setState(e.target.value)}>{Object.entries(examples).map(([code,name])=><option key={code} value={code}>{name}</option>)}</select></label>
+    <label>Purchase amount ($)<input value={amount} onChange={e=>setAmount(e.target.value)} inputMode="decimal"/></label></div>
+    <div aria-live="polite">{out?.message && <p>{out.message}</p>}{out?.tax>0 && <p>Tax <strong>{currency(out.tax)}</strong></p>}
+    {out?.total!=null && <p>Total <strong>{currency(out.total)}</strong></p>}</div></details>;
 }
 export default function TaxCompliance({researchOnly=false}){
   const [filter,setFilter]=useState(''),[selected,select]=useState(null),[data,setData]=useState(null),[profile,setProfile]=useState(null),[error,setError]=useState(''),[refresh,setRefresh]=useState(0);

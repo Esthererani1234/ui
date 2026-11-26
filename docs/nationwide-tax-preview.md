@@ -2,7 +2,9 @@
 
 ## What customers can try
 
-Open `/tax-preview` on the preview deployment to search all 50 states and Washington, DC, read the government guidance, and try two sample orders. A qualifying New York investment bar priced at exactly $1,000 needs another cent under the example store minimum. The Washington example uses a fixed sample location rate of 8.4%. A $20,000 wire purchase produces $1,680 in sample tax. These examples use fictional transactions and never reserve inventory or initiate payment.
+Open `/tax-preview` on the preview deployment to search all 50 states and Washington, DC, read the government guidance, and try sample orders for five minimums and six taxable destinations. A qualifying New York investment bar priced at exactly $1,000 needs another cent under the example store minimum. The Washington example uses a fixed sample location rate of 8.4%. A $20,000 wire purchase produces $1,680 in sample tax. These examples use fictional transactions and never reserve inventory or initiate payment.
+
+Checkout keeps all 50 states available for shipping. It displays a minimum notice only when the eligible order is short. The store floors are $1,000.01 for New York and Maryland, $2,000 for California, and $1,000 for Massachusetts and Connecticut. Connecticut's current floor ends on June 30, 2027. New Jersey has a product-specific coin test. A positive customer charge appears as one **Tax** line. Zero, exempt, pending and noncollection statuses have no customer tax row. Failed verification is handled before payment; it never produces an assumed zero. New York investment purchasers confirm their purchase purpose in the existing agreement.
 
 ## Checkout and accounting
 
@@ -72,7 +74,12 @@ The directory contains 51 jurisdiction records and 421 distinct government sourc
 
 ## Local rate and registration gaps
 
-Washington has an adapter for its Department of Revenue street-address service. It accepts an exact agency match and records the state and combined local components. Other jurisdictions require an administrator-approved, dated exact-address record. The repository does not contain a nationwide county, city and special-district boundary dataset. Recurring source comparisons flag changes for review. A matching fingerprint alone cannot certify a rule or supply missing data.
+Washington uses its Department of Revenue street-address service. New Mexico uses its Taxation and Revenue Department's address and location-code service and requires a matching address record. The New Mexico and Hawaii seller levies support merchant absorption or an explicitly approved pass-through. Hawaii also requires a reviewed maximum pass-on rate. The ledger records the customer-funded portion separately within the seller levy.
+
+For Maine, DC, four Hawaii counties, and the Vermont municipalities of Burlington, South Burlington and Williston, the preview can match the supplied street to Census geography and apply dated rate data. These initial rate records are limited through December 31, 2026. Other Vermont locations require their own reviewed records. The six illustrative destinations do not establish a customer’s tax rate. A reviewed exact-address record takes precedence. A full-address state match alone can support a reviewed no-collection or statewide exemption decision. It supplies no rate for a taxable sale. Missing jurisdiction rules still require review before actual orders can be accepted. All 50 states and DC start with shipping enabled.
+
+Rate references include the [Maine rate table](https://www.maine.gov/revenue/taxes/sales-use-service-provider-tax/rates-due-dates), [DC rate notice](https://otr.cfo.dc.gov/release/notice-oct-1-2026-tax-changes), [Vermont local option guidance](https://tax.vermont.gov/business/local-option-tax), [Hawaii pass-on ceilings](https://tax.hawaii.gov/geninfo/countysurcharge/), [New Mexico address tool](https://www.tax.newmexico.gov/grt-rate-finder-tools/) and [Washington address lookup](https://dor.wa.gov/wa-sales-tax-rate-lookup-url-interface).
+
 
 New York is marked as the business’s physical location. Activation requires the actual Certificate of Authority and effective date, assigned filing frequency, applicable dealer qualifications, verified pickup address/rates and supported classifications for the store’s products. Company permits and historical sales must come from the business. Economic nexus rules require a reviewed measurement period, revenue and transaction criteria, included sales channels and reconciled prior sales.
 
@@ -82,6 +89,6 @@ Complex local exemptions, differing local tax bases, price caps, line-level vari
 
 ## Verification and production decision
 
-The automated suite includes 62 tax tests. Of those, 51 check that each unapproved jurisdiction blocks calculation. Other cases cover the New York cent boundary, qualification and premium limits, New Jersey coins, mixed baskets and rounding, the Washington rate parser and sample, and missing data. A local PostgreSQL-compatible database exercises the migration, payment posting, repeat events, partial refunds, nexus and filing records. The full repository suite also checks checkout, payments, account, support and email behavior and a production build.
+The automated suite includes 79 tax tests. Of those, 51 check that each unapproved jurisdiction blocks calculation. Other cases cover the New York cent boundary, qualification and premium limits, New Jersey coins, mixed baskets and rounding, the Washington rate parser and sample, and missing data. A local PostgreSQL-compatible database exercises the migration, payment posting, repeat events, partial refunds, nexus and filing records. Boundary tests cover all five store floors and positive customer charges for the six example destinations. The full repository suite also checks checkout, payments, account, support and email behavior and a production build.
 
 The test evidence covers implemented behavior. Comprehensive comparisons against independently verified legal examples for every state and locality, a full government data import, and an isolated hosted checkout-to-receipt test for each payment method are outstanding. The hosted public preview contains examples. The transactional tests used a local database. No production migrations, rules, registrations, payments or filings were applied. Production activation requires verified rates and product policies, business-specific registration and history, end-to-end payment tests on an isolated database, and the owner's rollout decision.

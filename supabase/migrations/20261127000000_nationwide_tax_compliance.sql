@@ -131,7 +131,11 @@ begin
   tax:=(assessment.result->>'tax')::bigint/100.0;
   v_total:=v_total+tax;
   if v_total*100 is distinct from (assessment.result->>'total')::bigint then raise exception 'Refresh the tax calculation.' using errcode='P2005';end if;
-  p_shipping:=p_shipping-'tax_assessment_id';
+  if assessment.result->>'state'='NY' and (assessment.result->>'exempt')::bigint>0 and
+     p_shipping->'investment_purchase' is distinct from 'true'::jsonb then
+    raise exception 'Confirm the investment purchase agreement.' using errcode='P2005';
+  end if;
+  p_shipping:=p_shipping-'tax_assessment_id'-'investment_purchase';
   if p_payment_method='ach' and v_total > 25000 then raise exception 'ACH maximum is $25,000 including fees' using errcode='P2005'; end if;
   v_order_number := private.next_customer_order_number();
 

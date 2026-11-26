@@ -11,5 +11,5 @@ export default async function handler(req,res){
     await rateLimit(db,'tax_quote',user.id,90,600);
     const body=strictObject(await readJson(req),['quote_id','address','method','fulfillment','investment','mode','cart']);
     return json(res,200,await reviewQuote(db,user.id,body));
-  }catch(e){securityLog('tax_quote_failed',e);return json(res,e.status||503,{error:e.status?e.message:'Tax verification is temporarily unavailable.',remaining_cents:e.remaining_cents});}
+  }catch(e){securityLog('tax_quote_failed',e);return json(res,e.status||503,{error:e.status?e.message:'Tax verification is temporarily unavailable.',code:e.code,remaining_cents:e.remaining_cents});}
 }

@@ -21,12 +21,13 @@ export function validateVersion(state,v){
     check(subject==='state'&&num(data.first_eligible_cent)&&typeof data.store_minimum==='boolean'&&
       ['combined','component'].includes(data.rounding)&&['full_if_taxable','proportional','excluded'].includes(data.shipping_base)&&
       ['full_if_taxable','proportional','excluded'].includes(data.fee_base),'Check the threshold, rounding and charge treatments.');
+    if (['HI','NM'].includes(state)) check(['absorb','pass_through'].includes(data.seller_levy_treatment),'Choose whether the business absorbs or passes on the reviewed destination levy.');
     check(data.uniform_jurisdiction_base===true && data.separate_seller_tax_reviewed===true,'Confirm the local tax bases and seller taxes are supported. Keep complex treatments in review.');
   }else if(kind==='product'){
     check(/^\d+$/.test(subject)&&['eligible','taxable'].includes(data.treatment)&&['bar','coin','ingot','round','jewelry','collectible','other'].includes(data.form),'Enter the product ID, form and local eligibility.');
   }else if(kind==='address'){
     const addr=normalizeAddress(JSON.parse(subject));check(addr.state===state,'The address must match the selected state.');
-    check(Array.isArray(data.rates)&&data.rates.length>0&&data.rates.every(r=>num(r.ppm)&&r.ppm<=1000000&&typeof r.code==='string'&&r.code.trim()&&['state','county','city','district','combined_local'].includes(r.level)),'Enter verified jurisdiction components and integer rates per million.');
+    check(Array.isArray(data.rates)&&data.rates.length>0&&data.rates.every(r=>num(r.ppm)&&r.ppm<=1000000&&typeof r.code==='string'&&r.code.trim()&&['state','county','city','district','combined_local','combined'].includes(r.level)),'Enter verified jurisdiction components and integer rates per million.');
   }else if(kind==='nexus'){
     check(subject==='state'&&['current_or_prior_calendar','rolling_12_months','ny_four_completed_quarters'].includes(data.period)&&['gross','taxable'].includes(data.base)&&['and','or'].includes(data.operator)&&
       (num(data.revenue_trigger_cents,1)||num(data.transaction_trigger,1))&&typeof data.deduct_refunds==='boolean'&&typeof data.include_marketplace==='boolean','Check the nexus window, included sales, first triggering cent or transaction, and threshold operator.');

@@ -1,5 +1,5 @@
 import {officeAddress} from '../../shared/business.js';
-import PickupPayment from '../components/PickupPayment';
+
 import {cardLimitMessage,CARD_CHARGE_MAXIMUM} from "../../shared/cardLimits.js";
 import {WIRE_AGREEMENT_TEXT, WIRE_AGREEMENT_VERSION} from "../../supabase/functions/_shared/wireAgreement.js";
 import { TERMS_VERSION } from '../lib/legalPolicies';
@@ -106,7 +106,7 @@ const CardFields = forwardRef(function CardFields({ amount, email }, ref) {
         const { error, confirmationToken } =
           await stripe.createConfirmationToken({
             elements,
-            params: { shipping },
+            params: shipping ? {shipping} : {},
           });
         if (error || !confirmationToken) {
           throw new Error(error?.message || "Check your payment details.");
@@ -472,7 +472,14 @@ function ShippingCheckout({pickup}) {
     };
   }, [items, settings]);
 
-  const pricing = quote || fallbackEstimate;
+  const [pickupCalc,setPickupCalc]=useState(null),[pickupProblem,setPickupProblem]=useState('');
+  useEffect(()=>{let active=true;setPickupCalc(null);setPickupProblem('');setForm(v=>({...v,agree:false,wireAgree:false}));
+   if(pickup&&quote?.quote_id&&['card','wire'].includes(form.paymentMethod))authenticatedPost('/api/checkout/quote',{pickup_quote_id:quote.quote_id,method:form.paymentMethod}).then(t=>{if(active)setPickupCalc(t)}).catch(e=>{if(active)setPickupProblem(e.message)});
+   return ()=>{active=false}
+  },[pickup,quote?.quote_id,form.paymentMethod,authenticatedPost]);
+  const pickupOK=pickupCalc&&pickupCalc.quote_id===quote?.quote_id&&pickupCalc.method===form.paymentMethod;
+  const basePricing=quote || fallbackEstimate;
+  const pricing=pickup?{...basePricing,shipping:0,wire_total:Number(basePricing.subtotal)+(pickupOK?Number(pickupCalc.pickup_tax):0),card_total:Number(basePricing.subtotal)+Number(basePricing.card_surcharge)+(pickupOK?Number(pickupCalc.pickup_tax):0)}:basePricing;
   const wireTotal = Number.isFinite(Number(pricing.wire_total))
     ? Number(pricing.wire_total)
     : Number(pricing.subtotal || 0) + Number(pricing.shipping || 0);
@@ -523,6 +530,7 @@ function ShippingCheckout({pickup}) {
   });
 
   const validate = () => {
+    if(pickup&&!pickupOK)return "Wait for the verified pickup total before paying.";
     if(form.paymentMethod==="card" && cardLimitError)return cardLimitError;
     if(form.paymentMethod==="ach" && (!paymentConfig.ach || achTotal > 25000)) return "ACH is unavailable or the total exceeds $25,000 including fees.";
     if (!orderInfo && displayedTotal > settings[`${form.paymentMethod}_order_maximum`]) {
@@ -541,13 +549,13 @@ function ShippingCheckout({pickup}) {
     ) {
       return "Complete your name and phone number.";
     }
-    if (!form.address1.trim() || !form.city.trim()) {
+    if (!pickup && (!form.address1.trim() || !form.city.trim())) {
       return "Enter a complete insured-delivery address.";
     }
-    if (!/^[A-Za-z]{2}$/.test(form.state.trim())) {
+    if (!pickup && !/^[A-Za-z]{2}$/.test(form.state.trim())) {
       return "Enter a two-letter US state code.";
     }
-    if (!/^\d{5}(?:-\d{4})?$/.test(form.postalCode.trim())) {
+    if (!pickup && !/^\d{5}(?:-\d{4})?$/.test(form.postalCode.trim())) {
       return "Enter a valid US ZIP code.";
     }
     if (form.paymentMethod === "wire" && !form.wireAgree) return "Read and accept the bank-wire purchase agreement.";
@@ -568,6 +576,7 @@ function ShippingCheckout({pickup}) {
     if (orderInfo) return orderInfo;
     const data = await invokeFunction(supabase, "create-order", {
           quote_id: quote.quote_id,
+          ...(pickup?{fulfillment:"pickup"}:{}),
           cart: cartPayload,
           contact: {
             first_name: form.firstName.trim(),
@@ -575,7 +584,7 @@ function ShippingCheckout({pickup}) {
             email: user.email,
             phone: form.phone.trim(),
           },
-          shipping: {
+          shipping: pickup?{}:{
             address_line_1: form.address1.trim(),
             address_line_2: form.address2.trim(),
             city: form.city.trim(),
@@ -601,7 +610,7 @@ function ShippingCheckout({pickup}) {
   };
 
   const saveAddress = async () => {
-    if (!form.saveAddress) return;
+    if (pickup || !form.saveAddress) return;
     await supabase
       .from("profiles")
       .update({
@@ -643,7 +652,7 @@ function ShippingCheckout({pickup}) {
           throw new Error("The secure payment form is still loading.");
         }
         confirmationTokenId = await cardRef.current.createToken(
-          shippingPayload(),
+          pickup ? undefined : shippingPayload(),
         );
       }
 
@@ -822,7 +831,6 @@ function ShippingCheckout({pickup}) {
     return <Navigate to="/cart" replace />;
   }
 
-  if(pickup) return <PickupPayment key={quote?.quote_id||'waiting'} quote={quote} seconds={secondsLeft} timer={clock(secondsLeft)} profile={profile} user={user} post={authenticatedPost} setCheckoutBusy={setBusy} parentError={error} choice={<FulfillmentChoice pickup/>} clear={clear}/>;
   const timerClass = quoteRefreshing
     ? "refreshing"
     : secondsLeft <= 60
@@ -836,7 +844,7 @@ function ShippingCheckout({pickup}) {
           <div className="checkout-title">
             <span className="eyebrow dark">SECURE CHECKOUT</span>
             <h1>Checkout</h1>
-            {!orderInfo && !busy && !resumeOrderId && <FulfillmentChoice/>}
+            {!orderInfo && !busy && !resumeOrderId && <FulfillmentChoice pickup={pickup}/>}
             <p>
               Your 10-minute market-price lock began when this checkout
               opened.
@@ -907,7 +915,7 @@ function ShippingCheckout({pickup}) {
             </div>
           </fieldset>
 
-          <fieldset disabled={Boolean(orderInfo)}>
+          {pickup?<fieldset><legend>2. Free office pickup</legend><address>{officeAddress.join(', ')}</address><p>We’ll call the number above and email you when your items are ready. Wait for confirmation before visiting. Bring matching photo ID.</p></fieldset>:<fieldset disabled={Boolean(orderInfo)}>
             <legend>2. Insured shipping address</legend>
 
             <label>
@@ -986,7 +994,7 @@ function ShippingCheckout({pickup}) {
               />
               Save this as my default delivery address
             </label>
-          </fieldset>
+          </fieldset>}
 
           {!orderInfo && <fieldset className="checkout-promo-box" disabled={busy || quoteLoading || quoteRefreshing} aria-labelledby="promo-label">
             <label id="promo-label" htmlFor="checkout-promo">Promo code <small>Optional</small></label>
@@ -1015,7 +1023,7 @@ function ShippingCheckout({pickup}) {
                 }
               />
               <PaymentOption value="ach" form={form} setForm={setForm}
-                disabled={!paymentConfig.ach || achTotal > 25000 || Boolean(orderInfo)}
+                disabled={pickup || !paymentConfig.ach || achTotal > 25000 || Boolean(orderInfo)}
                 title="ACH bank payment"
                 detail="2% fee on merchandise • Maximum $25,000 including fee • Payment confirmation takes 4–5 business days" />
               <PaymentOption
@@ -1030,7 +1038,7 @@ function ShippingCheckout({pickup}) {
                 value="crypto"
                 form={form}
                 setForm={setForm}
-                disabled={!paymentConfig.crypto || Boolean(orderInfo)}
+                disabled={pickup || !paymentConfig.crypto || Boolean(orderInfo)}
                 title="Crypto"
                 detail={`Secure hosted checkout • Maximum ${money(settings.crypto_order_maximum)}`}
               />
@@ -1125,7 +1133,7 @@ function ShippingCheckout({pickup}) {
               Checkout is temporarily paused. Your cart will stay saved.
             </div>
           )}
-          {error && <div className="form-message error">{error}</div>}
+          {(error||pickupProblem) && <div role="alert" className="form-message error">{error||pickupProblem}</div>}
 
           <button
             className="button button-gold full large"
@@ -1134,7 +1142,7 @@ function ShippingCheckout({pickup}) {
               quoteLoading ||
               quoteRefreshing ||
               !quote ||
-              displayedTotal <= 0 ||
+              (pickup&&!pickupOK) || displayedTotal <= 0 ||
               !cartReady ||
               !settings.accepting_orders ||
               (form.paymentMethod === "card" && Boolean(cardLimitError))
@@ -1147,7 +1155,7 @@ function ShippingCheckout({pickup}) {
                 : quoteLoading
                   ? "Locking your price…"
                   : form.paymentMethod === "card"
-                    ? `Pay ${money(displayedTotal)} securely`
+                    ? (pickup&&!pickupOK?"Verifying pickup total…":`Pay ${money(displayedTotal)} securely`)
                     : "Agree & place secure order"}
           </button>
           <p className="secure-submit">
@@ -1224,13 +1232,14 @@ function ShippingCheckout({pickup}) {
               <b>{money(pricing.subtotal || 0)}</b>
             </div>
             <div>
-              <span>Insured shipping</span>
+              <span>{pickup?'Office pickup':'Insured shipping'}</span>
               <b>
                 {Number(pricing.shipping || 0)
                   ? money(pricing.shipping)
                   : "Free"}
               </b>
             </div>
+            {pickup&&<div><span>Sales tax</span><b>{pickupOK?money(pickupCalc.pickup_tax):'Pending verification'}</b></div>}
             {form.paymentMethod === "ach" && <div><span>ACH fee (2%)</span><b>{money(achFee)}</b></div>}
             {form.paymentMethod === "card" &&
               Number(pricing.card_surcharge || 0) > 0 && (

@@ -1,3 +1,4 @@
+import {officeAddress} from '../../../shared/business.js';
 import SupportAttachments from '../SupportAttachments';
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
@@ -41,6 +42,7 @@ function TicketConversation({ticket,draft,onDraftChange,reference,saving,busy,on
  const [messages,setMessages]=useState([]),[notice,setNotice]=useState(null),[loading,setLoading]=useState(true),[messageError,setMessageError]=useState(false);
  const version=useRef(0);
  const reply=draft.reply || '',status=draft.status ?? ticket.status;
+ const [appointment,setAppointment]=useState('');
  const setReply=value=>onDraftChange({reply:value});
  const setStatus=value=>onDraftChange({status:value===ticket.status?null:value});
  async function loadMessages() {
@@ -64,6 +66,7 @@ function TicketConversation({ticket,draft,onDraftChange,reference,saving,busy,on
   {messageError && <div className="form-message error" role="alert">The conversation could not be loaded. Refresh it before replying.</div>}
   <div className="admin-support-thread">{messages.length?messages.map(entry=><div className={`support-message ${entry.author_role}`} key={entry.id}><b>{entry.author_role==='admin'?'Gold On The Spot Support':'Customer'}</b><p>{entry.message}</p><small>{new Date(entry.created_at).toLocaleString()}</small></div>):!loading && !messageError && <div className="support-message customer"><b>Customer’s original request</b><p>{ticket.message}</p></div>}</div>
   <label>Ticket status to save<select value={status} onChange={e=>setStatus(e.target.value)} disabled={busy}>{Object.entries(labels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
+  {ticket.subject==='Office pickup request'&&<fieldset disabled={busy}><legend>Office pickup appointment</legend><p>Confirm cleared payment, applicable tax, and item readiness in the sale record before sending an appointment.</p><label>Date and time at the New York office<input type="datetime-local" value={appointment} onChange={e=>setAppointment(e.target.value)}/></label><button type="button" className="button button-outline" disabled={!appointment || !!reply.trim()} onClick={()=>{const t=new Date(appointment+'Z');if(!Number.isFinite(t.getTime()))return;const label=new Intl.DateTimeFormat('en-US',{timeZone:'UTC',dateStyle:'full',timeStyle:'short'}).format(t);setReply('Your pickup appointment is confirmed for '+label+' (New York time). Your items are ready for pickup at '+officeAddress.join(', ')+'. If you need a different time, please reply here before visiting.')}}>Prepare appointment confirmation</button><small>Review the message below, then send it to notify the customer.</small></fieldset>}
   <label>Reply to customer<textarea disabled={busy} rows={5} maxLength={5000} value={reply} onChange={e=>setReply(e.target.value)} placeholder="Write your response. It will appear in the customer’s private support conversation." /></label>
   {notice && <div className={`form-message ${notice.error?'error':'success'}`} role={notice.error?'alert':'status'}>{notice.text}</div>}
   <SupportAttachments caseId={ticket.id} admin onUploaded={onRefresh}/>

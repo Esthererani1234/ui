@@ -22,3 +22,10 @@
 .checkout-promo-box .text-button {min-height:32px}
 .checkout-promo-box p[role=status] {margin:2px 0;color:#28543f;font-size:13px;overflow-wrap:anywhere}
 @media(max-width:700px){.checkout-promo-box #checkout-promo,.checkout-promo-box #apply-promo,.checkout-promo-box .text-button{min-height:44px}}
+
+.fulfillment-choice{margin:16px 0;text-align:left;color:#19364a}
+.fulfillment-choice>div{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+.fulfillment-choice a{display:grid;align-content:start;gap:3px;padding:10px 12px;min-width:0;border:1px solid #aebbc2;border-radius:4px;color:#18364c;text-decoration:none;background:white}
+.fulfillment-choice a[aria-current=page]{border:2px solid #19364a;padding:9px 11px;background:#f5f7f8}
+.fulfillment-choice small,.checkout-form .fulfillment-choice p{font-size:.82rem;line-height:1.4;margin:0}
+.fulfillment-choice a:focus-visible{outline:3px solid #ad7c29;outline-offset:2px}

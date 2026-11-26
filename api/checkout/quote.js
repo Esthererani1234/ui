@@ -10,7 +10,15 @@ export default async function handler(request, response) {
   try {
     const { user } = await authenticateCustomer(request, { requireSms: true });
     await rateLimit(service(), "price_quote", user.id, 20, 600);
-    const body = strictObject(await readJson(request), ['order_id', 'cart', 'promo_code']);
+    const body = strictObject(await readJson(request), ['order_id', 'cart', 'promo_code', 'quote_id']);
+    if (Object.hasOwn(body,'quote_id')) {
+      if(Object.keys(body).length!==2 || typeof body.quote_id!=='string' || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(body.quote_id) || typeof body.promo_code!=='string' || (body.promo_code!=='' && !/^[A-Z0-9_-]{3,32}$/.test(body.promo_code))) return json(response,400,{error:'Invalid promo request.'});
+      const {data,error}=await service().rpc('revise_checkout_promo',{p_user_id:user.id,p_quote_id:body.quote_id,p_code:body.promo_code});
+      if(error?.code==='P2010') return json(response,409,{error:'This promo code is unavailable or does not apply to this order.'});
+      if(error?.code==='P2011') return json(response,409,{error:'This price lock is no longer active. Refresh checkout to review current prices.'});
+      if(error) throw error;
+      return json(response,200,data);
+    }
     if (body.order_id != null) {
       const orderId = Number(body.order_id);
       if (!Number.isSafeInteger(orderId) || orderId < 1) return json(response, 400, { error: "Invalid order" });

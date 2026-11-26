@@ -303,7 +303,7 @@ export default function CheckoutPage() {
   }, []);
 
   const getFreshQuote = useCallback(
-    async ({ automatic = false, orderId = null, promo = promoRef.current } = {}) => {
+    async ({ automatic = false, orderId = null, promo = promoRef.current, revisePromo = false } = {}) => {
       if (quoteRequestRef.current) return null;
       quoteRequestRef.current = true;
       if (automatic) setQuoteRefreshing(true);
@@ -314,7 +314,7 @@ export default function CheckoutPage() {
         const previousTotal = Number(quoteRef.current?.card_total || 0);
         const next = await authenticatedPost(
           "/api/checkout/quote",
-          orderId ? { order_id: orderId } : { cart: cartPayload, ...(promo?{promo_code:promo}:{}) },
+          revisePromo ? { quote_id: quoteRef.current?.quote_id || null, promo_code: promo } : orderId ? { order_id: orderId } : { cart: cartPayload, ...(promo?{promo_code:promo}:{}) },
         );
 
         promoRef.current=next.promo_code||'';
@@ -970,8 +970,8 @@ export default function CheckoutPage() {
             <input id="checkout-promo" maxLength={32} autoCapitalize="characters" spellCheck={false} value={promoDraft}
               onChange={e=>setPromoDraft(e.target.value.toUpperCase())}
               onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();document.getElementById('apply-promo')?.click()}}}/>
-            <button id="apply-promo" type="button" className="button button-outline" disabled={!promoDraft.trim()} onClick={async()=>{setForm(f=>({...f,agree:false,wireAgree:false}));await getFreshQuote({promo:promoDraft.trim()})}}>Apply code</button>
-            {(promoDraft || quote?.promo_code) && <button className="text-button" type="button" onClick={async()=>{setForm(f=>({...f,agree:false,wireAgree:false}));if(await getFreshQuote({promo:''}))setPromoDraft('')}}>Remove</button>}
+            <button id="apply-promo" type="button" className="button button-outline" disabled={!promoDraft.trim()} onClick={async()=>{setForm(f=>({...f,agree:false,wireAgree:false}));await getFreshQuote({revisePromo:true,promo:promoDraft.trim()})}}>Apply code</button>
+            {(promoDraft || quote?.promo_code) && <button className="text-button" type="button" onClick={async()=>{setForm(f=>({...f,agree:false,wireAgree:false}));if(await getFreshQuote({revisePromo:true,promo:''}))setPromoDraft('')}}>Remove</button>}
             {quote?.promo_code && <p role="status">{quote.promo_code} applied · {money(quote.discount_amount)} off</p>}
           </fieldset>}
 

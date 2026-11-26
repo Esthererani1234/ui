@@ -1,3 +1,4 @@
+import OfficePickupRequest from '../components/OfficePickupRequest';
 import {cardLimitMessage,CARD_CHARGE_MAXIMUM} from "../../shared/cardLimits.js";
 import {WIRE_AGREEMENT_TEXT, WIRE_AGREEMENT_VERSION} from "../../supabase/functions/_shared/wireAgreement.js";
 import { TERMS_VERSION } from '../lib/legalPolicies';
@@ -136,6 +137,10 @@ const CardFields = forwardRef(function CardFields({ amount, email }, ref) {
 });
 
 export default function CheckoutPage() {
+  const [params]=useSearchParams();
+  return params.get('fulfillment')==='pickup' && !params.has('resume_order') ? <OfficePickupRequest/> : <ShippingCheckout/>;
+}
+function ShippingCheckout() {
   const { items, clear, reconcileProducts } = useCart();
   const { user, profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
@@ -887,6 +892,7 @@ export default function CheckoutPage() {
 
           <fieldset disabled={Boolean(orderInfo)}>
             <legend>2. Insured shipping address</legend>
+            {!orderInfo && !busy && <p className="checkout-policy-notice"><b>Prefer office pickup?</b> No shipping charge. <Link to="/checkout?fulfillment=pickup">Request pickup at our Madison Avenue office →</Link><br/>By confirmed appointment only.</p>}
             <label>
               Street address
               <input

@@ -141,6 +141,8 @@ export default function CheckoutPage() {
   const [searchParams] = useSearchParams();
   const resumeOrderId = Number(searchParams.get("resume_order"));
   const cardRef = useRef(null);
+  const [promoDraft,setPromoDraft]=useState('');
+  const promoRef=useRef('');
   const quoteRequestRef = useRef(false);
   const quoteRef = useRef(null);
 
@@ -301,7 +303,7 @@ export default function CheckoutPage() {
   }, []);
 
   const getFreshQuote = useCallback(
-    async ({ automatic = false, orderId = null } = {}) => {
+    async ({ automatic = false, orderId = null, promo = promoRef.current } = {}) => {
       if (quoteRequestRef.current) return null;
       quoteRequestRef.current = true;
       if (automatic) setQuoteRefreshing(true);
@@ -312,9 +314,10 @@ export default function CheckoutPage() {
         const previousTotal = Number(quoteRef.current?.card_total || 0);
         const next = await authenticatedPost(
           "/api/checkout/quote",
-          orderId ? { order_id: orderId } : { cart: cartPayload },
+          orderId ? { order_id: orderId } : { cart: cartPayload, ...(promo?{promo_code:promo}:{}) },
         );
 
+        promoRef.current=next.promo_code||'';
         quoteRef.current = next;
         setQuote(next);
         setSecondsLeft(secondsUntil(next.expires_at));
@@ -527,6 +530,7 @@ export default function CheckoutPage() {
       return "Enter a valid US ZIP code.";
     }
     if (form.paymentMethod === "wire" && !form.wireAgree) return "Read and accept the bank-wire purchase agreement.";
+    if (!orderInfo && promoDraft.trim().toUpperCase()!==(quote?.promo_code||'')) return 'Apply or clear your promo code before placing the order.';
     if (!form.agree) {
       return "Agree to the Terms of Purchase and the displayed locked price before placing the order.";
     }
@@ -1178,9 +1182,11 @@ export default function CheckoutPage() {
             </div>
           ))}
 
+          {!orderInfo && <fieldset disabled={busy||quoteLoading||quoteRefreshing}><label>Promo code (optional)<input maxLength={32} value={promoDraft} onChange={e=>setPromoDraft(e.target.value.toUpperCase())}/></label><button type="button" className="button button-outline" onClick={async()=>{setForm(f=>({...f,agree:false,wireAgree:false}));await getFreshQuote({promo:promoDraft.trim()})}}>Apply code</button>{(promoDraft||quote?.promo_code)&&<button type="button" onClick={async()=>{setForm(f=>({...f,agree:false,wireAgree:false}));if(await getFreshQuote({promo:''}))setPromoDraft('')}}>Remove</button>}</fieldset>}
           <div className="checkout-totals">
+            {pricing.discount_amount>0&&<div><span>Promo · {pricing.promo_code}</span><b>−{money(pricing.discount_amount)}</b></div>}
             <div>
-              <span>Locked items</span>
+              <span>{pricing.discount_amount?'Items after discount':'Locked items'}</span>
               <b>{money(pricing.subtotal || 0)}</b>
             </div>
             <div>

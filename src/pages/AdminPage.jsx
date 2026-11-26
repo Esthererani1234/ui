@@ -151,7 +151,7 @@ export default function AdminPage() {
       { data: productData, error: productError },
       { data: orderData, error: orderError },
     ] = await Promise.all([
-      supabase.from("products").select("*").order("sort_order"),
+      supabase.from("products").select("*").is("listing_removed_at",null).order("sort_order"),
       supabase
         .from("orders")
         .select(orderFields)
@@ -296,6 +296,7 @@ export default function AdminPage() {
       premium_percent: adjustment,
     };
     delete payload.id;
+    delete payload.listing_removed_at;
     delete payload.created_at;
     delete payload.updated_at;
     delete payload._original_image_urls;
@@ -756,7 +757,7 @@ export default function AdminPage() {
                           {product.is_active ? "Live" : "Draft"}
                         </span>
                       </td>
-                      <td className="admin-product-actions">
+                      <td className="admin-product-actions"><button type="button" className="icon-button" title="Delete listing" aria-label={`Delete listing: ${product.name}`} onClick={async()=>{if(!window.confirm('Delete “'+product.name+'” from the store? Existing orders and invoices will be kept.'))return;const {error}=await supabase.rpc('remove_store_listing',{product_key:product.id});if(error){setMessage('Could not delete the listing. Refresh and try again.');return}setProducts(rows=>rows.filter(row=>row.id!==product.id));setMessage('Listing removed from the store.')}}><Trash2 size={17}/></button>
                         <button
                           className="icon-button"
                           onClick={() => duplicateProduct(product)}

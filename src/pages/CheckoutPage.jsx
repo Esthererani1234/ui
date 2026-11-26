@@ -1,3 +1,4 @@
+import {officeAddress} from '../../shared/business.js';
 import OfficePickupRequest from '../components/OfficePickupRequest';
 import {cardLimitMessage,CARD_CHARGE_MAXIMUM} from "../../shared/cardLimits.js";
 import {WIRE_AGREEMENT_TEXT, WIRE_AGREEMENT_VERSION} from "../../supabase/functions/_shared/wireAgreement.js";
@@ -136,9 +137,16 @@ const CardFields = forwardRef(function CardFields({ amount, email }, ref) {
   );
 });
 
+function FulfillmentChoice({pickup=false}) {
+  return <nav className="fulfillment-choice" aria-label="Delivery or pickup">
+    <strong>How would you like to receive your items?</strong>
+    <div>{[[false,'Delivery','Ship to your address'],[true,'Pickup','Madison Avenue office · By appointment']].map(([value,label,hint])=><Link key={label} to={value?'/checkout?fulfillment=pickup':'/checkout'} aria-current={pickup===value?'page':undefined}><b>{label}</b><small>{hint}</small></Link>)}</div>
+    <p><b>Pickup address:</b> {officeAddress.join(', ')}</p>
+  </nav>;
+}
 export default function CheckoutPage() {
   const [params]=useSearchParams();
-  return params.get('fulfillment')==='pickup' && !params.has('resume_order') ? <OfficePickupRequest/> : <ShippingCheckout/>;
+  return params.get('fulfillment')==='pickup' && !params.has('resume_order') ? <OfficePickupRequest choice={<FulfillmentChoice pickup/>}/> : <ShippingCheckout/>;
 }
 function ShippingCheckout() {
   const { items, clear, reconcileProducts } = useCart();
@@ -819,7 +827,8 @@ function ShippingCheckout() {
         <form className="checkout-form" onSubmit={submit} noValidate>
           <div className="checkout-title">
             <span className="eyebrow dark">SECURE CHECKOUT</span>
-            <h1>Delivery and payment</h1>
+            <h1>Checkout</h1>
+            {!orderInfo && !busy && !resumeOrderId && <FulfillmentChoice/>}
             <p>
               Your 10-minute market-price lock began when this checkout
               opened.
@@ -892,7 +901,7 @@ function ShippingCheckout() {
 
           <fieldset disabled={Boolean(orderInfo)}>
             <legend>2. Insured shipping address</legend>
-            {!orderInfo && !busy && <p className="checkout-policy-notice"><b>Prefer office pickup?</b> No shipping charge. <Link to="/checkout?fulfillment=pickup">Request pickup at our Madison Avenue office →</Link><br/>By confirmed appointment only.</p>}
+
             <label>
               Street address
               <input

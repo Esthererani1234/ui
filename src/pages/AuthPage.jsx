@@ -30,7 +30,7 @@ const emailRetrySeconds = (error) => {
 };
 
 export default function AuthPage() {
-  const { user, loading, requiresCustomerMfa, refreshSecurity } = useAuth();
+  const { user, loading, isAdmin, customerSmsVerified, requiresCustomerMfa, refreshSecurity } = useAuth();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const [emailLink] = useState(() => recoveryLinkState(window.location.search, window.location.hash));
@@ -51,7 +51,9 @@ export default function AuthPage() {
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [recoverySmsVerified, setRecoverySmsVerified] = useState(null);
-  const destination = authDestination(params.get("return"));
+  const destination = authDestination(params.get("return"), "/");
+  const afterSignin = !isAdmin && requiresCustomerMfa && !customerSmsVerified
+    ? `/verify-phone?purpose=signin&return=${encodeURIComponent(destination)}` : destination;
   const signupDestination = authDestination(params.get("return"), "/");
   const signupEmailRedirect = `${window.location.origin}/login?mode=signup&return=${encodeURIComponent(signupDestination)}`;
   const signupPhonePath = `/verify-phone?purpose=signup&return=${encodeURIComponent(signupDestination)}`;
@@ -96,7 +98,7 @@ export default function AuthPage() {
   if (user && mode === "recovery" && !loading && requiresCustomerMfa && !recoverySmsVerified)
     return <Navigate to={`/verify-phone?purpose=recovery&return=${encodeURIComponent("/login?recovery=1")}`} replace />;
   if (user && mode === "signup" && !loading && stage === "details") return <Navigate to={signupPhonePath} replace />;
-  if (user && !loading && mode !== "recovery" && mode !== "forgot" && !completingSignup) return <Navigate to={destination} replace />;
+  if (user && !loading && mode !== "recovery" && mode !== "forgot" && !completingSignup) return <Navigate to={afterSignin} replace />;
 
   const validateSignup = () => {
     const email = form.email.trim().toLowerCase();

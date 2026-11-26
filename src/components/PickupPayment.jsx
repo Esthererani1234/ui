@@ -1,0 +1,19 @@
+import {useEffect,useState,useRef} from 'react';
+import {useNavigate} from 'react-router-dom';
+import {supabase} from '../lib/supabase';
+import {invokeFunction} from '../lib/functionRequest';
+import {money} from '../lib/pricing';
+import {TERMS_VERSION} from '../lib/legalPolicies';
+import {officeAddress} from '../../shared/business.js';
+import {WIRE_AGREEMENT_TEXT,WIRE_AGREEMENT_VERSION} from '../../supabase/functions/_shared/wireAgreement.js';
+export default function PickupPayment({quote,seconds,timer,profile,user,post,setCheckoutBusy,parentError,choice,clear}){
+ const [total,T]=useState(null),[error,E]=useState(''),[busy,B]=useState(false),lock=useRef(false),nav=useNavigate();
+ useEffect(()=>{let active=true;if(quote)post('/api/checkout/quote',{pickup_quote_id:quote.quote_id}).then(x=>{if(active)T(x)}).catch(e=>{if(active)E(e.message)});return()=>{active=false}},[quote?.quote_id,post]);
+ async function submit(e){e.preventDefault();if(lock.current||!total||seconds<=0)return;
+ const f=new FormData(e.currentTarget);lock.current=true;B(true);setCheckoutBusy(true);E('');
+ try{const order=await invokeFunction(supabase,'create-order',{fulfillment:'pickup',quote_id:quote.quote_id,shipping:{},contact:{first_name:f.get('first').trim(),last_name:f.get('last').trim(),phone:f.get('phone').trim(),email:user.email},payment_method:'wire',terms:{accepted:f.get('terms')==='on',version:TERMS_VERSION},wire_agreement:{accepted:f.get('wire')==='on',version:WIRE_AGREEMENT_VERSION}});
+ if(!order.order_number)throw Error('Check your order history before retrying.');nav('/account?tab=orders&wire=show&order='+encodeURIComponent(order.order_number),{replace:true,state:{newOrder:order}});clear();
+ }catch(e){E(e.message||'Your order could not be confirmed.')}finally{lock.current=false;B(false);setCheckoutBusy(false)}}
+ return <section className="section container narrow"><form className="checkout-form" onSubmit={submit}><h1>Checkout</h1>{!busy&&choice}<h2>Office pickup</h2><address>{officeAddress.join(', ')}</address><p>Pay by bank wire. After payment clears and your items are ready, we’ll call and email you. Please wait before visiting.</p><fieldset disabled={busy}><legend>Contact details</legend><label>First name<input name="first" required autoComplete="given-name" maxLength={80} defaultValue={profile?.first_name}/></label><label>Last name<input name="last" required autoComplete="family-name" maxLength={80} defaultValue={profile?.last_name}/></label><label>Phone for pickup<input name="phone" type="tel" required autoComplete="tel" pattern="[+0-9 ()\\-]{7,25}" defaultValue={profile?.phone}/></label><p>Email: {user.email}</p></fieldset><h2>Order summary</h2>{quote?.line_items.map(i=><p key={i.product_id}>{i.quantity} × {i.product_name} · {money(i.line_total)}</p>)}<p>Office pickup: Free</p>{total?<><p>New York sales tax: {money(total.pickup_tax)}</p><strong>Total by wire: {money(total.total)}</strong> · Price expires in {timer}</>:!error&&<p>Verifying pickup total…</p>}
+ <fieldset disabled={busy||!total}><legend>Review and place order</legend><label><input name="terms" type="checkbox" required/> I agree to the <a href="/terms" target="_blank" rel="noreferrer">Terms of Purchase</a> and the displayed price.</label><p>{WIRE_AGREEMENT_TEXT}</p><label><input type="checkbox" name="wire" required/> I accept the bank wire agreement above.</label></fieldset>{(error||parentError)&&<p role="alert">{error||parentError}</p>}<button className="button button-gold" disabled={!total||busy||seconds<=0}>{busy?'Placing order…':'Place pickup order by wire'}</button></form></section>
+}

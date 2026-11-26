@@ -62,14 +62,17 @@ const recordSpot = async (spot) => {
   if (error) console.error("price snapshot recording failed", {code: error.code || "unknown"});
 };
 
-export async function createQuote(userId, cart) {
+export async function createQuote(userId, cart, promo) {
+  if(promo!=null && (typeof promo!=='string'||!/^[A-Z0-9_-]{3,32}$/.test(promo))) throw Object.assign(new Error('Enter a valid promo code.'),{status:400});
   const validatedCart = cleanCart(cart);
   const spot = await fetchRetailSpot();
-  const { data, error } = await service().rpc("create_checkout_quote", {
+  const { data, error } = await service().rpc(promo?"create_promo_quote":"create_checkout_quote", {
+    ...(promo?{p_code:promo}:{}),
     p_user_id: userId,
     p_cart: validatedCart,
     p_spot: spot,
   });
+  if(error?.code==="P2010") throw Object.assign(new Error("This promo code is unavailable or does not apply to this order."),{status:409});
   if (error) throw Object.assign(new Error("The quote could not be updated. A payment may still be in progress; check your order before retrying."), { status: 409 });
   await recordSpot(spot);
   return data;

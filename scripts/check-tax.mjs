@@ -64,7 +64,7 @@ test('preview migration, permissions, exact address, order and filing accounting
  await db.exec(`create role anon;create role authenticated;create role service_role;create schema auth;create schema private;create schema storage;create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
  create table auth.users(id uuid primary key);create table admin_users(user_id uuid primary key);
  create table checkout_quotes(id uuid primary key,user_id uuid,status text,expires_at timestamptz,updated_at timestamptz,subtotal numeric,shipping_amount numeric,card_surcharge numeric,line_items jsonb,spot_snapshot jsonb);
- create table orders(id bigint generated always as identity primary key,order_number text,user_id uuid,first_name text,last_name text,email text,phone text,payment_method text,subtotal numeric,payment_surcharge numeric,shipping_amount numeric,total numeric,spot_snapshot jsonb,price_locked_until timestamptz,shipping_address jsonb,customer_notes text,payment_status text default 'unpaid');
+ create table orders(id bigint generated always as identity primary key,order_number text,user_id uuid,first_name text,last_name text,email text,phone text,payment_method text,subtotal numeric,payment_surcharge numeric,shipping_amount numeric,total numeric,spot_snapshot jsonb,price_locked_until timestamptz,shipping_address jsonb,customer_notes text,payment_status text default 'unpaid',paid_at timestamptz,created_at timestamptz default now());
  create table products(id bigint primary key,is_active boolean,inventory_count int,sku text,name text,metal text,metal_weight_oz numeric);
  create table order_items(order_id bigint,product_id bigint,sku text,product_name text,metal text,metal_weight_oz numeric,quantity int,unit_price numeric,line_total numeric,pricing_snapshot jsonb);
  create function private.next_customer_order_number() returns text language sql as $$select 'DEMO-1'::text$$;`);
@@ -86,6 +86,27 @@ test('preview migration, permissions, exact address, order and filing accounting
  assert.equal(shippedRule.find(r=>r.state==='TX').treatment,'eligible');
  assert.equal(shippedRule.some(r=>r.state==='FL'),false);
  assert.equal((await db.query("select private.tax_collection_gate('NH',private.tax_version('NH','policy','state','2026-11-26'),'2026-11-26') as decision")).rows[0].decision,'no_obligation');
+ await db.exec(await readFile(new URL('../supabase/migrations/20261127030000_website_nexus_activity.sql',import.meta.url),'utf8'));
+ const closeFor=async(d)=>(await db.query("select private.tax_ny_market_inputs(private.tax_version('NY','product','902','2026-11-26'),$1) as value",[d])).rows[0].value;
+ const actualClose=await closeFor('2026-11-26');
+ assert.equal(actualClose.market_unit_cents,358845);
+ assert.equal(actualClose.face_usd_cents,5000);
+ const currentSku=input(400000);
+ currentSku.lines[0].classification=actualClose;
+ assert.equal(assess(currentSku).tax,0);
+ assert.equal((await closeFor('2026-11-27')).market_unit_cents,undefined);
+ await db.exec("begin");
+ try {
+   await db.exec(`insert into orders(payment_status,paid_at,shipping_address,total,tax_amount) values
+    ('paid','2025-04-01T16:00Z','{"state":"WA"}',80001,0),('paid','2026-04-01T16:00Z','{"state":"WA"}',20000,0),
+    ('unpaid','2026-04-01T16:00Z','{"state":"WA"}',500000,0),('paid','2026-04-02T16:00Z','{"state":"WA","fulfillment":"pickup"}',90000,0)`);
+   const activity=async()=>(await db.query("select * from private.tax_website_activity('2026-11-26','2026-01-01','2026-11-26') where state='WA'")).rows[0];
+   assert.equal(Number((await activity()).period_orders),1);
+   assert.match((await activity()).review_message,/80%/);
+   await db.exec(`insert into orders(payment_status,paid_at,shipping_address,total,tax_amount) values ('paid','2026-06-01T16:00Z','{"state":"WA"}',80000.01,0)`);
+   assert.match((await activity()).review_message,/reached a registration/);
+ } finally { await db.exec("rollback"); }
+ await db.exec("alter table orders alter column id restart with 1");
  // The following order tests create their own dated policies and version histories.
  await db.exec("delete from private.tax_versions where data->>'origin'='catalog_policy_release_2026_11_26'");
  assert.equal(await orderDefinition(),beforeInstall);

@@ -18,6 +18,12 @@ For a private calculation trial, apply migrations only through `20261127013002_n
 
 Apply `20261128000100_activate_tax_checkout.sql` in coordination with the tax-aware storefront when the tested rules and catalog data are ready. This second migration switches order creation to require a verified assessment and starts the order settlement triggers.
 
+## Production rollout on November 26
+
+The production deployment includes address correction, the authenticated tax service and the admin panel. The private database contains 56 SKU decisions across eight states, including one pending review, and four destination policies. The payment database still uses the original order function.
+
+The next proposed migration adds dashboard counts for all destinations and dated cash observations shared by six one-ounce listings. Its website-only registration thresholds are screening alerts. They include paid and refunded receipts before refund adjustments and never authorize a tax charge. The New York observations are scoped to the sale date explicitly covered by the market calendar. A later sale needs its own applicable observation and any required FX rate. [New York bulletin on delivery charges](https://www.tax.ny.gov/pubs_and_bulls/tg_bulletins/st/shipping_and_delivery_charges.htm) · [Sales tax on payment fees](https://www.tax.ny.gov/pdf/advisory_opinions/sales/a18_1s.pdf) · [New York bullion regulation](https://govt.westlaw.com/nycrr/Document/I50f2474ecd1711dda432a117e6e0f345)
+
 ## Checkout and accounting
 
 - Delivery uses a full street address. Pickup uses the store’s New York address. Cart estimates and final checkout use the same calculation service. Discounts are allocated across merchandise, and reviewed rules determine how shipping and payment charges affect the taxable base.

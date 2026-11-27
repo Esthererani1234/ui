@@ -150,7 +150,13 @@ export default function Layout() {
       <main id="main-content"><Outlet /></main>
       <footer className="site-footer">
         <div className="container footer-grid">
-          <div className="footer-brand"><Logo /><p>Investment-grade precious metals with live market pricing and careful fulfillment.</p><OfficeAddress /></div>
+          <div className="footer-brand">
+            <Logo />
+            <p>Investment-grade precious metals with live market pricing and careful fulfillment.</p>
+            <OfficeAddress>
+              <a href="tel:+13474720136" aria-label="Call the New York office at (347) 472-0136">(347) 472-0136</a>
+            </OfficeAddress>
+          </div>
           <div><h4>Shop</h4><Link to="/shop?metal=gold">Gold</Link><Link to="/shop?metal=silver">Silver</Link><Link to="/shop?metal=platinum">Platinum</Link><Link to="/shop">All bullion</Link></div>
           <div><h4>Customer care</h4><Link to="/support">Help center</Link><Link to="/shipping">Shipping & insurance</Link><Link to="/account?tab=orders">Order status</Link><a href="mailto:support@goldonthespot.com">Email support</a></div>
           <div><h4>Company</h4><Link to="/about">About us</Link><Link to="/sell">Sell to us</Link><Link to="/terms">Terms of purchase</Link><Link to="/terms#cancellations-returns-and-refunds">Returns & refunds</Link><Link to="/privacy">Privacy & choices</Link></div>

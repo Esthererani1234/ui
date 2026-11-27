@@ -1,0 +1,2362 @@
+{
+  "source": "https://gstore.unm.edu/apps/rgis/datasets/9c374cf7-70a3-434d-af2a-a7f84547315b/New_Mexico_gross_receipts_tax_July_2026_June_2027.derived.csv",
+  "valid_from": "2026-07-01",
+  "valid_until": "2027-06-30",
+  "locations": [
+    {
+      "name": "Eagle Nest*",
+      "county": "Colfax",
+      "code": "09-509",
+      "tribal_codes": [],
+      "ppm": 80500,
+      "class2_ppm": 0,
+      "note": "*"
+    },
+    {
+      "name": "Taos (City)",
+      "county": "Taos",
+      "code": "20-126",
+      "tribal_codes": [],
+      "ppm": 91750,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Angel Fire*",
+      "county": "Colfax",
+      "code": "09-600",
+      "tribal_codes": [],
+      "ppm": 79375,
+      "class2_ppm": 0,
+      "note": "*"
+    },
+    {
+      "name": "Maxwell*",
+      "county": "Colfax",
+      "code": "09-202",
+      "tribal_codes": [],
+      "ppm": 75000,
+      "class2_ppm": 0,
+      "note": "*"
+    },
+    {
+      "name": "Wagon Mound",
+      "county": "Mora",
+      "code": "30-115",
+      "tribal_codes": [],
+      "ppm": 75208,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Roy",
+      "county": "Harding",
+      "code": "31-109",
+      "tribal_codes": [],
+      "ppm": 70625,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Mosquero (Harding)",
+      "county": "Harding",
+      "code": "31-208",
+      "tribal_codes": [],
+      "ppm": 66875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Mosquero (San Miguel)",
+      "county": "San Miguel",
+      "code": "12-418",
+      "tribal_codes": [],
+      "ppm": 71458,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Pecos",
+      "county": "San Miguel",
+      "code": "12-313",
+      "tribal_codes": [],
+      "ppm": 75208,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "House",
+      "county": "Quay",
+      "code": "10-407",
+      "tribal_codes": [],
+      "ppm": 77500,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Grady",
+      "county": "Curry",
+      "code": "05-203",
+      "tribal_codes": [],
+      "ppm": 66875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Melrose",
+      "county": "Curry",
+      "code": "05-402",
+      "tribal_codes": [],
+      "ppm": 75000,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Texico",
+      "county": "Curry",
+      "code": "05-302",
+      "tribal_codes": [],
+      "ppm": 79250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Fort Sumner",
+      "county": "De Baca",
+      "code": "27-104",
+      "tribal_codes": [],
+      "ppm": 78125,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Elida",
+      "county": "Roosevelt",
+      "code": "11-216",
+      "tribal_codes": [],
+      "ppm": 82500,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Dora",
+      "county": "Roosevelt",
+      "code": "11-310",
+      "tribal_codes": [],
+      "ppm": 71250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Causey",
+      "county": "Roosevelt",
+      "code": "11-408",
+      "tribal_codes": [],
+      "ppm": 68750,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Floyd",
+      "county": "Roosevelt",
+      "code": "11-502",
+      "tribal_codes": [],
+      "ppm": 68750,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Roswell",
+      "county": "Chaves",
+      "code": "04-101",
+      "tribal_codes": [],
+      "ppm": 82708,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Hagerman",
+      "county": "Chaves",
+      "code": "04-300",
+      "tribal_codes": [],
+      "ppm": 73333,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Dexter",
+      "county": "Chaves",
+      "code": "04-201",
+      "tribal_codes": [],
+      "ppm": 71458,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Lake Arthur",
+      "county": "Chaves",
+      "code": "04-400",
+      "tribal_codes": [],
+      "ppm": 73333,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Jal",
+      "county": "Lea",
+      "code": "06-306",
+      "tribal_codes": [],
+      "ppm": 71875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Ruidoso",
+      "county": "Lincoln",
+      "code": "26-112",
+      "tribal_codes": [],
+      "ppm": 81875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Ruidoso Downs",
+      "county": "Lincoln",
+      "code": "26-501",
+      "tribal_codes": [],
+      "ppm": 71875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Carrizozo",
+      "county": "Lincoln",
+      "code": "26-307",
+      "tribal_codes": [],
+      "ppm": 72000,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Capitan",
+      "county": "Lincoln",
+      "code": "26-211",
+      "tribal_codes": [],
+      "ppm": 65625,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Corona",
+      "county": "Lincoln",
+      "code": "26-406",
+      "tribal_codes": [],
+      "ppm": 66875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Silver City",
+      "county": "Grant",
+      "code": "08-107",
+      "tribal_codes": [],
+      "ppm": 81125,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Hurley",
+      "county": "Grant",
+      "code": "08-404",
+      "tribal_codes": [],
+      "ppm": 73750,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Reserve",
+      "county": "Catron",
+      "code": "28-130",
+      "tribal_codes": [],
+      "ppm": 77500,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Magdalena",
+      "county": "Socorro",
+      "code": "25-221",
+      "tribal_codes": [],
+      "ppm": 71875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Socorro (City)",
+      "county": "Socorro",
+      "code": "25-125",
+      "tribal_codes": [],
+      "ppm": 75625,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Grants",
+      "county": "Cibola",
+      "code": "33-227",
+      "tribal_codes": [],
+      "ppm": 80000,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Milan",
+      "county": "Cibola",
+      "code": "33-131",
+      "tribal_codes": [],
+      "ppm": 77500,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "San Ysidro",
+      "county": "Sandoval",
+      "code": "29-409",
+      "tribal_codes": [],
+      "ppm": 66250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Bernalillo (City)*",
+      "county": "Sandoval",
+      "code": "29-120",
+      "tribal_codes": [],
+      "ppm": 71875,
+      "class2_ppm": 0,
+      "note": "*"
+    },
+    {
+      "name": "Encino",
+      "county": "Torrance",
+      "code": "22-410",
+      "tribal_codes": [],
+      "ppm": 70625,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Vaughn",
+      "county": "Guadalupe",
+      "code": "24-207",
+      "tribal_codes": [],
+      "ppm": 84875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Jemez Springs",
+      "county": "Sandoval",
+      "code": "29-217",
+      "tribal_codes": [],
+      "ppm": 74250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Cuba",
+      "county": "Sandoval",
+      "code": "29-311",
+      "tribal_codes": [],
+      "ppm": 80625,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Clovis Airport",
+      "county": "Curry",
+      "code": "05-154",
+      "tribal_codes": [],
+      "ppm": 58750,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "State Fairgrounds",
+      "county": "Bernalillo",
+      "code": "02-555",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Questa Airport",
+      "county": "Taos",
+      "code": "20-160",
+      "tribal_codes": [],
+      "ppm": 75000,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Winrock Town Center TID District 2",
+      "county": "Bernalillo",
+      "code": "02-036",
+      "tribal_codes": [],
+      "ppm": 76250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Winrock Town Center TID District 1",
+      "county": "Bernalillo",
+      "code": "02-035",
+      "tribal_codes": [],
+      "ppm": 76250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Nambe Pueblo",
+      "county": "Santa Fe",
+      "code": "",
+      "tribal_codes": [
+        "01-951",
+        "01-952"
+      ],
+      "ppm": 68750,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Pueblo de Cochiti",
+      "county": "Santa Fe",
+      "code": "",
+      "tribal_codes": [
+        "01-971",
+        "01-972"
+      ],
+      "ppm": 68750,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Kewa Pueblo",
+      "county": "Santa Fe",
+      "code": "",
+      "tribal_codes": [
+        "01-973",
+        "01-974"
+      ],
+      "ppm": 75000,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Santa Ana Pueblo",
+      "county": "Sandoval",
+      "code": "",
+      "tribal_codes": [
+        "29-951",
+        "29-952"
+      ],
+      "ppm": 72000,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Laguna Pueblo",
+      "county": "Bernalillo",
+      "code": "",
+      "tribal_codes": [
+        "02-950",
+        "02-952"
+      ],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Socorro Industrial Park",
+      "county": "Socorro",
+      "code": "25-162",
+      "tribal_codes": [],
+      "ppm": 62500,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Taos Pueblo",
+      "county": "Taos",
+      "code": "",
+      "tribal_codes": [
+        "20-913",
+        "20-914"
+      ],
+      "ppm": 75000,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Village of Tijeras",
+      "county": "Bernalillo",
+      "code": "02-318",
+      "tribal_codes": [],
+      "ppm": 80750,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Ohkay Owingeh Pueblo",
+      "county": "Rio Arriba",
+      "code": "",
+      "tribal_codes": [
+        "17-941",
+        "17-942"
+      ],
+      "ppm": 66250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Espanola / Ohkay Owingeh Pueblo a",
+      "county": "Rio Arriba",
+      "code": "",
+      "tribal_codes": [
+        "17-943",
+        "17-944"
+      ],
+      "ppm": 86875,
+      "class2_ppm": 0,
+      "note": "a"
+    },
+    {
+      "name": "Pojoaque Pueblo",
+      "county": "Santa Fe",
+      "code": "",
+      "tribal_codes": [
+        "01-960",
+        "01-962"
+      ],
+      "ppm": 71250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Loving",
+      "county": "Eddy",
+      "code": "03-403",
+      "tribal_codes": [],
+      "ppm": 73833,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Hope",
+      "county": "Eddy",
+      "code": "03-304",
+      "tribal_codes": [],
+      "ppm": 65833,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Tatum",
+      "county": "Lea",
+      "code": "06-500",
+      "tribal_codes": [],
+      "ppm": 65625,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Eunice",
+      "county": "Lea",
+      "code": "06-210",
+      "tribal_codes": [],
+      "ppm": 70625,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Mesilla",
+      "county": "Dona Ana",
+      "code": "07-303",
+      "tribal_codes": [],
+      "ppm": 79400,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Union",
+      "county": "Union",
+      "code": "18-018",
+      "tribal_codes": [],
+      "ppm": 58125,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Colfax*",
+      "county": "Colfax",
+      "code": "09-009",
+      "tribal_codes": [],
+      "ppm": 62500,
+      "class2_ppm": 0,
+      "note": "*"
+    },
+    {
+      "name": "Remainder of County - San Juan",
+      "county": "San Juan",
+      "code": "16-016",
+      "tribal_codes": [],
+      "ppm": 65000,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - McKinley",
+      "county": "McKinley",
+      "code": "13-013",
+      "tribal_codes": [],
+      "ppm": 65000,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Catron",
+      "county": "Catron",
+      "code": "28-028",
+      "tribal_codes": [],
+      "ppm": 60625,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Socorro",
+      "county": "Socorro",
+      "code": "25-025",
+      "tribal_codes": [],
+      "ppm": 62500,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Grant",
+      "county": "Grant",
+      "code": "08-008",
+      "tribal_codes": [],
+      "ppm": 63125,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Hidalgo",
+      "county": "Hidalgo",
+      "code": "23-023",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Luna",
+      "county": "Luna",
+      "code": "19-019",
+      "tribal_codes": [],
+      "ppm": 66250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Otero",
+      "county": "Otero",
+      "code": "15-015",
+      "tribal_codes": [],
+      "ppm": 62500,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Eddy",
+      "county": "Eddy",
+      "code": "03-003",
+      "tribal_codes": [],
+      "ppm": 57083,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Lea",
+      "county": "Lea",
+      "code": "06-006",
+      "tribal_codes": [],
+      "ppm": 52500,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Chaves",
+      "county": "Chaves",
+      "code": "04-004",
+      "tribal_codes": [],
+      "ppm": 62708,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Roosevelt",
+      "county": "Roosevelt",
+      "code": "11-011",
+      "tribal_codes": [],
+      "ppm": 63750,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Curry",
+      "county": "Curry",
+      "code": "05-005",
+      "tribal_codes": [],
+      "ppm": 58750,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Quay",
+      "county": "Quay",
+      "code": "10-010",
+      "tribal_codes": [],
+      "ppm": 64375,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Sierra",
+      "county": "Sierra",
+      "code": "21-021",
+      "tribal_codes": [],
+      "ppm": 66875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - De Baca",
+      "county": "De Baca",
+      "code": "27-027",
+      "tribal_codes": [],
+      "ppm": 65000,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Guadalupe",
+      "county": "Guadalupe",
+      "code": "24-024",
+      "tribal_codes": [],
+      "ppm": 63125,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Harding",
+      "county": "Harding",
+      "code": "31-031",
+      "tribal_codes": [],
+      "ppm": 58750,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - San Miguel",
+      "county": "San Miguel",
+      "code": "12-012",
+      "tribal_codes": [],
+      "ppm": 65833,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Mora",
+      "county": "Mora",
+      "code": "30-030",
+      "tribal_codes": [],
+      "ppm": 65208,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Lincoln",
+      "county": "Lincoln",
+      "code": "26-026",
+      "tribal_codes": [],
+      "ppm": 52500,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Torrance",
+      "county": "Torrance",
+      "code": "22-022",
+      "tribal_codes": [],
+      "ppm": 65000,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Taos",
+      "county": "Taos",
+      "code": "20-020",
+      "tribal_codes": [],
+      "ppm": 75000,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Bosque Farms",
+      "county": "Valencia",
+      "code": "14-505",
+      "tribal_codes": [],
+      "ppm": 83000,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Peralta",
+      "county": "Valencia",
+      "code": "14-412",
+      "tribal_codes": [],
+      "ppm": 83000,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Los Lunas",
+      "county": "Valencia",
+      "code": "14-316",
+      "tribal_codes": [],
+      "ppm": 84250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Valencia",
+      "county": "Valencia",
+      "code": "14-014",
+      "tribal_codes": [],
+      "ppm": 66250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Cibola",
+      "county": "Cibola",
+      "code": "33-033",
+      "tribal_codes": [],
+      "ppm": 65625,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Rio Arriba",
+      "county": "Rio Arriba",
+      "code": "17-017",
+      "tribal_codes": [],
+      "ppm": 66250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Bernalillo",
+      "county": "Bernalillo",
+      "code": "02-002",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Sandia Pueblo",
+      "county": "Sandoval",
+      "code": "",
+      "tribal_codes": [
+        "29-911",
+        "29-912"
+      ],
+      "ppm": 64375,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Laguna Pueblo",
+      "county": "Cibola",
+      "code": "",
+      "tribal_codes": [
+        "33-900",
+        "33-902"
+      ],
+      "ppm": 65625,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Sandia Pueblo",
+      "county": "Bernalillo",
+      "code": "",
+      "tribal_codes": [
+        "02-901",
+        "02-902"
+      ],
+      "ppm": 64375,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Laguna Pueblo",
+      "county": "Valencia",
+      "code": "",
+      "tribal_codes": [
+        "14-900",
+        "14-902"
+      ],
+      "ppm": 66250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Corrales",
+      "county": "Sandoval",
+      "code": "29-504",
+      "tribal_codes": [],
+      "ppm": 75625,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Jicarilla Apache Nation",
+      "county": "Rio Arriba",
+      "code": "",
+      "tribal_codes": [
+        "17-931",
+        "17-932"
+      ],
+      "ppm": 66250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Jicarilla Apache Nation",
+      "county": "Sandoval",
+      "code": "",
+      "tribal_codes": [
+        "29-931",
+        "29-932"
+      ],
+      "ppm": 61250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Kewa Pueblo",
+      "county": "Sandoval",
+      "code": "",
+      "tribal_codes": [
+        "29-973",
+        "29-974"
+      ],
+      "ppm": 75000,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Pueblo de Cochiti",
+      "county": "Sandoval",
+      "code": "",
+      "tribal_codes": [
+        "29-971",
+        "29-972"
+      ],
+      "ppm": 61250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Albuquerque",
+      "county": "Bernalillo",
+      "code": "02-100",
+      "tribal_codes": [],
+      "ppm": 76250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Rio Rancho (Sandoval)",
+      "county": "Sandoval",
+      "code": "29-524",
+      "tribal_codes": [],
+      "ppm": 74375,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Sandoval",
+      "county": "Sandoval",
+      "code": "29-029",
+      "tribal_codes": [],
+      "ppm": 61250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Los Alamos City and County*",
+      "county": "Los Alamos",
+      "code": "32-032",
+      "tribal_codes": [],
+      "ppm": 76875,
+      "class2_ppm": 0,
+      "note": "*"
+    },
+    {
+      "name": "Santa Clara Pueblo",
+      "county": "Santa Fe",
+      "code": "",
+      "tribal_codes": [
+        "01-901",
+        "01-902"
+      ],
+      "ppm": 68750,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Santa Clara Pueblo",
+      "county": "Rio Arriba",
+      "code": "",
+      "tribal_codes": [
+        "17-901",
+        "17-902"
+      ],
+      "ppm": 66250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Espanola (Rio Arriba)",
+      "county": "Rio Arriba",
+      "code": "17-215",
+      "tribal_codes": [],
+      "ppm": 86875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Espanola/Santa Clara Grant a",
+      "county": "Rio Arriba",
+      "code": "",
+      "tribal_codes": [
+        "17-903",
+        "17-904"
+      ],
+      "ppm": 86875,
+      "class2_ppm": 0,
+      "note": "a"
+    },
+    {
+      "name": "Laguna Pueblo",
+      "county": "Sandoval",
+      "code": "",
+      "tribal_codes": [
+        "29-921",
+        "29-922"
+      ],
+      "ppm": 61250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Picuris Pueblo",
+      "county": "Taos",
+      "code": "",
+      "tribal_codes": [
+        "20-917",
+        "20-918"
+      ],
+      "ppm": 75000,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Espanola/Santa Clara Grant a",
+      "county": "Santa Fe",
+      "code": "",
+      "tribal_codes": [
+        "01-903",
+        "01-904"
+      ],
+      "ppm": 88125,
+      "class2_ppm": 0,
+      "note": "a"
+    },
+    {
+      "name": "Espanola (Santa Fe)",
+      "county": "Santa Fe",
+      "code": "01-226",
+      "tribal_codes": [],
+      "ppm": 88125,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Village at Rio Rancho TIDD",
+      "county": "Sandoval",
+      "code": "29-525",
+      "tribal_codes": [],
+      "ppm": 74375,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Aztec",
+      "county": "San Juan",
+      "code": "16-218",
+      "tribal_codes": [],
+      "ppm": 81875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Rio Rancho (Bernalillo)",
+      "county": "Bernalillo",
+      "code": "02-647",
+      "tribal_codes": [],
+      "ppm": 78750,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Los Ranchos de Albuquerque*",
+      "county": "Bernalillo",
+      "code": "02-200",
+      "tribal_codes": [],
+      "ppm": 78750,
+      "class2_ppm": 0,
+      "note": "*"
+    },
+    {
+      "name": "Pueblo of Tesuque",
+      "county": "Santa Fe",
+      "code": "",
+      "tribal_codes": [
+        "01-953",
+        "01-954"
+      ],
+      "ppm": 71250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Las Cruces",
+      "county": "Dona Ana",
+      "code": "07-105",
+      "tribal_codes": [],
+      "ppm": 83900,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "El Prado Water and Sanitation District (b)",
+      "county": "Taos",
+      "code": "20-425",
+      "tribal_codes": [],
+      "ppm": 94250,
+      "class2_ppm": 0,
+      "note": "b"
+    },
+    {
+      "name": "El Prado Water and Sanitation District",
+      "county": "Taos",
+      "code": "20-415",
+      "tribal_codes": [],
+      "ppm": 77500,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "El Valle de Los Ranchos Water & Sanitation District (b)",
+      "county": "Taos",
+      "code": "20-429",
+      "tribal_codes": [],
+      "ppm": 94250,
+      "class2_ppm": 0,
+      "note": "b"
+    },
+    {
+      "name": "El Valle de Los Ranchos Water & Sanitation District",
+      "county": "Taos",
+      "code": "20-419",
+      "tribal_codes": [],
+      "ppm": 77500,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Upper Petroglyphs TID District 1",
+      "county": "Bernalillo",
+      "code": "02-607",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Upper Petroglyphs TID District 2",
+      "county": "Bernalillo",
+      "code": "02-608",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Upper Petroglyphs TID District 3",
+      "county": "Bernalillo",
+      "code": "02-609",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Upper Petroglyphs TID District 4",
+      "county": "Bernalillo",
+      "code": "02-610",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Upper Petroglyphs TID District 5",
+      "county": "Bernalillo",
+      "code": "02-611",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Upper Petroglyphs TID District 6",
+      "county": "Bernalillo",
+      "code": "02-612",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Upper Petroglyphs TID District 7",
+      "county": "Bernalillo",
+      "code": "02-613",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Upper Petroglyphs TID District 8",
+      "county": "Bernalillo",
+      "code": "02-614",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Upper Petroglyphs TID District 9",
+      "county": "Bernalillo",
+      "code": "02-615",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Santa Fe Indian School/Nineteen Pueblos of NM a c",
+      "county": "Santa Fe",
+      "code": "",
+      "tribal_codes": [
+        "01-907",
+        "01-908"
+      ],
+      "ppm": 81875,
+      "class2_ppm": 0,
+      "note": "a c"
+    },
+    {
+      "name": "Santa Fe (city)",
+      "county": "Santa Fe",
+      "code": "01-123",
+      "tribal_codes": [],
+      "ppm": 81875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Pueblo de San Ildefonso",
+      "county": "Santa Fe",
+      "code": "",
+      "tribal_codes": [
+        "01-975",
+        "01-976"
+      ],
+      "ppm": 70000,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Pueblo de San Ildefonso",
+      "county": "Rio Arriba",
+      "code": "",
+      "tribal_codes": [
+        "17-975",
+        "17-976"
+      ],
+      "ppm": 70000,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Pueblo de San Ildefonso",
+      "county": "Sandoval",
+      "code": "",
+      "tribal_codes": [
+        "29-975",
+        "29-976"
+      ],
+      "ppm": 70000,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Bloomfield",
+      "county": "San Juan",
+      "code": "16-312",
+      "tribal_codes": [],
+      "ppm": 81250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Santa Rosa",
+      "county": "Guadalupe",
+      "code": "24-108",
+      "tribal_codes": [],
+      "ppm": 83750,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Pueblo of Zuni",
+      "county": "McKinley",
+      "code": "",
+      "tribal_codes": [
+        "13-901",
+        "13-902"
+      ],
+      "ppm": 65000,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Pueblo of Zuni",
+      "county": "Cibola",
+      "code": "",
+      "tribal_codes": [
+        "33-911",
+        "33-912"
+      ],
+      "ppm": 65625,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Alamogordo Land (d)",
+      "county": "Otero",
+      "code": "15-322",
+      "tribal_codes": [],
+      "ppm": 62500,
+      "class2_ppm": 0,
+      "note": "d"
+    },
+    {
+      "name": "Bonito Lake - Alamogordo (d)",
+      "county": "Lincoln",
+      "code": "26-508",
+      "tribal_codes": [],
+      "ppm": 52500,
+      "class2_ppm": 0,
+      "note": "d"
+    },
+    {
+      "name": "Rio Communities",
+      "county": "Valencia",
+      "code": "14-037",
+      "tribal_codes": [],
+      "ppm": 83000,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Clovis",
+      "county": "Curry",
+      "code": "05-103",
+      "tribal_codes": [],
+      "ppm": 79375,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Elephant Butte*",
+      "county": "Sierra",
+      "code": "21-319",
+      "tribal_codes": [],
+      "ppm": 83750,
+      "class2_ppm": 0,
+      "note": "*"
+    },
+    {
+      "name": "Williamsburg",
+      "county": "Sierra",
+      "code": "21-220",
+      "tribal_codes": [],
+      "ppm": 83750,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Truth or Consequences",
+      "county": "Sierra",
+      "code": "21-124",
+      "tribal_codes": [],
+      "ppm": 83750,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Hobbs",
+      "county": "Lea",
+      "code": "06-111",
+      "tribal_codes": [],
+      "ppm": 65625,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Edgewood (Sandoval)",
+      "county": "Sandoval",
+      "code": "29-335",
+      "tribal_codes": [],
+      "ppm": 69375,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Edgewood (Bernalillo)",
+      "county": "Bernalillo",
+      "code": "02-334",
+      "tribal_codes": [],
+      "ppm": 76250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Pueblo of Acoma",
+      "county": "Cibola",
+      "code": "",
+      "tribal_codes": [
+        "33-909",
+        "33-910"
+      ],
+      "ppm": 80000,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Pueblo of Acoma",
+      "county": "Socorro",
+      "code": "",
+      "tribal_codes": [
+        "25-933",
+        "25-934"
+      ],
+      "ppm": 80000,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Pueblo of Acoma",
+      "county": "Catron",
+      "code": "",
+      "tribal_codes": [
+        "28-923",
+        "28-924"
+      ],
+      "ppm": 80000,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Red River",
+      "county": "Taos",
+      "code": "20-317",
+      "tribal_codes": [],
+      "ppm": 94250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Taos Ski Valley TIDD",
+      "county": "Taos",
+      "code": "20-430",
+      "tribal_codes": [],
+      "ppm": 94375,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Santa Fe",
+      "county": "Santa Fe",
+      "code": "01-001",
+      "tribal_codes": [],
+      "ppm": 68750,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Edgewood (Santa Fe)",
+      "county": "Santa Fe",
+      "code": "01-320",
+      "tribal_codes": [],
+      "ppm": 79375,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Santolina TID District 6",
+      "county": "Bernalillo",
+      "code": "02-626",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Santolina TID District 7",
+      "county": "Bernalillo",
+      "code": "02-627",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Santolina TID District 2",
+      "county": "Bernalillo",
+      "code": "02-622",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Santolina TID District 19",
+      "county": "Bernalillo",
+      "code": "02-639",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Santolina TID District 18",
+      "county": "Bernalillo",
+      "code": "02-638",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Santolina TID District 8",
+      "county": "Bernalillo",
+      "code": "02-628",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Santolina TID District 13",
+      "county": "Bernalillo",
+      "code": "02-633",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Santolina TID District 4",
+      "county": "Bernalillo",
+      "code": "02-624",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Santolina TID District 9",
+      "county": "Bernalillo",
+      "code": "02-629",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Santolina TID District 12",
+      "county": "Bernalillo",
+      "code": "02-632",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Santolina TID District 15",
+      "county": "Bernalillo",
+      "code": "02-635",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Santolina TID District 5",
+      "county": "Bernalillo",
+      "code": "02-625",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Santolina TID District 17",
+      "county": "Bernalillo",
+      "code": "02-637",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Santolina TID District 10",
+      "county": "Bernalillo",
+      "code": "02-630",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Santolina TID District 11",
+      "county": "Bernalillo",
+      "code": "02-631",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Santolina TID District 14",
+      "county": "Bernalillo",
+      "code": "02-634",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Santolina TID District 16",
+      "county": "Bernalillo",
+      "code": "02-636",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Santolina TID District 1",
+      "county": "Bernalillo",
+      "code": "02-621",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Santolina TID District 20",
+      "county": "Bernalillo",
+      "code": "02-640",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Santolina TID District 3",
+      "county": "Bernalillo",
+      "code": "02-623",
+      "tribal_codes": [],
+      "ppm": 61875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Truth or Consequences Airport",
+      "county": "Sierra",
+      "code": "21-164",
+      "tribal_codes": [],
+      "ppm": 66875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Taos Airport",
+      "county": "Taos",
+      "code": "20-163",
+      "tribal_codes": [],
+      "ppm": 75000,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Lower Petroglyphs TID District",
+      "county": "Bernalillo",
+      "code": "02-420",
+      "tribal_codes": [],
+      "ppm": 76250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Farmington",
+      "county": "San Juan",
+      "code": "16-121",
+      "tribal_codes": [],
+      "ppm": 81875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "San Jon",
+      "county": "Quay",
+      "code": "10-214",
+      "tribal_codes": [],
+      "ppm": 81250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Logan",
+      "county": "Quay",
+      "code": "10-309",
+      "tribal_codes": [],
+      "ppm": 81250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Tucumcari",
+      "county": "Quay",
+      "code": "10-117",
+      "tribal_codes": [],
+      "ppm": 81250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Virden",
+      "county": "Hidalgo",
+      "code": "23-209",
+      "tribal_codes": [],
+      "ppm": 66875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Folsom",
+      "county": "Union",
+      "code": "18-411",
+      "tribal_codes": [],
+      "ppm": 72500,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Des Moines",
+      "county": "Union",
+      "code": "18-224",
+      "tribal_codes": [],
+      "ppm": 75000,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Grenville",
+      "county": "Union",
+      "code": "18-315",
+      "tribal_codes": [],
+      "ppm": 72500,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Clayton",
+      "county": "Union",
+      "code": "18-128",
+      "tribal_codes": [],
+      "ppm": 78750,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Lordsburg",
+      "county": "Hidalgo",
+      "code": "23-110",
+      "tribal_codes": [],
+      "ppm": 77500,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Remainder of County - Dona Ana",
+      "county": "Dona Ana",
+      "code": "07-007",
+      "tribal_codes": [],
+      "ppm": 64975,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Sunland Park",
+      "county": "Dona Ana",
+      "code": "07-416",
+      "tribal_codes": [],
+      "ppm": 81900,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Hatch",
+      "county": "Dona Ana",
+      "code": "07-204",
+      "tribal_codes": [],
+      "ppm": 75650,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Chama",
+      "county": "Rio Arriba",
+      "code": "17-118",
+      "tribal_codes": [],
+      "ppm": 83125,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Cimarron*",
+      "county": "Colfax",
+      "code": "09-401",
+      "tribal_codes": [],
+      "ppm": 83125,
+      "class2_ppm": 0,
+      "note": "*"
+    },
+    {
+      "name": "Lovington",
+      "county": "Lea",
+      "code": "06-405",
+      "tribal_codes": [],
+      "ppm": 70000,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Cloudcroft",
+      "county": "Otero",
+      "code": "15-213",
+      "tribal_codes": [],
+      "ppm": 78125,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Carlsbad",
+      "county": "Eddy",
+      "code": "03-106",
+      "tribal_codes": [],
+      "ppm": 73958,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Columbus",
+      "county": "Luna",
+      "code": "19-212",
+      "tribal_codes": [],
+      "ppm": 82500,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Raton Municipal Airport*",
+      "county": "Colfax",
+      "code": "09-152",
+      "tribal_codes": [],
+      "ppm": 62500,
+      "class2_ppm": 0,
+      "note": "*"
+    },
+    {
+      "name": "Sugarite Canyon - Raton*",
+      "county": "Colfax",
+      "code": "09-172",
+      "tribal_codes": [],
+      "ppm": 62500,
+      "class2_ppm": 0,
+      "note": "*"
+    },
+    {
+      "name": "Stonegate Communities TIDD",
+      "county": "Sandoval",
+      "code": "29-038",
+      "tribal_codes": [],
+      "ppm": 74375,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Los Diamantes TIDD",
+      "county": "Sandoval",
+      "code": "29-530",
+      "tribal_codes": [],
+      "ppm": 74375,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Tularosa",
+      "county": "Otero",
+      "code": "15-308",
+      "tribal_codes": [],
+      "ppm": 76875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Alamogordo",
+      "county": "Otero",
+      "code": "15-116",
+      "tribal_codes": [],
+      "ppm": 81875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "19 Pueblos District (AISD Property)",
+      "county": "Bernalillo",
+      "code": "",
+      "tribal_codes": [
+        "02-905",
+        "02-906"
+      ],
+      "ppm": 77500,
+      "class2_ppm": 0,
+      "note": "a c"
+    },
+    {
+      "name": "Artesia",
+      "county": "Eddy",
+      "code": "03-205",
+      "tribal_codes": [],
+      "ppm": 76458,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Belen",
+      "county": "Valencia",
+      "code": "14-129",
+      "tribal_codes": [],
+      "ppm": 80625,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Jemez Pueblo",
+      "county": "Sandoval",
+      "code": "",
+      "tribal_codes": [
+        "29-941",
+        "29-942"
+      ],
+      "ppm": 62500,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Willard",
+      "county": "Torrance",
+      "code": "22-314",
+      "tribal_codes": [],
+      "ppm": 73125,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Mountainair",
+      "county": "Torrance",
+      "code": "22-127",
+      "tribal_codes": [],
+      "ppm": 76875,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Moriarty",
+      "county": "Torrance",
+      "code": "22-223",
+      "tribal_codes": [],
+      "ppm": 79375,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Estancia",
+      "county": "Torrance",
+      "code": "22-503",
+      "tribal_codes": [],
+      "ppm": 79375,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Gallup",
+      "county": "McKinley",
+      "code": "13-114",
+      "tribal_codes": [],
+      "ppm": 80625,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "South Campus TID District",
+      "county": "Bernalillo",
+      "code": "02-430",
+      "tribal_codes": [],
+      "ppm": 76250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Springer (Water & Sanitation Facility)*",
+      "county": "Colfax",
+      "code": "09-321",
+      "tribal_codes": [],
+      "ppm": 62500,
+      "class2_ppm": 0,
+      "note": "*"
+    },
+    {
+      "name": "Isleta Pueblo (1) and (2)^",
+      "county": "Torrance",
+      "code": "",
+      "tribal_codes": [
+        "22-221",
+        "22-022"
+      ],
+      "ppm": 0,
+      "class2_ppm": 65000,
+      "note": "^"
+    },
+    {
+      "name": "Isleta Pueblo (1) and (2)^",
+      "county": "Socorro",
+      "code": "",
+      "tribal_codes": [
+        "25-321",
+        "25-025"
+      ],
+      "ppm": 0,
+      "class2_ppm": 62500,
+      "note": "^"
+    },
+    {
+      "name": "Isleta Pueblo (1) and (2)^",
+      "county": "Valencia",
+      "code": "",
+      "tribal_codes": [
+        "14-221",
+        "14-014"
+      ],
+      "ppm": 0,
+      "class2_ppm": 66250,
+      "note": "^"
+    },
+    {
+      "name": "Isleta Pueblo (1) and (2)^",
+      "county": "Bernalillo",
+      "code": "",
+      "tribal_codes": [
+        "02-221",
+        "02-002"
+      ],
+      "ppm": 0,
+      "class2_ppm": 61875,
+      "note": "^"
+    },
+    {
+      "name": "Zia Pueblo",
+      "county": "Sandoval",
+      "code": "",
+      "tribal_codes": [
+        "29-981",
+        "29-982"
+      ],
+      "ppm": 61250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Deming",
+      "county": "Luna",
+      "code": "19-113",
+      "tribal_codes": [],
+      "ppm": 82500,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Portales",
+      "county": "Roosevelt",
+      "code": "11-119",
+      "tribal_codes": [],
+      "ppm": 85500,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Kirtland",
+      "county": "San Juan",
+      "code": "16-323",
+      "tribal_codes": [],
+      "ppm": 68125,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Taos/Taos Pueblo",
+      "county": "Taos",
+      "code": "",
+      "tribal_codes": [
+        "20-915",
+        "20-916"
+      ],
+      "ppm": 75000,
+      "class2_ppm": 0,
+      "note": "a"
+    },
+    {
+      "name": "Taos Ski Valley",
+      "county": "Taos",
+      "code": "20-430",
+      "tribal_codes": [],
+      "ppm": 94375,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Questa",
+      "county": "Taos",
+      "code": "20-222",
+      "tribal_codes": [],
+      "ppm": 85625,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Springer*",
+      "county": "Colfax",
+      "code": "09-301",
+      "tribal_codes": [],
+      "ppm": 79375,
+      "class2_ppm": 0,
+      "note": "*"
+    },
+    {
+      "name": "Mesa Del Sol - Maxeon TID",
+      "county": "Bernalillo",
+      "code": "02-707",
+      "tribal_codes": [],
+      "ppm": 76250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Mesa Del Sol TID District 2",
+      "county": "Bernalillo",
+      "code": "02-706",
+      "tribal_codes": [],
+      "ppm": 76250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Mesa Del Sol TID District 1",
+      "county": "Bernalillo",
+      "code": "02-606",
+      "tribal_codes": [],
+      "ppm": 76250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Raton*",
+      "county": "Colfax",
+      "code": "09-102",
+      "tribal_codes": [],
+      "ppm": 86750,
+      "class2_ppm": 0,
+      "note": "*"
+    },
+    {
+      "name": "Albuquerque Downtown TIF (MRA)",
+      "county": "Bernalillo",
+      "code": "02-701",
+      "tribal_codes": [],
+      "ppm": 76250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Albuquerque West Central TIF (MRA)",
+      "county": "Bernalillo",
+      "code": "02-703",
+      "tribal_codes": [],
+      "ppm": 76250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Downtown TIDD - Las Cruces",
+      "county": "Dona Ana",
+      "code": "07-132",
+      "tribal_codes": [],
+      "ppm": 83900,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Las Cruces West Picacho TIF (MRA)",
+      "county": "Dona Ana",
+      "code": "07-705",
+      "tribal_codes": [],
+      "ppm": 83900,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Las Cruces Apodaca and Lift Up TIF (MRA)",
+      "county": "Dona Ana",
+      "code": "07-706",
+      "tribal_codes": [],
+      "ppm": 83900,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Las Cruces Mesquite TIF (MRA)",
+      "county": "Dona Ana",
+      "code": "07-703",
+      "tribal_codes": [],
+      "ppm": 83900,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Las Cruces El Paseo and S. Solano TIF (MRA)",
+      "county": "Dona Ana",
+      "code": "07-701",
+      "tribal_codes": [],
+      "ppm": 83900,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Las Cruces E. of Solano Neighborhood TIF (MRA)",
+      "county": "Dona Ana",
+      "code": "07-702",
+      "tribal_codes": [],
+      "ppm": 83900,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Las Cruces Amador Proximo and South TIF (MRA)",
+      "county": "Dona Ana",
+      "code": "07-704",
+      "tribal_codes": [],
+      "ppm": 83900,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Santa Clara",
+      "county": "Grant",
+      "code": "08-305",
+      "tribal_codes": [],
+      "ppm": 73750,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Bayard",
+      "county": "Grant",
+      "code": "08-206",
+      "tribal_codes": [],
+      "ppm": 76250,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Anthony",
+      "county": "Dona Ana",
+      "code": "07-507",
+      "tribal_codes": [],
+      "ppm": 81275,
+      "class2_ppm": 0,
+      "note": ""
+    },
+    {
+      "name": "Las Vegas",
+      "county": "San Miguel",
+      "code": "12-122",
+      "tribal_codes": [],
+      "ppm": 81458,
+      "class2_ppm": 0,
+      "note": ""
+    }
+  ]
+}

@@ -1,0 +1,350 @@
+{
+  "source": "https://www.tax.ny.gov/pdf/publications/sales/pub718.pdf",
+  "effective": "2025-03-01",
+  "reviewed": "2026-11-26",
+  "through": "2026-12-31",
+  "counties": {
+    "Albany": {
+      "code": "0181",
+      "ppm": 80000
+    },
+    "Allegany": {
+      "code": "0221",
+      "ppm": 85000
+    },
+    "Broome": {
+      "code": "0321",
+      "ppm": 80000
+    },
+    "Cattaraugus": {
+      "code": "0481",
+      "ppm": 80000
+    },
+    "Cayuga": {
+      "code": "0511",
+      "ppm": 80000
+    },
+    "Chautauqua": {
+      "code": "0651",
+      "ppm": 80000
+    },
+    "Chemung": {
+      "code": "0711",
+      "ppm": 80000
+    },
+    "Chenango": {
+      "code": "0861",
+      "ppm": 80000
+    },
+    "Clinton": {
+      "code": "0921",
+      "ppm": 80000
+    },
+    "Columbia": {
+      "code": "1021",
+      "ppm": 80000
+    },
+    "Cortland": {
+      "code": "1131",
+      "ppm": 80000
+    },
+    "Delaware": {
+      "code": "1221",
+      "ppm": 80000
+    },
+    "Dutchess": {
+      "code": "1311",
+      "ppm": 81250,
+      "mctd": true
+    },
+    "Erie": {
+      "code": "1451",
+      "ppm": 87500
+    },
+    "Essex": {
+      "code": "1521",
+      "ppm": 80000
+    },
+    "Franklin": {
+      "code": "1621",
+      "ppm": 80000
+    },
+    "Fulton": {
+      "code": "1791",
+      "ppm": 80000
+    },
+    "Genesee": {
+      "code": "1811",
+      "ppm": 80000
+    },
+    "Greene": {
+      "code": "1911",
+      "ppm": 80000
+    },
+    "Hamilton": {
+      "code": "2011",
+      "ppm": 80000
+    },
+    "Herkimer": {
+      "code": "2121",
+      "ppm": 82500
+    },
+    "Jefferson": {
+      "code": "2221",
+      "ppm": 80000
+    },
+    "Lewis": {
+      "code": "2321",
+      "ppm": 80000
+    },
+    "Livingston": {
+      "code": "2411",
+      "ppm": 80000
+    },
+    "Madison": {
+      "code": "2511",
+      "ppm": 80000
+    },
+    "Monroe": {
+      "code": "2611",
+      "ppm": 80000
+    },
+    "Montgomery": {
+      "code": "2781",
+      "ppm": 80000
+    },
+    "Nassau": {
+      "code": "2811",
+      "ppm": 86250,
+      "mctd": true
+    },
+    "Niagara": {
+      "code": "2911",
+      "ppm": 80000
+    },
+    "Oneida": {
+      "code": "3010",
+      "ppm": 87500
+    },
+    "Onondaga": {
+      "code": "3121",
+      "ppm": 80000
+    },
+    "Ontario": {
+      "code": "3211",
+      "ppm": 75000
+    },
+    "Orange": {
+      "code": "3321",
+      "ppm": 81250,
+      "mctd": true
+    },
+    "Orleans": {
+      "code": "3481",
+      "ppm": 80000
+    },
+    "Oswego": {
+      "code": "3501",
+      "ppm": 80000
+    },
+    "Otsego": {
+      "code": "3621",
+      "ppm": 80000
+    },
+    "Putnam": {
+      "code": "3731",
+      "ppm": 83750,
+      "mctd": true
+    },
+    "Rensselaer": {
+      "code": "3881",
+      "ppm": 80000
+    },
+    "Rockland": {
+      "code": "3921",
+      "ppm": 83750,
+      "mctd": true
+    },
+    "St. Lawrence": {
+      "code": "4091",
+      "ppm": 80000
+    },
+    "Saratoga": {
+      "code": "4111",
+      "ppm": 70000
+    },
+    "Schenectady": {
+      "code": "4241",
+      "ppm": 80000
+    },
+    "Schoharie": {
+      "code": "4321",
+      "ppm": 80000
+    },
+    "Schuyler": {
+      "code": "4411",
+      "ppm": 80000
+    },
+    "Seneca": {
+      "code": "4511",
+      "ppm": 80000
+    },
+    "Steuben": {
+      "code": "4691",
+      "ppm": 80000
+    },
+    "Suffolk": {
+      "code": "4711",
+      "ppm": 87500,
+      "mctd": true
+    },
+    "Sullivan": {
+      "code": "4821",
+      "ppm": 80000
+    },
+    "Tioga": {
+      "code": "4921",
+      "ppm": 80000
+    },
+    "Tompkins": {
+      "code": "5081",
+      "ppm": 80000
+    },
+    "Ulster": {
+      "code": "5111",
+      "ppm": 80000
+    },
+    "Warren": {
+      "code": "5281",
+      "ppm": 70000
+    },
+    "Washington": {
+      "code": "5311",
+      "ppm": 70000
+    },
+    "Wayne": {
+      "code": "5421",
+      "ppm": 80000
+    },
+    "Westchester": {
+      "code": "5581",
+      "ppm": 83750,
+      "mctd": true
+    },
+    "Wyoming": {
+      "code": "5621",
+      "ppm": 80000
+    },
+    "Yates": {
+      "code": "5721",
+      "ppm": 80000
+    }
+  },
+  "cities": {
+    "Cattaraugus": {
+      "Olean": {
+        "code": "0441",
+        "ppm": 80000
+      },
+      "Salamanca": {
+        "code": "0431",
+        "ppm": 80000
+      }
+    },
+    "Cayuga": {
+      "Auburn": {
+        "code": "0561",
+        "ppm": 80000
+      }
+    },
+    "Chenango": {
+      "Norwich": {
+        "code": "0831",
+        "ppm": 80000
+      }
+    },
+    "Fulton": {
+      "Gloversville": {
+        "code": "1741",
+        "ppm": 80000
+      },
+      "Johnstown": {
+        "code": "1751",
+        "ppm": 80000
+      }
+    },
+    "Madison": {
+      "Oneida": {
+        "code": "2541",
+        "ppm": 80000
+      }
+    },
+    "Oneida": {
+      "Rome": {
+        "code": "3015",
+        "ppm": 87500
+      },
+      "Utica": {
+        "code": "3018",
+        "ppm": 87500
+      }
+    },
+    "Oswego": {
+      "Oswego": {
+        "code": "3561",
+        "ppm": 80000
+      }
+    },
+    "St. Lawrence": {
+      "Ogdensburg": {
+        "code": "4012",
+        "ppm": 80000
+      }
+    },
+    "Saratoga": {
+      "Saratoga Springs": {
+        "code": "4131",
+        "ppm": 70000
+      }
+    },
+    "Tompkins": {
+      "Ithaca": {
+        "code": "5021",
+        "ppm": 80000
+      }
+    },
+    "Warren": {
+      "Glens Falls": {
+        "code": "5211",
+        "ppm": 70000
+      }
+    },
+    "Westchester": {
+      "Mount Vernon": {
+        "code": "5521",
+        "ppm": 83750,
+        "mctd": true
+      },
+      "New Rochelle": {
+        "code": "6861",
+        "ppm": 83750,
+        "mctd": true
+      },
+      "White Plains": {
+        "code": "6513",
+        "ppm": 83750,
+        "mctd": true
+      },
+      "Yonkers": {
+        "code": "6511",
+        "ppm": 88750,
+        "mctd": true
+      }
+    }
+  },
+  "nyc": {
+    "code": "8081",
+    "ppm": 88750,
+    "mctd": true
+  }
+}

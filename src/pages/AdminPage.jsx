@@ -39,6 +39,7 @@ import {
   SalesAdminPanel,
   StoreAdminPanel,
 } from "../components/admin/EnterprisePanels";
+import TaxCompliance from "../components/admin/TaxCompliance";
 import TrafficAnalyticsPanel from "../components/admin/TrafficAnalyticsPanel";
 import OrderStatus from "../components/OrderStatus";
 import SupportAdminPanel from "../components/admin/SupportAdminPanel";
@@ -74,7 +75,7 @@ const tabTitles = {
   overview: "Dashboard",
   products: "Products & pricing",
   orders: "Order management", pickups:"Customer pickups",
-  sales: "Sales reporting",
+  sales: "Sales reporting", tax: "Sales Tax & Compliance",
   traffic: "Storefront traffic",
   support: "Customer support",
   sell: "Selling Centre",
@@ -519,6 +520,7 @@ export default function AdminPage() {
           >
             <Settings /> Security
           </button>
+          <button className={tab === "tax" ? "active" : ""} onClick={()=>setTab("tax")}><Store/> Sales Tax &amp; Compliance</button>
           <button className={tab === "promos" ? "active" : ""} onClick={()=>setTab("promos")}><Store /> Promo codes</button>
           <button
             className={tab === "store" ? "active" : ""}
@@ -852,6 +854,7 @@ export default function AdminPage() {
         {tab === "pickups" && <PickupOrders/>}
         {tab === "orders" && <SupportAdminPanel pickupsOnly />}
         {tab === "sales" && <SalesAdminPanel />}
+        {tab === "tax" && <TaxCompliance />}
         {tab === "traffic" && <TrafficAnalyticsPanel />}
         {tab === "support" && <SupportAdminPanel />}
         {tab === "sell" && <SellAdminPanel />}

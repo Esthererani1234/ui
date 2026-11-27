@@ -14,6 +14,7 @@ const CheckoutPage = lazy(() => import("./pages/CheckoutPage"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
 const CustomerMfaPage = lazy(() => import("./pages/CustomerMfaPage"));
 const AccountPage = lazy(() => import("./pages/AccountPage"));
+const TaxResearch = lazy(() => import("./components/admin/TaxCompliance"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
 const InfoPage = lazy(() => import("./pages/InfoPage"));
 const SupportPage = lazy(() => import("./pages/SupportPage"));
@@ -65,6 +66,7 @@ export default function App() {
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<HomePage />} />
+          {__DEPLOYMENT_ENV__ === "preview" && <Route path="tax-preview" element={<TaxResearch researchOnly />} />}
           <Route path="shop" element={<ShopPage />} />
           <Route path="product/:slug" element={<ProductPage />} />
           <Route path="cart" element={<CartPage />} />

@@ -1,5 +1,6 @@
 {
   "framework": "vite",
+  "crons": [{ "path": "/api/operations/tax-monitor", "schedule": "15 9 * * *" }],
   "functions": { "api/payments/*.js": { "includeFiles": "server/assets/**" } },
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }

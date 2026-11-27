@@ -1,3 +1,4 @@
+import {DeliveryAddressCheck,useDeliveryAddress} from '../components/checkout/DeliveryAddressCheck';
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, CheckCircle2, Headphones, LockKeyhole, LogOut, Mail, MapPin, Package, Plus, RefreshCw, ShieldCheck, Smartphone, UserRound } from "lucide-react";
@@ -60,6 +61,12 @@ export default function AccountPage() {
   const [ticketRefreshCount, setTicketRefreshCount] = useState(0);
   const ownedProfile = profile?.id === user.id ? profile : null;
   const [form, setForm] = useState(() => profileForm(ownedProfile));
+  const addressKeys=['address_line_1','address_line_2','city','state','postal_code'];
+  const addressChanged=addressKeys.some(key=>(form[key] || '')!==(ownedProfile?.[key] || ''));
+  const hasNewAddress=addressChanged && addressKeys.some(key=>Boolean(form[key]?.trim()));
+  const profileAddress=Object.fromEntries(addressKeys.map(key=>[key,form[key] || '']));
+  const addressCheck=useDeliveryAddress({...profileAddress,country:'US'},Boolean(ownedProfile && hasNewAddress && active==='profile'));
+
   const [profileNotice, setProfileNotice] = useState(null);
   const [profileBusy, setProfileBusy] = useState(false);
   const [securityNotice, setSecurityNotice] = useState(null);
@@ -190,11 +197,15 @@ export default function AccountPage() {
       event.currentTarget.elements.namedItem(!form.first_name.trim() ? "first_name" : "last_name")?.focus();
       return;
     }
+    if(hasNewAddress && !addressCheck.canonical){
+      setProfileNotice({error:true,text:addressCheck.result?.message || 'Confirm the delivery address before saving.'});return;
+    }
     const owner = user.id, operation = Symbol("profile-save");
     profileRequest.current = operation;
     setProfileBusy(true); setProfileNotice(null);
     // Phone enrollment is separate. Saving a name/address must never replace it.
     const payload = { first_name: form.first_name.trim(), last_name: form.last_name.trim(), address_line_1: form.address_line_1.trim() || null, address_line_2: form.address_line_2.trim() || null, city: form.city.trim() || null, state: form.state.trim().toUpperCase() || null, postal_code: form.postal_code.trim() || null, marketing_opt_in: Boolean(form.marketing_opt_in) };
+    if(hasNewAddress)for(const key of addressKeys)payload[key]=addressCheck.canonical[key] || null;
     try {
       const { data, error } = await supabase.from("profiles").update(payload).eq("id", owner).select("id").maybeSingle();
       if (!isCurrent(owner)) return;
@@ -282,7 +293,7 @@ export default function AccountPage() {
           <form className="profile-form" onSubmit={saveProfile} noValidate aria-busy={profileBusy}>
             <fieldset disabled={profileBusy || !ownedProfile} className="customer-profile-fields">
               <section className="customer-profile-section" aria-labelledby="profile-personal-heading"><h3 id="profile-personal-heading"><UserRound size={18} aria-hidden="true" /> Personal details</h3><div className="form-row"><label>First name<input name="first_name" required maxLength={60} autoComplete="given-name" value={form.first_name} onChange={event => changeField("first_name", event.target.value)} /></label><label>Last name<input name="last_name" required maxLength={60} autoComplete="family-name" value={form.last_name} onChange={event => changeField("last_name", event.target.value)} /></label></div></section>
-              <section className="customer-profile-section" aria-labelledby="profile-address-heading"><h3 id="profile-address-heading"><MapPin size={18} aria-hidden="true" /> Default delivery address</h3><p>Used to prefill checkout. Existing orders keep their original delivery address.</p><label>Street address<input maxLength={160} autoComplete="address-line1" value={form.address_line_1} onChange={event => changeField("address_line_1", event.target.value)} /></label><label>Apartment, suite, etc. <span>(optional)</span><input maxLength={100} autoComplete="address-line2" value={form.address_line_2} onChange={event => changeField("address_line_2", event.target.value)} /></label><div className="form-row three"><label>City<input maxLength={80} autoComplete="address-level2" value={form.city} onChange={event => changeField("city", event.target.value)} /></label><label>State<input maxLength={2} autoComplete="address-level1" value={form.state} onChange={event => changeField("state", event.target.value.toUpperCase())} /></label><label>ZIP code<input maxLength={10} autoComplete="postal-code" value={form.postal_code} onChange={event => changeField("postal_code", event.target.value)} /></label></div></section>
+              <section className="customer-profile-section" aria-labelledby="profile-address-heading"><h3 id="profile-address-heading"><MapPin size={18} aria-hidden="true" /> Default delivery address</h3><p>Used to prefill checkout. Existing orders keep their original delivery address.</p><label>Street address<input maxLength={160} autoComplete="address-line1" value={form.address_line_1} onChange={event => changeField("address_line_1", event.target.value)} /></label><label>Apartment, suite, etc. <span>(optional)</span><input maxLength={100} autoComplete="address-line2" value={form.address_line_2} onChange={event => changeField("address_line_2", event.target.value)} /></label><div className="form-row three"><label>City<input maxLength={80} autoComplete="address-level2" value={form.city} onChange={event => changeField("city", event.target.value)} /></label><label>State<input maxLength={30} autoComplete="address-level1" value={form.state} onChange={event => changeField("state", event.target.value.toUpperCase())} /></label><label>ZIP code<input maxLength={10} autoComplete="postal-code" value={form.postal_code} onChange={event => changeField("postal_code", event.target.value)} /></label></div><DeliveryAddressCheck check={addressCheck} onUse={a=>{dirty.current=true;setForm(f=>({...f,...Object.fromEntries(addressKeys.map(k=>[k,a[k]]))}));setProfileNotice(null);}} onEdit={()=>document.querySelector('[autocomplete="address-line1"]')?.focus()}/></section>
               <label className="profile-check"><input type="checkbox" checked={form.marketing_opt_in} onChange={event => changeField("marketing_opt_in", event.target.checked)} /><span>Send occasional inventory and market updates</span></label>
             </fieldset>
             {profileNotice && <div className={`form-message ${profileNotice.error ? "error" : "success"}`} role={profileNotice.error ? "alert" : "status"}>{profileNotice.text}</div>}

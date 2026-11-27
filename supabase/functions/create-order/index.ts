@@ -86,7 +86,7 @@ Deno.serve(async (request: Request) => {
       return json(request, { error: "Checkout request must be valid JSON." }, 400);
     }
 
-    if(Object.keys(body).some(key=>!["quote_id","cart","contact","shipping","payment_method","notes","terms","wire_agreement","fulfillment","pickup_name"].includes(key)))
+    if(Object.keys(body).some(key=>!["quote_id","cart","contact","shipping","payment_method","notes","terms","wire_agreement","fulfillment","pickup_name","tax_assessment_id"].includes(key)))
       return json(request,{error:"Invalid checkout fields."},400);
     const admin = createClient(supabaseUrl, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
     const sessionId = String(jwtPayload(token).session_id || "");
@@ -130,7 +130,7 @@ Deno.serve(async (request: Request) => {
     const requestedPaymentMethod = typeof body.payment_method === "string" ? body.payment_method : "";
     if (!["wire", "card", "crypto", "ach"].includes(requestedPaymentMethod))
       return json(request, { error: "Unsupported payment method" }, 400);
-    for (const [key, allowed] of [["contact", ["first_name","last_name","email","phone"]], ["shipping", ["address_line_1","address_line_2","city","state","postal_code","country"]], ["terms", ["accepted","version"]]] as const) {
+    for (const [key, allowed] of [["contact", ["first_name","last_name","email","phone"]], ["shipping", ["address_line_1","address_line_2","city","state","postal_code","country"]], ["terms", ["accepted","version","investment_purchase"]]] as const) {
       const value = body[key];
       if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).some(field => !(allowed as readonly string[]).includes(field)))
         return json(request, {error:"Checkout contains invalid fields."},400);
@@ -149,6 +149,9 @@ Deno.serve(async (request: Request) => {
     const terms = body.terms && typeof body.terms === "object" ? body.terms as Record<string, unknown> : {};
     if (terms.accepted !== true || !["2026-10-22", "2026-10-22-v2"].includes(String(terms.version)))
       return json(request, { error: "Accept the current Terms of Purchase before placing the order." }, 400);
+    if (terms.investment_purchase !== undefined && terms.investment_purchase !== true)
+      return json(request, {error:"Invalid purchase agreement."}, 400);
+    if (terms.investment_purchase === true) address.investment_purchase = true;
     if (requestedPaymentMethod === "wire" && !validWireAgreement(body.wire_agreement))
       return json(request, { error: "Accept the bank-wire purchase agreement before continuing." }, 400);
     const contact =
@@ -160,6 +163,11 @@ Deno.serve(async (request: Request) => {
     const ipDigest = forwardedIp && ipSalt
       ? Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${forwardedIp}|${ipSalt}`))), byte => byte.toString(16).padStart(2, "0")).join("")
       : null;
+    if (body.tax_assessment_id !== undefined) {
+      if (typeof body.tax_assessment_id !== 'string' || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(body.tax_assessment_id))
+        return json(request, {error: "Refresh the checkout tax calculation."}, 400);
+      address.tax_assessment_id = body.tax_assessment_id;
+    }
     const { data, error } = await admin.rpc("place_checkout_order", {
       p_user_id: user.id, p_quote_id: quoteId, p_contact: contact, p_shipping: body.shipping || {},
       p_payment_method: requestedPaymentMethod, p_notes: typeof body.notes === "string" ? body.notes.slice(0,1000) : null,

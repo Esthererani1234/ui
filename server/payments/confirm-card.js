@@ -1,3 +1,4 @@
+import {orderTotalCents} from '../tax/orderAmounts.js';
 import { service } from "../lib/payments.js";
 import { rateLimit, strictObject, securityLog, requestHash } from "../lib/security.js";
 import Stripe from "stripe";
@@ -44,13 +45,14 @@ export default async function handler(request, response) {
     assertPayable(order, "card");
     const {data:captureSetting,error:captureSettingError}=await service().from('app_settings').select('value').eq('key','card_manual_capture_enabled').maybeSingle();
     if(captureSettingError)throw Object.assign(new Error('Payment security checks are temporarily unavailable.'),{status:503});
+    const amountCents=orderTotalCents(order);
     claimHash = requestHash(confirmationTokenId);
     const {data: claimed,error: claimError}=await service().rpc("claim_card_payment_request",{p_order_id:order.id,p_user_id:user.id,p_request_hash:claimHash,p_expected_total:Number(order.total)});
     if(claimError) throw claimError;
     if(!claimed) throw Object.assign(new Error("A payment is already in progress for this order. Check your order before trying again."),{status:409});
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY,{timeout:8000,maxNetworkRetries:0});
     const intent = await stripe.paymentIntents.create({
-      amount: Math.round(Number(order.total) * 100),
+      amount: amountCents,
       currency: "usd",
       confirm: true,
       confirmation_token: confirmationTokenId,

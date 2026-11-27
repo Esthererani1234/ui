@@ -2,6 +2,7 @@ import {correctDeliveryAddress} from '../address/correct.js';
 import {cleanCart,fetchRetailSpot} from '../lib/quotes.js';
 import {confirmDestination} from './destinationRates.js';
 import {streetRateResolvers} from './streetRates.js';
+import {completeNyMarketInputs} from './newYorkClose.js';
 import {assess,cents,TaxReview} from './engine.js';
 import {pickupAddress} from '../../shared/business.js';
 export {pickupAddress};
@@ -42,6 +43,10 @@ export async function reviewQuote(db,userId,body){
         rule.metal !== item.metal || Number(rule.catalog_weight) !== Number(item.metal_weight_oz))) {
       throw new TaxReview('The product details changed and its tax classification needs review.');
     }
+  }
+  if (address.state==='NY' && body.investment && inputs.policy?.collection==='collect' &&
+      inputs.policy.market_close_lookup===true && subtotal>=100001) {
+    inputs.products=await completeNyMarketInputs(inputs.products,inputs.day);
   }
   const calculation=assess({day:inputs.day,state:address.state,policy:inputs.policy,address:inputs.address,lines:q.line_items.map(i=>({id:i.product_id,quantity:i.quantity,gross:cents(i.line_total),classification:inputs.products?.[i.product_id]})),subtotal,shipping:body.fulfillment==='pickup'?0:cents(q.shipping_amount),fee:body.method==='card'?cents(q.card_surcharge):body.method==='ach'?Math.floor((subtotal+25)/50):0,investment:body.investment});
   calculation.address_check=addressCheck;

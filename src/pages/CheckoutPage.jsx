@@ -1,6 +1,7 @@
 import {DeliveryAddressCheck,useDeliveryAddress} from '../components/checkout/DeliveryAddressCheck';
 import {addressFields,fillAddressFields,draftAddress} from '../../shared/deliveryAddress.js';
-import {officeAddress} from '../../shared/business.js';
+import {belowOrderMinimum, businessDay} from '../../shared/bullionMinimums.js';
+import {officeAddress,pickupAddress} from '../../shared/business.js';
 
 import {cardLimitMessage,CARD_CHARGE_MAXIMUM} from "../../shared/cardLimits.js";
 import {WIRE_AGREEMENT_TEXT, WIRE_AGREEMENT_VERSION} from "../../supabase/functions/_shared/wireAgreement.js";
@@ -154,7 +155,7 @@ export default function CheckoutPage() {
   return <ShippingCheckout/>;
 }
 function ShippingCheckout() {
-  const { items, clear, reconcileProducts } = useCart();
+  const { items, clear, reconcileProducts, deliveryDraft = {} } = useCart();
   const { user, profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -188,11 +189,11 @@ function ShippingCheckout() {
     firstName: profile?.first_name || "",
     lastName: profile?.last_name || "",
     phone: profile?.phone || "",
-    address1: profile?.address_line_1 || "",
-    address2: profile?.address_line_2 || "",
-    city: profile?.city || "",
-    state: profile?.state || "",
-    postalCode: profile?.postal_code || "",
+    address1: deliveryDraft.address1 || profile?.address_line_1 || "",
+    address2: deliveryDraft.address2 || profile?.address_line_2 || "",
+    city: deliveryDraft.city || profile?.city || "",
+    state: deliveryDraft.state || profile?.state || "",
+    postalCode: deliveryDraft.postalCode || profile?.postal_code || "",
     paymentMethod: "card",
     notes: "",
     saveAddress: true,
@@ -322,10 +323,13 @@ function ShippingCheckout() {
     return result;
   }, []);
 
+  const attemptedCart = useRef(null);
   const getFreshQuote = useCallback(
     async ({ automatic = false, orderId = null, promo = promoRef.current, revisePromo = false } = {}) => {
       if (quoteRequestRef.current) return null;
       quoteRequestRef.current = true;
+      const requestedSignature = revisePromo ? quoteRef.current?.cartSignature : cartSignature;
+      if (!orderId) attemptedCart.current = requestedSignature;
       if (automatic) setQuoteRefreshing(true);
       else setQuoteLoading(true);
       setError("");
@@ -337,6 +341,7 @@ function ShippingCheckout() {
           revisePromo ? { quote_id: quoteRef.current?.quote_id || null, promo_code: promo } : orderId ? { order_id: orderId } : { cart: cartPayload, ...(promo?{promo_code:promo}:{}) },
         );
 
+        next.cartSignature = requestedSignature;
         promoRef.current=next.promo_code||'';
         const deadline = displayDeadline(next.expires_at, next.server_time_ms);
         next.displayDeadline = quoteRef.current?.expires_at === next.expires_at
@@ -371,7 +376,7 @@ function ShippingCheckout() {
         setQuoteRefreshing(false);
       }
     },
-    [authenticatedPost, cartPayload],
+    [authenticatedPost, cartPayload, cartSignature],
   );
 
   useEffect(() => {
@@ -388,6 +393,7 @@ function ShippingCheckout() {
       if (!next) return;
       setOrderInfo({
         order_id: next.order_id,
+        total: next.card_total, tax_amount: next.tax_amount,
         order_number: next.order_number,
         price_locked_until: next.expires_at,
       });
@@ -409,18 +415,9 @@ function ShippingCheckout() {
   }, [resumeOrderId, getFreshQuote]);
 
   useEffect(() => {
-    if (Number.isSafeInteger(resumeOrderId) && resumeOrderId > 0) return;
-    if (
-      !user ||
-      !cartReady ||
-      !cartSignature ||
-      quoteRef.current ||
-      quoteRequestRef.current
-    ) {
-      return;
-    }
+    if (orderInfo || resumeOrderId || !user || !cartReady || !cartSignature || quoteRequestRef.current || attemptedCart.current===cartSignature) return;
     getFreshQuote();
-  }, [user, cartReady, cartSignature, resumeOrderId, getFreshQuote]);
+  }, [orderInfo,user,cartReady,cartSignature,resumeOrderId,getFreshQuote,quoteLoading,quoteRefreshing]);
 
   useEffect(() => {
     if (!quote?.displayDeadline) return undefined;
@@ -476,9 +473,6 @@ function ShippingCheckout() {
 
   const pickup=orderInfo ? (orderInfo.fulfillment==='pickup'||quote?.shipping_address?.fulfillment==='pickup') : !resumeOrderId && searchParams.get('fulfillment')==='pickup';
   useEffect(()=>{setForm(v=>({...v,agree:false,wireAgree:false}))},[pickup]);
-  const deliveryCheck = useDeliveryAddress(draftAddress(form),Boolean(user) && !pickup && !orderInfo && !resumeOrderId);
-  const confirmedAddress = deliveryCheck.canonical;
-  const deliveryAddress = confirmedAddress || draftAddress(form);
   const basePricing=quote || fallbackEstimate;
   const pricing=pickup ? {...basePricing,shipping:0,wire_total:Number(basePricing.subtotal),card_total:Math.round((Number(basePricing.subtotal)+Number(basePricing.card_surcharge))*100)/100}:basePricing;
   const wireTotal = Number.isFinite(Number(pricing.wire_total))
@@ -486,12 +480,38 @@ function ShippingCheckout() {
     : Number(pricing.subtotal || 0) + Number(pricing.shipping || 0);
   const achFee = Math.round(Number(pricing.subtotal || 0) * 2) / 100;
   const achTotal = Math.round((wireTotal + achFee) * 100) / 100;
-  const displayedTotal =
+  const [investment,setInvestment] = useState(true);
+  const [assessment,setAssessment] = useState(null);
+  const needsTax = !orderInfo && !resumeOrderId;
+  const deliveryCheck = useDeliveryAddress(draftAddress(form),needsTax && !pickup);
+  const confirmedAddress = deliveryCheck.canonical;
+  const destinationState = pickup ? 'NY' : confirmedAddress?.state;
+  const addressEntered = pickup || Boolean(confirmedAddress);
+  const earlyMinimum = needsTax && addressEntered && quote ? belowOrderMinimum(destinationState, Math.round(Number(quote.subtotal) * 100), businessDay()) : '';
+  const taxRequest = JSON.stringify({quote_id:quote?.quote_id,method:form.paymentMethod,fulfillment:pickup?'pickup':'delivery',investment,
+    address:pickup?undefined:confirmedAddress});
+  useEffect(()=>{setForm(f=>f.agree || f.wireAgree ? {...f,agree:false,wireAgree:false}:f);},[taxRequest]);
+  const taxReady = needsTax && quote?.cartSignature===cartSignature && assessment?.key===taxRequest && assessment?.data?.id;
+  const taxMessage=assessment?.key===taxRequest?assessment.message:null;
+  const minimumNotice = earlyMinimum || (assessment?.key===taxRequest && assessment.code==='ORDER_MINIMUM' ? taxMessage : '');
+  const investmentAgreement = taxReady && destinationState==='NY' && investment && assessment.data.exempt>0;
+  useEffect(()=>{
+    if(!needsTax || !quote?.quote_id || !addressEntered || earlyMinimum) return;
+    let active=true;
+    const timer=setTimeout(async()=>{
+      try {
+        const data=await authenticatedPost('/api/checkout/tax',JSON.parse(taxRequest));
+        if(active)setAssessment({key:taxRequest,data});
+      } catch(e) { if(active)setAssessment({key:taxRequest,message:e.message,code:e.code}); }
+    },350);
+    return ()=>{active=false;clearTimeout(timer);};
+  },[taxRequest,needsTax,addressEntered,earlyMinimum,quote?.quote_id,authenticatedPost]);
+  const displayedTotal = orderInfo?.total != null ? Number(orderInfo.total) : taxReady ? assessment.data.total / 100 :
     form.paymentMethod === "card"
       ? Number(pricing.card_total || 0)
       : form.paymentMethod === "ach" ? achTotal : wireTotal;
 
-  const cardLimitError = cardLimitMessage(pricing.subtotal,pricing.card_total,settings.card_order_maximum);
+  const cardLimitError = cardLimitMessage(pricing.subtotal,form.paymentMethod==="card" && taxReady ? displayedTotal : pricing.card_total,settings.card_order_maximum);
   useEffect(()=>{
     if(cardLimitError && paymentConfig.wire && !busy) setForm(current=>current.paymentMethod==="card"?{...current,paymentMethod:"wire",agree:false,wireAgree:false}:current);
   },[cardLimitError,paymentConfig.wire,busy,form.paymentMethod]);
@@ -518,17 +538,12 @@ function ShippingCheckout() {
     0,
   );
 
-  const shippingPayload = () => ({
-    name: `${form.firstName.trim()} ${form.lastName.trim()}`.trim(),
-    address: {
-      line1: deliveryAddress.address_line_1.trim(),
-      line2: deliveryAddress.address_line_2.trim() || undefined,
-      city: deliveryAddress.city.trim(),
-      state: deliveryAddress.state.trim().toUpperCase(),
-      postal_code: deliveryAddress.postal_code.trim(),
-      country: "US",
-    },
-  });
+  const shippingPayload = () => {
+    const address=pickup ? pickupAddress : confirmedAddress || quote?.shipping_address || draftAddress(form);
+    return {name:[form.firstName.trim(),form.lastName.trim()].join(' ').trim(),address:{
+      line1:address.address_line_1,line2:address.address_line_2 || undefined,city:address.city,
+      state:address.state,postal_code:address.postal_code,country:'US'}};
+  };
 
   const validate = () => {
     if(form.paymentMethod==="card" && cardLimitError)return cardLimitError;
@@ -549,18 +564,10 @@ function ShippingCheckout() {
     ) {
       return "Complete your name and phone number.";
     }
-    if (!pickup && ['suggestion','needs_input'].includes(deliveryCheck.result?.status)) {
-      return deliveryCheck.result.message || 'Confirm or edit your delivery address before continuing.';
-    }
-    if (!pickup && (!form.address1.trim() || !form.city.trim())) {
-      return "Enter a complete insured-delivery address.";
-    }
-    if (!pickup && !/^[A-Za-z]{2}$/.test(form.state.trim())) {
-      return "Enter a two-letter US state code.";
-    }
-    if (!pickup && !/^\d{5}(?:-\d{4})?$/.test(form.postalCode.trim())) {
-      return "Enter a valid US ZIP code.";
-    }
+    if (needsTax && !pickup && !confirmedAddress) return deliveryCheck.result?.message ||
+      (deliveryCheck.result?.status==='suggestion'?'Choose the correct delivery address.':'Finish checking your delivery address before continuing.');
+    if (minimumNotice) return minimumNotice;
+    if (needsTax && !taxReady) return 'We couldn’t confirm the order total for this address. Check the address and try again.';
     if (form.paymentMethod === "wire" && !form.wireAgree) return "Read and accept the bank-wire purchase agreement.";
     if (!orderInfo && promoDraft.trim().toUpperCase()!==(quote?.promo_code||'')) return 'Apply or clear your promo code before placing the order.';
     if (!form.agree) {
@@ -579,6 +586,7 @@ function ShippingCheckout() {
     if (orderInfo) return orderInfo;
     const data = await invokeFunction(supabase, "create-order", {
           quote_id: quote.quote_id,
+          tax_assessment_id: assessment?.data?.id,
           ...(pickup?{fulfillment:"pickup",pickup_name:recipient.trim()||[form.firstName.trim(),form.lastName.trim()].join(" ")}:{}),
           cart: cartPayload,
           contact: {
@@ -587,13 +595,14 @@ function ShippingCheckout() {
             email: user.email,
             phone: form.phone.trim(),
           },
-          shipping: pickup?{}:deliveryAddress,
+          shipping: pickup?{}:confirmedAddress,
           payment_method: form.paymentMethod,
           notes: form.notes.trim(),
-          terms: { accepted: true, version: TERMS_VERSION },
+          terms: { accepted: true, version: TERMS_VERSION, ...(investmentAgreement ? {investment_purchase:true} : {}) },
           ...(form.paymentMethod === "wire" ? {wire_agreement: {accepted: form.wireAgree, version: WIRE_AGREEMENT_VERSION}} : {}),
       });
 
+    if(!pickup && confirmedAddress)setForm(f=>({...f,...addressFields(confirmedAddress)}));
     setOrderInfo({...data,fulfillment:pickup?"pickup":"delivery"});
     saveCheckoutRecovery({
       orderId: data.order_id,
@@ -606,18 +615,18 @@ function ShippingCheckout() {
   };
 
   const saveAddress = async () => {
-    if (pickup || !form.saveAddress) return;
+    if (pickup || !form.saveAddress || !confirmedAddress) return;
     await supabase
       .from("profiles")
       .update({
         first_name: form.firstName.trim(),
         last_name: form.lastName.trim(),
         // Contact phone on this order must not revoke the verified sign-in phone.
-        address_line_1: deliveryAddress.address_line_1.trim(),
-        address_line_2: deliveryAddress.address_line_2.trim() || null,
-        city: deliveryAddress.city.trim(),
-        state: deliveryAddress.state.trim().toUpperCase(),
-        postal_code: deliveryAddress.postal_code.trim(),
+        address_line_1: confirmedAddress.address_line_1,
+        address_line_2: confirmedAddress.address_line_2 || null,
+        city: confirmedAddress.city,
+        state: confirmedAddress.state,
+        postal_code: confirmedAddress.postal_code,
       })
       .eq("id", user.id);
     await refreshProfile();
@@ -789,7 +798,7 @@ function ShippingCheckout() {
       mode: "payment",
       amount: Math.max(
         50,
-        Math.round(Number(form.paymentMethod === "ach" ? achTotal : pricing.card_total || 0) * 100),
+        Math.round(Number(displayedTotal || 0) * 100),
       ),
       currency: "usd",
       paymentMethodCreation: "manual",
@@ -816,7 +825,7 @@ function ShippingCheckout() {
         },
       },
     }),
-    [pricing.card_total, achTotal, form.paymentMethod],
+    [displayedTotal, form.paymentMethod],
   );
 
   if (
@@ -954,7 +963,7 @@ function ShippingCheckout() {
                 State
                 <input
                   required
-                  maxLength="2"
+                  maxLength="30"
                   autoComplete="address-level1"
                   placeholder="NY"
                   value={form.state}
@@ -980,10 +989,8 @@ function ShippingCheckout() {
                 />
               </label>
             </div>
-            <DeliveryAddressCheck check={deliveryCheck}
-              onFill={(a,keys)=>setForm(f=>fillAddressFields(f,a,keys))}
-              onUse={a=>setForm(f=>({...f,...addressFields(a),agree:false,wireAgree:false}))}
-              onEdit={()=>document.querySelector('input[autocomplete="address-line1"]')?.focus()}/>
+            <DeliveryAddressCheck check={deliveryCheck} onFill={(a,keys)=>setForm(f=>fillAddressFields(f,a,keys))} onUse={a=>setForm(f=>({...f,...addressFields(a),agree:false,wireAgree:false}))}
+              onEdit={()=>document.querySelector('[autocomplete="address-line1"]')?.focus()}/>
             <label className="checkout-check">
               <input
                 type="checkbox"
@@ -996,6 +1003,7 @@ function ShippingCheckout() {
             </label>
           </fieldset>}
 
+          {minimumNotice && <p role="status" className="form-message">{minimumNotice}</p>}
           {!orderInfo && <fieldset className="checkout-promo-box" disabled={busy || quoteLoading || quoteRefreshing} aria-labelledby="promo-label">
             <label id="promo-label" htmlFor="checkout-promo">Promo code <small>Optional</small></label>
             <div className="promo-entry">
@@ -1086,6 +1094,7 @@ function ShippingCheckout() {
               )}
           </fieldset>
 
+          <details><summary>Order notes and options <span>(optional)</span></summary>
           <label>
             Order notes <span>(optional)</span>
             <textarea
@@ -1099,6 +1108,10 @@ function ShippingCheckout() {
             />
           </label>
 
+            {needsTax && destinationState==='NY' && taxReady && (investmentAgreement || !investment) &&
+              <label className="checkout-check"><input type="checkbox" checked={investment} onChange={event=>setInvestment(event.target.checked)}/> Buying to hold for investment</label>}
+          </details>
+
           {form.paymentMethod === "wire" && <section className="wire-agreement" aria-labelledby="wire-agreement-heading">
             <h3 id="wire-agreement-heading">Bank-wire purchase agreement</h3>
             <p>{WIRE_AGREEMENT_TEXT}</p>
@@ -1111,6 +1124,7 @@ function ShippingCheckout() {
             <input
               type="checkbox"
               checked={form.agree}
+              disabled={Boolean(needsTax && !taxReady)}
               onChange={(event) =>
                 setForm({ ...form, agree: event.target.checked })
               }
@@ -1119,7 +1133,7 @@ function ShippingCheckout() {
             understand this bullion order is a binding purchase obligation
             at the currently displayed locked total of{" "}
             <b>{money(displayedTotal)}</b>, subject to GoldOnTheSpot
-            acceptance and the stated payment deadline.</span>
+            acceptance and the stated payment deadline.{investmentAgreement && ' I confirm that I am buying the qualifying bullion as an investment and will hold it in its purchased form.'}</span>
           </label>
 
           {priceNotice && (
@@ -1143,6 +1157,7 @@ function ShippingCheckout() {
               quoteRefreshing ||
               !quote ||
               displayedTotal <= 0 ||
+              Boolean(minimumNotice) ||
               !cartReady ||
               !settings.accepting_orders ||
               (form.paymentMethod === "card" && Boolean(cardLimitError))
@@ -1154,7 +1169,7 @@ function ShippingCheckout() {
                 ? "Refreshing market price…"
                 : quoteLoading
                   ? "Locking your price…"
-                  : form.paymentMethod === "card"
+                  : needsTax && !taxReady ? "Review order" : form.paymentMethod === "card"
                     ? `Pay ${money(displayedTotal)} securely`
                     : "Agree & place secure order"}
           </button>
@@ -1247,8 +1262,10 @@ function ShippingCheckout() {
                   <b>{money(pricing.card_surcharge)}</b>
                 </div>
               )}
+            {taxReady && assessment.data.tax > 0 && <div><span>Tax</span><b>{money(assessment.data.tax/100)}</b></div>}
+            {!needsTax && Number(orderInfo?.tax_amount ?? quote?.tax_amount)>0 && <div><span>Tax</span><b>{money(orderInfo?.tax_amount ?? quote.tax_amount)}</b></div>}
             <div className="checkout-total">
-              <span>Total</span>
+              <span>{needsTax && !taxReady ? "Estimated total" : "Total"}</span>
               <strong>{money(displayedTotal)}</strong>
             </div>
           </div>

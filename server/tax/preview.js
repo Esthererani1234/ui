@@ -39,7 +39,7 @@ export function previewExample(state, amount, place = 'olympia', verifiedAddress
     valid_from:day,valid_until:day,verified_on:day};
   try {
     const result=assess({day,state,subtotal:amount,shipping:0,fee:0,investment:true,
-      policy:{...base,registration:'Sample',ny_dealer_status:'registration_not_required',collection:'collect',first_eligible_cent:storeFloor(state,day),
+      policy:{...base,registration:'Sample',ca_commodity_registration:'registration_not_required',ny_dealer_status:'registration_not_required',collection:'collect',first_eligible_cent:storeFloor(state,day),
         store_minimum:true,shipping_base:'excluded',fee_base:'excluded',rounding:'combined',seller_levy_treatment:'pass_through'},
       address:verifiedAddress || {...base,max_pass_on_ppm:sample?.max_pass_on_ppm,rates:(sample?.rates || []).map(([level,code,ppm])=>({level,code,ppm}))},
       lines:[{id:1,quantity:1,gross:amount,classification:{...base,treatment:sample?'taxable':'eligible',

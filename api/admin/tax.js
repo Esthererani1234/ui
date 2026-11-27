@@ -2,6 +2,7 @@ import {saveEvidence} from "../../server/tax/evidence.js";
 import {json,readJson,requireAdmin,service} from '../../server/lib/payments.js';
 import {rateLimit,securityLog} from '../../server/lib/security.js';
 import {date,dayNow,jurisdiction,ledgerCsv,rpc,validateVersion} from '../../server/tax/admin.js';
+import {calculateAdminOrder} from '../../server/tax/adminOrderReport.js';
 export const config={api:{bodyParser:false}};
 export default async function handler(req,res){
   if(!['GET','POST'].includes(req.method))return json(res,405,{error:'Method not allowed'});
@@ -10,6 +11,19 @@ export default async function handler(req,res){
     if(req.method==='GET'){
       const day=dayNow(),from=date(req.query.from||day.slice(0,4)+'-01-01'),to=date(req.query.to||day);
       if(from>to)return json(res,400,{error:'Invalid period.'});
+      if(req.query.view==='orders'||req.query.view==='order_calculation')res.setHeader('cache-control','private, no-store');
+      if(req.query.view==='orders'){
+        const state=req.query.state==='UNASSIGNED'?'UNASSIGNED':req.query.state?jurisdiction(req.query.state):null;
+        const before=req.query.before==null?null:Number(req.query.before);
+        if(before!==null && (!Number.isSafeInteger(before)||before<1))return json(res,400,{error:'Invalid order cursor.'});
+        return json(res,200,await rpc(db,'tax_admin_order_report',{p_actor:user.id,p_from:from,p_to:to,p_state:state,p_before:before}));
+      }
+      if(req.query.view==='order_calculation'){
+        const id=Number(req.query.order);
+        if(!Number.isSafeInteger(id)||id<1)return json(res,400,{error:'Invalid order.'});
+        const inputs=await rpc(db,'tax_admin_calculation_inputs',{p_actor:user.id,p_order:id});
+        return json(res,200,await calculateAdminOrder(inputs));
+      }
       if(req.query.state){
         const state=jurisdiction(req.query.state);
         if(req.query.format==='csv'){

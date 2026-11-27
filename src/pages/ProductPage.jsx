@@ -266,6 +266,10 @@ export default function ProductPage() {
                   <dt>Pure metal weight</dt>
                   <dd>{product.metal_weight_oz} troy oz</dd>
                 </div>
+                {product.mint_or_refiner && <div><dt>Mint or refiner</dt><dd>{product.mint_or_refiner}</dd></div>}
+                {product.fineness != null && <div><dt>Purity</dt><dd>{String(Number(product.fineness)).replace(/^0\./, ".")} fine</dd></div>}
+                {product.metal === "gold" && product.gold_karat != null && <div><dt>Gold karat</dt><dd>{product.gold_karat}K</dd></div>}
+                {product.gross_weight_g != null && <div><dt>Total weight (unpackaged)</dt><dd>{Number(product.gross_weight_g).toLocaleString("en-US", { maximumFractionDigits: 6 })} g</dd></div>}
                 <div>
                   <dt>Type</dt>
                   <dd>{product.category}</dd>

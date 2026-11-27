@@ -55,6 +55,10 @@ const blankProduct = {
   metal: "gold",
   category: "coin",
   metal_weight_oz: 1,
+  fineness: "",
+  gold_karat: "",
+  gross_weight_g: "",
+  mint_or_refiner: "",
   price_mode: "dynamic",
   fixed_price: "",
   premium_fixed: 0,
@@ -286,6 +290,8 @@ export default function AdminPage() {
     const originalImageUrls = editor._original_image_urls || [];
     const payload = {
       ...editor,
+      mint_or_refiner: editor.mint_or_refiner?.trim() || null,
+      gold_karat: editor.metal === "gold" ? editor.gold_karat : null,
       features: (editor.features || [])
         .map((feature) => feature.trim())
         .filter(Boolean)
@@ -306,6 +312,9 @@ export default function AdminPage() {
       "shipping_fee",
       "free_shipping_minimum",
       "metal_weight_oz",
+      "gross_weight_g",
+      "fineness",
+      "gold_karat",
       "fixed_price",
       "premium_fixed",
       "premium_percent",
@@ -1040,7 +1049,7 @@ export default function AdminPage() {
                   <select
                     value={editor.metal}
                     onChange={(e) =>
-                      setEditor({ ...editor, metal: e.target.value })
+                      setEditor({ ...editor, metal: e.target.value, gold_karat: "" })
                     }
                   >
                     <option value="gold">Gold</option>
@@ -1074,6 +1083,27 @@ export default function AdminPage() {
                       setEditor({ ...editor, metal_weight_oz: e.target.value })
                     }
                   />
+                </label>
+              </div>
+              <div className="form-row">
+                <label>
+                  Total weight (grams, unpackaged)
+                  <input type="number" min="0.000001" max="999999999.999999" step="0.000001" placeholder="e.g. 33.931" value={editor.gross_weight_g ?? ""} onChange={e => setEditor({ ...editor, gross_weight_g: e.target.value })} />
+                </label>
+                <label>
+                  Purity (fineness)
+                  <input type="number" min="0.000001" max="1" step="0.000001" placeholder="e.g. .9999" value={editor.fineness ?? ""} onChange={e => setEditor({ ...editor, fineness: e.target.value })} />
+                  <small className="field-help">Enter .9999 for 99.99% pure metal.</small>
+                </label>
+              </div>
+              <div className="form-row">
+                {editor.metal === "gold" && <label>
+                  Gold karat
+                  <input type="number" min="0.001" max="24" step="0.001" placeholder="e.g. 22 or 24" value={editor.gold_karat ?? ""} onChange={e => setEditor({ ...editor, gold_karat: e.target.value })} />
+                </label>}
+                <label>
+                  Mint or refiner
+                  <input maxLength={120} placeholder="e.g. Rand Refinery" value={editor.mint_or_refiner ?? ""} onChange={e => setEditor({ ...editor, mint_or_refiner: e.target.value })} />
                 </label>
               </div>
               </div>

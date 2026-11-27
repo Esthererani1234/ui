@@ -19,9 +19,11 @@ export async function calculateAdminOrder(input,{localEvidence=resolveRegionalEv
   if(input.review){
     const result={status:'review',reason:input.review,day:input.day};
     if(input.state_scope)result.state_scope=input.state_scope;
+    if(input.ak_specie)result.ak_specie=input.ak_specie;
     if(input.regional_destination && input.day===businessDay()){
       const evidence=await localEvidence(input.regional_destination,input.day).catch(()=>null);
-      if(evidence){
+      if(evidence && !(evidence.state==='AK' && evidence.scope==='no_general_retail_tax' && Object.hasOwn(input,'anchorage_policy') &&
+        !current(input.anchorage_policy,input.day))){
         result.local_evidence=evidence;
         const member=input.member_policy;
         if(evidence.day===input.day && input.regional_destination.state==='AK' && evidence.state==='AK' && evidence.scope==='member_general_rates' && member?.scope==='arsstc_member' &&
@@ -35,18 +37,37 @@ export async function calculateAdminOrder(input,{localEvidence=resolveRegionalEv
   try {
     if(input.saved)return {status:'recorded',...reviewed(input.saved)};
     const {day,state,policy}=input;
+    const alaskaMetal=state==='AK' && Object.hasOwn(input,'anchorage_policy') && policy?.collection==='collect' &&
+      input.lines?.some(item=>['gold','silver'].includes(item.metal));
     let district=input.district;
     if (!district && day===businessDay()) {
       const a=input.destination;
       if (a?.state!==state || a.country!=='US' || !a.address_line_1 || !a.city || !/^\d{5}(?:-\d{4})?$/.test(a.postal_code))
         throw new TaxReview('The original street address needs verification.');
-      const lookup=(state==='AK' && policy.collection==='collect'?alaskaReportAddress:streetRateResolvers[state]) || (['no_obligation','exempt_merchandise'].includes(policy.collection)?confirmDestination:null);
+      const lookup=(alaskaMetal?confirmDestination:state==='AK' && policy.collection==='collect'?alaskaReportAddress:streetRateResolvers[state]) || (['no_obligation','exempt_merchandise'].includes(policy.collection)?confirmDestination:null);
       if(lookup){
         try{district=await lookup(a,day);}
         catch{return {status:'review',day,reason:'The street jurisdiction or rate could not be verified.',retryable:true};}
       }
     }
     if(!current(district,day))throw new TaxReview('A verified street jurisdiction and rates for the original order date are needed.');
+    if(alaskaMetal){
+      const local=input.anchorage_policy, facts=input.ak_specie;
+      const inAnchorage=current(local,day) && local.state==='AK' && local.scope==='no_general_retail_tax' &&
+        local.county_geoid==='02020' && district.state===state && district.geography?.state?.geoid==='02' &&
+        district.geography?.county?.geoid===local.county_geoid;
+      if(!inAnchorage || !current(policy,day) || policy.state!==state || policy.shipping_disabled ||
+        !Number.isSafeInteger(facts?.metal_price_cents) || facts.metal_price_cents<=0 ||
+        !Number.isSafeInteger(facts.markup_cents) || facts.markup_cents<0 ||
+        facts.metal_price_cents+facts.markup_cents!==cents(input.subtotal) ||
+        cents(input.shipping)!==0 || cents(input.fee)!==0 || cents(input.insurance??0)!==0)
+        return {status:'review',day,reason:'Verify the local treatment of the bullion sale, dealer premium and any fees.',ak_specie:facts};
+      const locality=district.geography.county;
+      return {status:'calculated',day,state,tax:0,taxable:0,exempt:cents(input.subtotal),unclassified:0,
+        collection:policy.collection,breakdown:[],seller_taxes:[],geography:district.geography,address_version:district.version,
+        jurisdictions:[{level:'county',code:locality.geoid,name:locality.name}],rate_source:local.source,
+        policy_source:policy.source,policy_version:policy.version,local_policy_version:local.version,ak_specie:facts,lines:facts.lines};
+    }
     if(input.insurance!=null && cents(input.insurance)>0)throw new TaxReview('The separate insurance charge needs review.');
     const products=await completeOrderMarketInputs(state,input.products,day,input.investment);
     const lines=input.lines.map(item=>{

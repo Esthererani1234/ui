@@ -156,7 +156,7 @@ test('California checks statutory market value separately from the store subtota
   q.address={...address,state:'CA'};q.lines[0].classification={...product,market_unit_cents:199999};
   assert.equal(assess(q).taxable,205000);
 });
-for(const [state,expected] of Object.entries({WA:200000,DC:120000,ME:110000,VT:140000,HI:94240,NM:168750})) {
+for(const [state,expected] of Object.entries({WA:200000,DC:120000,ME:110000,VT:140000,HI:94240,NM:163750})) {
   test(state+' charged example on $20,000 returns one combined customer amount',()=>{
     assert.equal(previewExample(state,2000000).tax,expected);
     assert.equal(previewExample(state,2000000).total,2000000+expected);
@@ -182,9 +182,9 @@ test('full-address review distinguishes Vermont municipalities and refuses unkno
 });
 test('New Mexico checks the complete street match and the government location code',async()=>{
   const a={address_line_1:'3804 Central Ave SE',city:'Albuquerque',state:'NM',postal_code:'87108'};
-  const row={street_number:'3804',street_name:'CENTRAL',street_suffix:'AVE',street_post_directional:'SE',city:'ALBUQUERQUE',zipcode:'87108',county:'Bernalillo',source:'NM E911',success:true,location_code:'02-100',tax_rate:'7.875'};
+  const row={street_number:'3804',street_name:'CENTRAL',street_suffix:'AVE',street_post_directional:'SE',city:'ALBUQUERQUE',zipcode:'87108',county:'Bernalillo',source:'NM E911',success:true,location_code:'02-100',tax_rate:'7.625'};
   const mock=async()=>({ok:true,json:async()=>({results:[row]})});
-  assert.equal((await newMexicoAddress(a,day,mock)).rates[0].ppm,78750);
+  assert.equal((await newMexicoAddress(a,day,mock)).rates[0].ppm,76250);
   row.source='Mapquest Geocode';await assert.rejects(newMexicoAddress(a,day,mock));
 });
 
@@ -213,4 +213,73 @@ test('NYC pickup or delivery requires a matching county and city geography for t
     geographies:{States:[{STUSAB:'NY',GEOID:'36'}],Counties:[{GEOID:'36061',NAME:'New York County'}],'Incorporated Places':[{GEOID:'3651000'}]}};
   assert.deepEqual(censusRates(a,day,[m]).rates.map(c=>c.ppm),[40000,45000,3750]);
   m.geographies.Counties=[{GEOID:'36119'}];assert.deepEqual(censusRates(a,day,[m]).rates,[]);
+});
+
+import {previewStreetOrder} from '../server/tax/preview.js';
+import {locationCsv} from '../server/tax/locationExport.js';
+import vtLocations from '../server/tax/vermontQuarter.json' with {type:'json'};
+import nmLocations from '../server/tax/newMexicoLocations.json' with {type:'json'};
+import waLocations from '../server/tax/washingtonQuarter.json' with {type:'json'};
+const delivered={address_line_1:'123 MAIN ST',city:'EXAMPLE',postal_code:'00000',country:'US'};
+const matched=async address=>({status:'matched',address});
+function sampleGeography(state,geo,extra){
+  return [{matchedAddress:'123 MAIN ST, EXAMPLE, '+state+', 00000',addressComponents:{city:'EXAMPLE',state,zip:'00000'},
+    geographies:{States:[{STUSAB:state,GEOID:geo}],...extra}}];
+}
+test('all Vermont subdivisions use the published retail local option for their own jurisdiction',()=>{
+  const entries=Object.entries(vtLocations.municipalities);
+  assert.equal(entries.length,256);assert.equal(entries.filter(([,r])=>r[1]>0).length,37);
+  for(const [code,[name,local]] of entries){
+    const geo=sampleGeography('VT','50',{Counties:[{GEOID:code.slice(0,5)}],'County Subdivisions':[{GEOID:code,NAME:name}]});
+    const r=censusRates({...delivered,state:'VT'},day,geo);
+    assert.equal(r.rates.reduce((s,c)=>s+c.ppm,0),60000+local);
+    if(['Montgomery town','Barre town','Killington town'].includes(name))assert.equal(local,0);
+    if(['Barre city','Peru town','Hartford town'].includes(name))assert.equal(local,10000);
+  }
+});
+test('Hawaii assigns each published retail surcharge by county and keeps the pass-on separate',async()=>{
+  for(const code of ['15001','15003','15007','15009']){
+    const address={...delivered,state:'HI'};
+    const verified=censusRates(address,day,sampleGeography('HI','15',{Counties:[{GEOID:code}]}));
+    assert.equal(verified.rates[1].code,code);assert.equal(verified.rates[1].ppm,5000);
+    const result=await previewStreetOrder(address,1000000,day,{correct:matched,resolvers:{HI:async()=>verified}});
+    assert.equal(result.tax,47120);assert.equal(result.location,verified.rates[1].name);
+  }
+  assert.throws(()=>censusRates({...delivered,state:'HI'},day,sampleGeography('HI','15',{Counties:[{GEOID:'15005'}]})));
+});
+test('Washington can use an exact government street hit missing from the archive and rejects a range-only or ZIP response',async()=>{
+  const xml=await readFile(new URL('./fixtures/tax/seattle-q42026.xml',import.meta.url),'utf8');
+  const address={state:'WA',city:'Seattle',postal_code:'98104',address_line_1:'600 4TH AVE'};
+  assert.equal(washingtonStreetCode(Buffer.from(''),address,{allowMissing:true}),null);
+  assert.equal(washingtonResult(xml,day,address,null).rates[1].code,'1726');
+  assert.throws(()=>washingtonResult(xml.replace('househigh="600"','househigh="698"'),day,address,null));
+  assert.throws(()=>washingtonResult(xml.replace('code="2"','code="5"'),day,address,null));
+  assert.throws(()=>washingtonResult(xml,day,address,'3210'));
+});
+test('NM exact address cannot use an outdated rate, county conflict or an expired schedule',async()=>{
+  const address={state:'NM',address_line_1:'3804 CENTRAL AVE SE',city:'ALBUQUERQUE',postal_code:'87108'};
+  const row={street_number:'3804',street_name:'CENTRAL',street_suffix:'AVE',street_post_directional:'SE',city:'ALBUQUERQUE',zipcode:'87108',county:'Bernalillo',source:'NM E911',success:true,location_code:'02-100',tax_rate:'7.6250'};
+  const mock=async()=>({ok:true,json:async()=>({results:[row]})});
+  assert.equal((await newMexicoAddress(address,day,mock)).rates[0].county,'Bernalillo');
+  await assert.rejects(newMexicoAddress(address,'2027-07-01',mock));
+  row.tax_rate='7.8750';await assert.rejects(newMexicoAddress(address,day,mock));
+  row.tax_rate='7.6250';row.county='Santa Fe';await assert.rejects(newMexicoAddress(address,day,mock));
+});
+test('street preview returns corrections and unknown locations without quoting a sample price',async()=>{
+  const a={...delivered,state:'WA'};
+  for(const status of ['suggestion','needs_input','unavailable']){
+    const r=await previewStreetOrder(a,500000,day,{correct:async()=>({status,address:a}),resolvers:{}});
+    assert.equal(r.status,status);assert.equal(r.tax,undefined);
+  }
+  const r=await previewStreetOrder(a,500000,day,{correct:matched,resolvers:{WA:async()=>{throw Error()}}});
+  assert.equal(r.status,'unavailable');assert.equal(r.tax,undefined);
+});
+test('coverage export includes all published records and labels special cases',()=>{
+  const lines=locationCsv().trim().split('\r\n');
+  const count=state=>lines.filter(line=>line.startsWith('"'+state+'",')).length;
+  assert.equal(count('WA'),Object.keys(waLocations.rates).length);assert.equal(count('WA'),403);
+  assert.equal(count('VT'),256);assert.equal(count('HI'),5);
+  assert.equal(count('NM'),nmLocations.locations.reduce((n,r)=>n+(r.code?1:r.tribal_codes.length),0));
+  assert.equal(new Set(nmLocations.locations.map(r=>r.county)).size,33);
+  assert.ok(lines.some(line=>line.includes('Tribal reporting class 2')));
 });

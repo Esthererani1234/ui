@@ -58,19 +58,43 @@ function StateControls({row,save,profile,filings}){
   </>;
 }
 function PreviewCalculator(){
-  const [place,setPlace]=useState('olympia');
-  const [state,setState]=useState('NY'),[amount,setAmount]=useState('750.00'),[out,result]=useState(null);
-  useEffect(()=>{let live=true;result(null);if(!/^\d+(\.\d{1,2})?$/.test(amount))return;
-    const timer=setTimeout(async()=>{try{const r=await fetch('/api/checkout/tax?state='+state+'&cents='+Math.round(Number(amount)*100)+'&place='+encodeURIComponent(place));
-      if(!r.ok)throw Error();const d=await r.json();if(live)result(d);}catch{if(live)result({message:'The example calculator is unavailable.'});}},250);
-    return()=>{live=false;clearTimeout(timer);};},[state,amount,place]);
-  const examples = {NY:'New York',CA:'California',CT:'Connecticut',MA:'Massachusetts',MD:'Maryland',WA:'Washington',ME:'Maine',VT:'Vermont · Burlington',DC:'Washington, DC',HI:'Hawaii · Honolulu',NM:'New Mexico · published example'};
+  const [state,setState]=useState('NY'),[amount,setAmount]=useState('750.00');
+  const [address,setAddress]=useState({address_line_1:'',address_line_2:'',city:'',postal_code:''});
+  const [response,setResponse]=useState(null),[attempt,retry]=useState(0);
+  const streetMode=['WA','NM','VT','HI'].includes(state);
+  const cents=/^\d+(\.\d{1,2})?$/.test(amount)?Math.round(Number(amount)*100):0;
+  const destination={...address,state,country:'US'};
+  const ready=cents>0 && cents<=100000000 && (!streetMode || (address.address_line_1.trim() && address.city.trim() && /^\d{5}(-\d{4})?$/.test(address.postal_code)));
+  const key=JSON.stringify(streetMode?{mode:'street_order',address:destination,cents}:{state,cents});
+  useEffect(()=>{
+    if(!ready)return;
+    const controller=new AbortController();
+    const timer=setTimeout(async()=>{
+      try {
+        const url=streetMode?'/api/checkout/tax':'/api/checkout/tax?'+new URLSearchParams(JSON.parse(key));
+        const options=streetMode?{method:'POST',headers:{'content-type':'application/json'},body:key}:{};
+        const r=await fetch(url,{...options,signal:controller.signal,cache:'no-store'});
+        const value=await r.json();
+        if(!controller.signal.aborted)setResponse({key,attempt,value:r.ok?value:{status:'unavailable',message:value.error || 'Tax lookup is unavailable.'}});
+      } catch {
+        if(!controller.signal.aborted)setResponse({key,attempt,value:{status:'unavailable',message:'Tax lookup is temporarily unavailable.'}});
+      }
+    },streetMode?650:250);
+    return()=>{clearTimeout(timer);controller.abort();};
+  },[ready,key,attempt,streetMode]);
+  const out=ready && response?.key===key && response.attempt===attempt?response.value:null;
+  const examples={NY:'New York',CA:'California',CT:'Connecticut',MA:'Massachusetts',MD:'Maryland',WA:'Washington',ME:'Maine',VT:'Vermont',DC:'Washington, DC',HI:'Hawaii',NM:'New Mexico'};
   return <details open id="checkout-example"><summary>Try a sample order</summary>
-    <p>One gold bar paid by wire. Taxable examples assume a registered seller. Hawaii and New Mexico illustrate passing the seller tax on to the buyer. Published example rates are for demonstration.</p>
-    <div className="tax-fields"><label>Destination<select value={state} onChange={e=>setState(e.target.value)}>{Object.entries(examples).map(([code,name])=><option key={code} value={code}>{name}</option>)}</select></label>
-    {state==='WA'&&<label>Delivery address<select value={place} onChange={e=>setPlace(e.target.value)}><option value="spokane">808 W Spokane Falls Blvd, Spokane, WA 99201</option><option value="seattle">600 Fourth Ave, Seattle, WA 98104</option><option value="olympia">601 4th Ave E, Olympia, WA 98501</option><option value="tumwater">6400 Linderson Way SW, Tumwater, WA 98501</option></select></label>}
+    <p>One gold bar paid by wire. Taxable examples assume a registered seller. Hawaii and New Mexico illustrate passing the seller tax on to the buyer.</p>
+    <p><a href="/api/checkout/tax?format=locations" download>Download Washington, New Mexico, Vermont and Hawaii rates (CSV)</a></p>
+    <div className="tax-fields"><label>Destination<select value={state} onChange={e=>{setState(e.target.value);setAddress({address_line_1:'',address_line_2:'',city:'',postal_code:''});}}>{Object.entries(examples).map(([code,name])=><option key={code} value={code}>{name}</option>)}</select></label>
+    {streetMode && Object.entries({address_line_1:'Delivery street address',address_line_2:'Apartment or suite (optional)',city:'City',postal_code:'ZIP code'}).map(([field,label])=><label key={field}>{label}<input value={address[field]} maxLength={field==='postal_code'?10:160} onChange={e=>setAddress({...address,[field]:e.target.value})}/></label>)}
     <label>Purchase amount ($)<input value={amount} onChange={e=>setAmount(e.target.value)} inputMode="decimal"/></label></div>
-    <div aria-live="polite">{out?.message && <p>{out.message}</p>}{out?.tax>0 && <p>Tax <strong>{currency(out.tax)}</strong></p>}
+    <div aria-live="polite">{ready && !out && <p>Checking tax…</p>}
+    {out?.status==='suggestion' && <p>Use {out.address.address_line_1}, {out.address.city}, {out.address.state} {out.address.postal_code}? <button type="button" className="text-button" onClick={()=>{if(out.address.state!==state)return;setAddress(out.address);}}>Use this address</button></p>}
+    {out?.message && <p>{out.message} {out.status==='unavailable'&&<button type="button" className="text-button" onClick={()=>retry(n=>n+1)}>Try again</button>}</p>}
+    {out?.location && <p>{out.location}</p>}
+    {out?.tax>0 && <p>Tax <strong>{currency(out.tax)}</strong></p>}
     {out?.total!=null && <p>Total <strong>{currency(out.total)}</strong></p>}</div></details>;
 }
 export default function TaxCompliance({researchOnly=false}){

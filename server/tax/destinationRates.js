@@ -1,3 +1,5 @@
+import {hawaiiCounties,hawaiiRetail,hawaiiSource} from './hawaii.js';
+import vermont from './vermontQuarter.json' with {type:'json'};
 import {TaxReview} from './engine.js';
 
 const census = 'https://geocoding.geo.census.gov/geocoder/geographies/address';
@@ -5,8 +7,8 @@ const publications = {
   NY: ['36','https://www.nyc.gov/site/finance/business/business-nys-sales-tax.page'],
   ME: ['23','https://www.maine.gov/revenue/taxes/sales-use-service-provider-tax/rates-due-dates'],
   DC: ['11','https://otr.cfo.dc.gov/release/notice-oct-1-2026-tax-changes'],
-  HI: ['15','https://tax.hawaii.gov/geninfo/countysurcharge/'],
-  VT: ['50','https://tax.vermont.gov/business/local-option-tax'],
+  HI: ['15',hawaiiSource],
+  VT: ['50',vermont.source],
 };
 const streetTerms = {STREET:'ST',AVENUE:'AVE',ROAD:'RD',DRIVE:'DR',BOULEVARD:'BLVD',LANE:'LN',
   PLACE:'PL',COURT:'CT',NORTH:'N',SOUTH:'S',EAST:'E',WEST:'W'};
@@ -51,15 +53,21 @@ export function censusRates(address, day, matches) {
     rates.push({level:state==='DC'?'district':'state',code:state,ppm:state==='DC'?60000:55000});
   } else if (state==='HI') {
     const counties = geography.Counties;
-    if (counties?.length!==1 || !['15001','15003','15007','15009'].includes(counties[0].GEOID)) throw unavailable();
-    rates.push({level:'state',code:state,ppm:40000},{level:'county',code:counties[0].GEOID,ppm:5000});
-    maxPassOn=47120;
+    if (counties?.length!==1) throw unavailable();
+    const code=counties[0].GEOID;
+    const county=hawaiiCounties[code];
+    if(!county || day<county.from || day>hawaiiRetail.through) throw unavailable();
+    rates.push({level:'state',code:state,ppm:hawaiiRetail.state},
+      {level:'county',code,name:county.name,county:county.name,ppm:hawaiiRetail.county});
+    maxPassOn=hawaiiRetail.maxPassOn;
   } else {
-    const town = geography['County Subdivisions'];
-    if (town?.length!==1 || geography.Counties?.length!==1 || geography.Counties[0].GEOID!=='50007' ||
-        !['Burlington city','South Burlington city','Williston town'].includes(town[0].NAME) ||
-        !/^50007\d{5}$/.test(town[0].GEOID)) throw unavailable();
-    rates.push({level:'state',code:state,ppm:60000},{level:'city',code:town[0].GEOID,ppm:10000});
+    const towns=geography['County Subdivisions'], counties=geography.Counties;
+    if (day<vermont.from || day>vermont.through || towns?.length!==1 || counties?.length!==1) throw unavailable();
+    const {GEOID:code,NAME:name}=towns[0];
+    const location=vermont.municipalities[code];
+    if (!location || location[0]!==name || counties[0].GEOID!==code.slice(0,5)) throw unavailable();
+    rates.push({level:'state',code:state,ppm:60000,name:'Vermont',county:counties[0].NAME});
+    if (location[1]) rates.push({level:'city',code,name,county:counties[0].NAME,ppm:location[1]});
   }
   return {state,source,approval:'approved',verified_on:'2026-11-26',valid_from:day,valid_until:day,
     version:['government',day,...rates.map(r=>r.code+'-'+r.ppm)].join('/'),rates,max_pass_on_ppm:maxPassOn};

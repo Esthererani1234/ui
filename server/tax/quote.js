@@ -1,8 +1,7 @@
 import {correctDeliveryAddress} from '../address/correct.js';
 import {cleanCart,fetchRetailSpot} from '../lib/quotes.js';
-import {confirmDestination, destinationRates} from './destinationRates.js';
-import {newMexicoAddress} from './newMexico.js';
-import {washingtonAddress} from "./washington.js";
+import {confirmDestination} from './destinationRates.js';
+import {streetRateResolvers} from './streetRates.js';
 import {assess,cents,TaxReview} from './engine.js';
 import {pickupAddress} from '../../shared/business.js';
 export {pickupAddress};
@@ -30,9 +29,8 @@ export async function reviewQuote(db,userId,body){
   }
   const {data:inputs,error}=estimate?await db.rpc('tax_cart_inputs',{p_user:userId,p_cart:cleanCart(body.cart),p_spot:await fetchRetailSpot(),p_address:address}):await db.rpc('tax_quote_inputs',{p_user:userId,p_quote:body.quote_id,p_address:address});
   if(error||!inputs)throw new TaxReview('This quote or its jurisdiction data is unavailable. Refresh checkout and try again.');
-  const resolvers = {NY:destinationRates, WA:washingtonAddress, NM:newMexicoAddress, ME:destinationRates, DC:destinationRates, HI:destinationRates, VT:destinationRates};
   if (inputs.policy?.approval==='approved' && !inputs.policy.shipping_disabled && (!inputs.address || (address.state==='WA' && inputs.policy.collection==='collect'))) {
-    const lookup = inputs.policy.collection==='no_obligation' ? confirmDestination : resolvers[address.state];
+    const lookup = inputs.policy.collection==='no_obligation' ? confirmDestination : streetRateResolvers[address.state];
     if (lookup) inputs.address = await lookup(address,inputs.day);
     else if (inputs.policy.uniform_jurisdiction_base===true) inputs.address = await confirmDestination(address,inputs.day);
   }

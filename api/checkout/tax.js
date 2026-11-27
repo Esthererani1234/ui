@@ -1,6 +1,8 @@
 import {authenticateCustomer,json,readJson,service} from '../../server/lib/payments.js';
 import {rateLimit,requestHash,securityLog,strictObject} from '../../server/lib/security.js';
-import {previewCheckout} from '../../server/tax/preview.js';
+import {locationCsv} from '../../server/tax/locationExport.js';
+import {dayNow} from '../../server/tax/admin.js';
+import {previewCheckout,previewStreetOrder} from '../../server/tax/preview.js';
 import {reviewQuote} from '../../server/tax/quote.js';
 import {correctDeliveryAddress} from '../../server/address/correct.js';
 
@@ -15,10 +17,24 @@ function previewAddressAllowed(req) {
   previewClients.set(key,count+1);previewRequests++;return true;
 }
 export default async function handler(req,res){
-  if(req.method==='GET' && process.env.VERCEL_ENV==='preview')return json(res,200,await previewCheckout(req.query.state,Number(req.query.cents),req.query.place));
+  if(req.method==='GET' && process.env.VERCEL_ENV==='preview'){
+    if(req.query.format==='locations'){
+      res.setHeader('Content-Type','text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition','attachment; filename="local-tax-locations.csv"');
+      return res.status(200).end(locationCsv());
+    }
+    return json(res,200,await previewCheckout(req.query.state,Number(req.query.cents),req.query.place));
+  }
   if(req.method!=='POST')return json(res,405,{error:'Method not allowed'});
   try{
-    const body=strictObject(await readJson(req),['quote_id','address','method','fulfillment','investment','mode','cart']);
+    const payload=await readJson(req);
+    if(payload?.mode==='street_order' && process.env.VERCEL_ENV==='preview'){
+      const body=strictObject(payload,['mode','address','cents']);
+      if(!previewAddressAllowed(req))return json(res,429,{error:'Please wait a minute before checking another address.'});
+      res.setHeader('Cache-Control','private, no-store');
+      return json(res,200,await previewStreetOrder(body.address,body.cents,dayNow()));
+    }
+    const body=strictObject(payload,['quote_id','address','method','fulfillment','investment','mode','cart']);
     if(body.mode==='address' && process.env.VERCEL_ENV==='preview' && !req.headers.authorization){
       if(!previewAddressAllowed(req))return json(res,429,{error:'Please wait a minute before checking another address.'});
       return json(res,200,await correctDeliveryAddress(body.address,{postal:false}));

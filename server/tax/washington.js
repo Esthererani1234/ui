@@ -46,7 +46,7 @@ export async function loadWashingtonRanges() {
 }
 
 // Require one jurisdiction across every matching row. Either side of a street may have a different code.
-export function washingtonStreetCode(data,address) {
+export function washingtonStreetCode(data,address,{allowMissing=false}={}) {
   const {number,street,parity,zip,plus4}=destination(address);
   const key=Buffer.from(','+street+',WA,'+zip+',');
   const codes=new Set();
@@ -57,6 +57,7 @@ export function washingtonStreetCode(data,address) {
     if(period===quarter.period && side===parity && (!plus4 || extension===plus4) &&
       /^\d+$/.test(low) && /^\d+$/.test(high) && number>=Number(low) && number<=Number(high)) codes.add(code);
   }
+  if(!codes.size && allowMissing) return null;
   if(codes.size!==1) throw failure();
   return [...codes][0];
 }
@@ -64,9 +65,14 @@ export function washingtonStreetCode(data,address) {
 export function washingtonResult(xml,day,address,streetCode) {
   const main=attributes(xml,'response'),street=attributes(xml,'addressline'),rate=attributes(xml,'rate');
   const input=destination(address);
-  const record=quarter.rates[streetCode];
+  // Some DOR reporting codes have no row in the quarterly street-range file.
+  // In that case only an exact, single-house DOR response can establish the code.
+  const code=streetCode ?? main.loccode;
+  const exactNumber=Number(street.houselow)===input.number && Number(street.househigh)===input.number;
+  if(streetCode==null && !exactNumber) throw failure();
+  const record=quarter.rates[code];
   if(!inQuarter(day) || !record || day<record[2] || day>record[3] ||
-    !['0','2'].includes(main.code) || main.loccode!==streetCode || street.code!==streetCode || rate.code!==streetCode ||
+    !['0','2'].includes(main.code) || main.loccode!==code || street.code!==code || rate.code!==code ||
     street.period!==quarter.period || street.state!=='WA' || street.zip!==input.zip ||
     (input.plus4 && input.plus4!==street.plus4) || normalize(street.street || '')!==input.street ||
     !/^\d+$/.test(street.houselow) || !/^\d+$/.test(street.househigh) ||
@@ -74,8 +80,8 @@ export function washingtonResult(xml,day,address,streetCode) {
   const [state,local]=record;
   if(ppm(main.rate)!==state+local || ppm(main.localrate)!==local || ppm(rate.staterate)!==state || ppm(rate.localrate)!==local) throw failure();
   return {state:'WA',source,approval:'approved',valid_from:day,valid_until:day,verified_on:day,
-    version:['WA-DOR',quarter.period,streetCode,state,local].join('/'),
-    rates:[{level:'state',code:'WA',ppm:state},{level:'combined_local',code:streetCode,ppm:local,
+    version:['WA-DOR',quarter.period,code,state,local].join('/'),
+    rates:[{level:'state',code:'WA',ppm:state},{level:'combined_local',code,ppm:local,
       name:record[5] || rate.name,county:record[4],districts:[street.ptba,street.rta==='Y'?'Regional Transit Authority':null].filter(Boolean)}]};
 }
 
@@ -86,6 +92,6 @@ export async function washingtonAddress(address,day,fetcher=fetch,loadRanges=loa
   try {
     const [res,ranges]=await Promise.all([fetcher(url,{signal:AbortSignal.timeout(6000),cache:'no-store',redirect:'error'}),loadRanges()]);
     if(!res.ok) throw failure();
-    return washingtonResult(await res.text(),day,address,washingtonStreetCode(ranges,address));
+    return washingtonResult(await res.text(),day,address,washingtonStreetCode(ranges,address,{allowMissing:true}));
   } catch {throw failure();}
 }

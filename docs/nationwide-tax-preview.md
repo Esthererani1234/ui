@@ -12,6 +12,12 @@ The cart, checkout and account address editor use a nationwide street lookup. A 
 
 The preview at `/tax-preview#delivery-address` allows a read-only test using the [US Census Geocoder](https://www.census.gov/data/developers/data-sets/Geocoding-services.html). Its street ranges establish a geographic match. Apartment occupancy and carrier deliverability are outside that coverage. In an authorized USPS shipping integration, `USPS_ADDRESS_ENABLED=true` with server-only `USPS_CLIENT_ID` and `USPS_CLIENT_SECRET` selects [USPS Addresses](https://developers.usps.com/addressesv3) for delivery-point confirmation. The preview uses Census and has no USPS credentials. The system never treats an unanswered lookup as a successful postal verification.
 
+## Staging the checkout change
+
+For a private calculation trial, apply migrations only through `20261128000000_nationwide_tax_compliance.sql` and keep the current storefront deployed. This installs the calculation tables and server functions. The existing order function continues handling customers. A migration push that includes the following version also activates enforcement.
+
+Apply `20261128000100_activate_tax_checkout.sql` in coordination with the tax-aware storefront when the tested rules and catalog data are ready. This second migration switches order creation to require a verified assessment and starts the order settlement triggers.
+
 ## Checkout and accounting
 
 - Delivery uses a full street address. Pickup uses the store’s New York address. Cart estimates and final checkout use the same calculation service. Discounts are allocated across merchandise, and reviewed rules determine how shipping and payment charges affect the taxable base.

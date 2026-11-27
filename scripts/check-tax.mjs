@@ -72,7 +72,17 @@ test('preview migration, permissions, exact address, order and filing accounting
  assert.equal((await db.query("select to_regprocedure('public.create_order_from_quote(uuid,uuid,jsonb,jsonb,text,text)') is null as untouched")).rows[0].untouched,true);
  assert.equal((await db.query("select has_table_privilege('anon','private.tax_states','select') as exposed")).rows[0].exposed,false);
  await db.exec(await readFile(new URL('../supabase/migrations/20261127010440_tax_dealer_confirmation.sql',import.meta.url),'utf8'));
+ const orderRoutine="public.create_order_from_quote(uuid,uuid,jsonb,jsonb,text,text)";
+ const pickupMigration=await readFile(new URL('../supabase/migrations/20261126234000_shared_pickup.sql',import.meta.url),'utf8');
+ const existingOrderFunction=pickupMigration.match(/CREATE OR REPLACE FUNCTION public\.create_order_from_quote[\s\S]+?\$function\$\s*;/)[0];
+ await db.exec(existingOrderFunction);
+ const orderDefinition=async()=>(await db.query('select pg_get_functiondef($1::regprocedure) as definition',[orderRoutine])).rows[0].definition;
+ const beforeInstall=await orderDefinition();
  await db.exec(await readFile(new URL('../supabase/migrations/20261128000000_nationwide_tax_compliance.sql',import.meta.url),'utf8'));
+ assert.equal(await orderDefinition(),beforeInstall);
+ assert.equal((await db.query("select count(*)::int as count from pg_trigger where tgrelid='public.orders'::regclass and not tgisinternal")).rows[0].count,0);
+ assert.ok((await db.query("select to_regprocedure('public.tax_quote_inputs(uuid,uuid,jsonb)') is not null as installed")).rows[0].installed);
+ await db.exec(await readFile(new URL('../supabase/migrations/20261128000100_activate_tax_checkout.sql',import.meta.url),'utf8'));
  const val=async(sql,args=[])=>Object.values((await db.query(sql,args)).rows[0])[0];
  assert.equal(await val('select count(*)::int from private.tax_states'),51);
  assert.equal(await val("select has_function_privilege('authenticated','public.tax_admin_overview(date,date)','execute')"),false);

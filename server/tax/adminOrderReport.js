@@ -1,3 +1,4 @@
+import {completeOrderMarketInputs} from './bullionMarket.js';
 import {streetRateResolvers} from './streetRates.js';
 import {confirmDestination} from './destinationRates.js';
 import {businessDay} from '../../shared/bullionMinimums.js';
@@ -16,13 +17,13 @@ export async function calculateAdminOrder(input) {
   if(input.review)return {status:'review',reason:input.review,day:input.day};
   try {
     if(input.saved)return {status:'recorded',...reviewed(input.saved)};
-    const {day,state,products,policy}=input;
+    const {day,state,policy}=input;
     let district=input.district;
     if (!district && day===businessDay()) {
       const a=input.destination;
       if (a?.state!==state || a.country!=='US' || !a.address_line_1 || !a.city || !/^\d{5}(?:-\d{4})?$/.test(a.postal_code))
         throw new TaxReview('The original street address needs verification.');
-      const lookup=streetRateResolvers[state] || (policy.collection==='no_obligation'?confirmDestination:null);
+      const lookup=streetRateResolvers[state] || (['no_obligation','exempt_merchandise'].includes(policy.collection)?confirmDestination:null);
       if(lookup){
         try{district=await lookup(a,day);}
         catch{return {status:'review',day,reason:'The street jurisdiction or rate could not be verified.',retryable:true};}
@@ -30,6 +31,7 @@ export async function calculateAdminOrder(input) {
     }
     if(!current(district,day))throw new TaxReview('A verified street jurisdiction and rates for the original order date are needed.');
     if(input.insurance!=null && cents(input.insurance)>0)throw new TaxReview('The separate insurance charge needs review.');
+    const products=await completeOrderMarketInputs(state,input.products,day,input.investment);
     const lines=input.lines.map(item=>{
       const rule=products?.[item.id];
       if(!current(rule,day) || !item.sku || !item.name || !item.metal || item.weight==null ||

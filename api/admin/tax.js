@@ -11,7 +11,8 @@ export default async function handler(req,res){
     if(req.method==='GET'){
       const day=dayNow(),from=date(req.query.from||day.slice(0,4)+'-01-01'),to=date(req.query.to||day);
       if(from>to)return json(res,400,{error:'Invalid period.'});
-      if(['orders','new_orders','order_calculation'].includes(req.query.view))res.setHeader('cache-control','private, no-store');
+      if(['orders','new_orders','order_calculation','rule_coverage'].includes(req.query.view))res.setHeader('cache-control','private, no-store');
+      if(req.query.view==='rule_coverage')return json(res,200,await rpc(db,'tax_admin_rule_coverage',{p_actor:user.id,p_day:day}));
       if(req.query.view==='orders'||req.query.view==='new_orders'){
         const state=req.query.state==='UNASSIGNED'?'UNASSIGNED':req.query.state?jurisdiction(req.query.state):null;
         const before=req.query.before==null?null:Number(req.query.before);

@@ -47,10 +47,58 @@ export function validateRateComponents(rates) {
      (local.some(r=>r.level==='combined_local') && local.length>1) ||
      rates.filter(r=>r.level==='state').length>1) review('The jurisdiction rates overlap.');
 }
+function faceInUsd(rule,day) {
+  const face=integer(rule.denomination_cents,1);
+  if(rule.denomination_currency==='USD')return face;
+  if(rule.denomination_currency!=='CAD' || rule.face_fx_observed_on!==day || !rule.face_fx_source?.startsWith('https://'))
+    review('A dated conversion for the coin denomination is required.');
+  return integer(rule.face_usd_cents,1);
+}
+function faceRatioInUsd(rule,day){
+  if(rule.denomination_currency==='USD')return [BigInt(integer(rule.denomination_cents,1)),1n];
+  faceInUsd(rule,day);
+  return [BigInt(integer(rule.denomination_cents,1))*10000n,BigInt(integer(rule.cad_per_usd_10000,1))];
+}
+function fairMarketAboveFace(rule,day) {
+  const observation=rule.coin_valuation;
+  if(observation?.day!==day || !observation.source?.startsWith('https://') ||
+      !['USD',rule.denomination_currency].includes(observation.currency))
+    review('A dated fair market value for this coin is required.');
+  const market=BigInt(integer(observation.unit_cents,1));
+  if(observation.currency===rule.denomination_currency)return market>BigInt(integer(rule.denomination_cents,1));
+  const [numerator,denominator]=faceRatioInUsd(rule,day);
+  return market*denominator>numerator;
+}
+// Only the foreign coins sold away from face value participate in the Florida
+// group for this catalog. US legal tender and exempt bars never count toward it.
+function floridaCoinEligibility(lines,net,day) {
+  const grouped=lines.map((line,i)=>{
+    const rule=line.classification;
+    if(rule?.value_test!=='fl_foreign_coin_group')return false;
+    if(!current(rule,day) || rule.form!=='coin' || rule.issuing_country!=='CA')review('The Florida coin classification needs review.');
+    // A discounted quantity split across two cent prices needs per-unit evidence.
+    if(net[i]%line.quantity)review('The individual foreign coin selling prices need verification.');
+    return net[i]/line.quantity!==faceInUsd(rule,day);
+  });
+  const total=net.reduce((sum,value,i)=>grouped[i]?integer(sum+value):sum,0);
+  return grouped.map(member=>!member || total>50000);
+}
 function eligibility(line, net, state, day, investment) {
   const p=line.classification;
   if (!current(p,day) || !['eligible','taxable'].includes(p.treatment)) review('A product tax classification needs review.');
   if (p.treatment==='taxable') return false;
+  if(p.value_test==='nv_coin_face_premium'){
+    const [face,denominator]=faceRatioInUsd(p,day);
+    const unitFloor=Math.floor(net/line.quantity),unitCeiling=Math.ceil(net/line.quantity);
+    if(BigInt(unitFloor)*denominator*2n<=face*3n && BigInt(unitCeiling)*denominator*2n>face*3n)
+      review('The individual Nevada coin sale prices need verification.');
+    return BigInt(net)*denominator*2n<=BigInt(line.quantity)*face*3n;
+  }
+  if(p.value_test==='la_online_numismatic'){
+    if(net%line.quantity && Math.floor(net/line.quantity)===100000)review('The individual Louisiana coin sale prices need verification.');
+    return BigInt(net)<=100000n*BigInt(line.quantity);
+  }
+  if (p.value_test==='fair_market_above_face')return fairMarketAboveFace(p,day);
   if(state==='NY') {
     if (!investment) return false;
     if (!['bar','ingot','coin'].includes(p.form) || !['gold','silver','platinum','palladium','rhodium','ruthenium','iridium'].includes(p.metal)) review('The New York product classification needs review.');
@@ -60,11 +108,23 @@ function eligibility(line, net, state, day, investment) {
         !['cash_close','bid_ask_average'].includes(p.market_basis)) review('The required bullion market value is awaiting verification.');
     let basis=integer(p.market_unit_cents,1), cap=115;
     if(p.form==='coin') {
-      basis=Math.max(basis,integer(p.face_usd_cents));
+      // The statute uses the greater of face and metal value. A missing CAD rate
+      // cannot change an exemption already established from the metal value alone.
+      if (p.face_currency!=='CAD' || p.face_usd_cents!=null) basis=Math.max(basis,integer(p.face_usd_cents));
       if(p.metal==='silver') cap=140;
       if(p.metal==='gold' && integer(p.gross_micro_oz,1)<=250000) cap=120;
     }
-    return BigInt(net)*100n <= BigInt(line.quantity)*BigInt(basis)*BigInt(cap);
+    const numerator=integer(p.fine_oz_numerator ?? 1,1), denominator=integer(p.fine_oz_denominator ?? 1,1);
+    if ((p.fine_oz_numerator==null)!==(p.fine_oz_denominator==null) || (p.form==='coin' && numerator!==denominator))
+      review('The fine metal weight needs review.');
+    const receipt=BigInt(net)*100n*BigInt(denominator);
+    const limitPerUnit=BigInt(line.quantity)*BigInt(basis)*BigInt(cap);
+    if(receipt<=limitPerUnit*BigInt(numerator))return true;
+    if(p.form==='coin' && p.face_currency==='CAD' && p.face_usd_cents==null)
+      review('The current exchange rate for the face value needs verification.');
+    if(p.fine_oz_max_numerator!=null && receipt<=limitPerUnit*BigInt(integer(p.fine_oz_max_numerator,numerator)))
+      review('The exact fine weight of the bar is required at this price.');
+    return false;
   }
   if(state==='NJ' && p.form==='coin') {
     if(p.market_day!==day || !p.market_source) review('The fair market value of the individual coin needs review.');
@@ -84,7 +144,10 @@ export function assess({day,state,policy,address,lines,subtotal,shipping,fee,inv
   if (!policy?.shipping_disabled) requireMinimum(integer(subtotal), floor);
   if(!policy || policy.shipping_disabled) review(policy?.shipping_disabled?'Orders to this jurisdiction are disabled.':'This jurisdiction needs tax review.');
   if(!current(policy,day) || policy.state!==state) review('Tax treatment for this address is awaiting verification.');
-  if(!['collect','no_obligation'].includes(policy.collection)) review('The collection obligation for this jurisdiction needs review.');
+  const merchandiseOnly=policy.collection==='exempt_merchandise';
+  if(merchandiseOnly && (!['WY','VA'].includes(state) || policy.collection_basis!=='reviewed_exempt_items'))
+    review('The merchandise exemption policy needs review.');
+  if(!['collect','no_obligation','exempt_merchandise'].includes(policy.collection)) review('The collection obligation for this jurisdiction needs review.');
   if(!current(address,day) || address.state!==state) review('Tax treatment for this address is awaiting verification.');
   if(state==='NY' && policy.collection!=='collect') review('New York registration and collection must be reviewed.');
   if(!lines.length) review('A cart is required.');
@@ -95,25 +158,26 @@ export function assess({day,state,policy,address,lines,subtotal,shipping,fee,inv
   const remoteOnly=['zero_prior_calendar_year','below_remote_threshold'].includes(policy.remote_basis);
   if (remoteOnly && policy.collection!=='no_obligation')
     review('An active registration requires reviewed collection and fee rules.');
+  const florida=state==='FL'?floridaCoinEligibility(lines,net,day):null;
   const qualified=lines.map((line,i)=>{
     if (remoteOnly && !current(line.classification,day)) return null;
-    return eligibility(line,net[i],state,day,investment);
+    return (!florida || florida[i]) && eligibility(line,net[i],state,day,investment);
   });
   const qualifiedSum=net.reduce((sum,n,i)=>sum+(qualified[i]?n:0),0);
   // Store minimum and statutory eligibility are separate. Exclusive thresholds
   // are represented by the first qualifying cent (NY $1,000.01).
   const minimum=integer(policy.first_eligible_cent);
   if (qualified.some(Boolean)) requireMinimum(qualifiedSum, Math.max(floor, policy.store_minimum ? minimum : 0));
-  let thresholdValue = qualifiedSum;
-  if (state === 'CA' && qualified.some(Boolean)) {
-    thresholdValue = lines.reduce((sum, line, index) => {
-      if (!qualified[index]) return sum;
-      const p = line.classification;
-      if (!p.market_source || p.market_day !== day) review('The bullion market value needs review.');
-      return integer(sum + integer(p.market_unit_cents, 1) * line.quantity);
-    }, 0);
+  let meetsExemption = qualifiedSum >= minimum;
+  if(state==='CA' && qualifiedSum>0){
+    if(minimum!==200000 || day<'2026-11-26' || day>'2026-12-31')review('The dated California bulk threshold needs verification.');
+    if(!meetsExemption && qualifiedSum+shipping+fee>=minimum)review('California sales-price treatment of the additional charges needs review.');
+    if(meetsExemption){
+      if(policy.ca_commodity_registration==='required_unregistered')meetsExemption=false;
+      else if(!['registered','registration_not_required'].includes(policy.ca_commodity_registration))
+        review('California bullion seller eligibility needs review.');
+    }
   }
-  let meetsExemption = thresholdValue >= minimum;
   if(state==='NY' && meetsExemption && qualifiedSum>0){
     if(policy.ny_dealer_status==='required_unregistered') meetsExemption=false;
     else if(!['registered','registration_not_required'].includes(policy.ny_dealer_status))
@@ -121,6 +185,8 @@ export function assess({day,state,policy,address,lines,subtotal,shipping,fee,inv
   }
   const unclassified=net.reduce((sum,n,i)=>sum+(qualified[i]===null?n:0),0);
   const taxable=net.reduce((sum,n,i)=>sum+(qualified[i]!==null && (!qualified[i] || !meetsExemption)?n:0),0);
+  if(merchandiseOnly && (taxable || unclassified || qualifiedSum!==subtotal || !meetsExemption || fee || shipping))
+    review('The tax treatment of this item or additional charge needs review.');
   const chargeBase=(amount,mode)=>{
     if(!amount || !taxable)return 0;
     if(mode==='full_if_taxable')return amount;
@@ -175,6 +241,9 @@ export function assess({day,state,policy,address,lines,subtotal,shipping,fee,inv
   if (destinationLevy) sellerTaxes.push(destinationLevy);
   const jurisdictions = (address.rates || []).map(({level,code,name,county,districts,reporting_code})=>({level,code,name,county,districts,reporting_code}));
   return {jurisdictions,remote_basis:policy.remote_basis,receipts_upper_bound_cents:policy.receipts_upper_bound_cents,
-    transactions_upper_bound:policy.transactions_upper_bound,geography:address.geography,rate_source:address.source,rate_verified_on:address.verified_on,rate_effective_from:address.valid_from,rate_valid_until:address.valid_until,policy_source:policy.source,seller_taxes:sellerTaxes,state,day,collection:policy.collection,status:collect?(base?'taxable':'exempt'):'not_collected',subtotal,shipping,fee,tax,total:integer(subtotal+shipping+fee+tax),taxable,exempt:subtotal-taxable-unclassified,unclassified,base,breakdown,policy_version:policy.version,address_version:address.version,registration:policy.registration,lines:lines.map((l,i)=>({id:l.id,net:net[i],exempt:qualified[i]&&meetsExemption,version:l.classification?.version ?? null,...(state==='NY' && qualified[i] ? {market_day:l.classification.market_observed_on,market_basis:l.classification.market_basis,market_source:l.classification.market_source,market_unit_cents:l.classification.market_unit_cents,market_calendar_source:l.classification.market_calendar_source,face_usd_cents:l.classification.face_usd_cents,face_fx_source:l.classification.face_fx_source} : {})}))};
+    transactions_upper_bound:policy.transactions_upper_bound,geography:address.geography,rate_source:address.source,rate_verified_on:address.verified_on,rate_effective_from:address.valid_from,rate_valid_until:address.valid_until,policy_source:policy.source,seller_taxes:sellerTaxes,state,day,collection:policy.collection,status:merchandiseOnly?'exempt':collect?(base?'taxable':'exempt'):'not_collected',subtotal,shipping,fee,tax,total:integer(subtotal+shipping+fee+tax),taxable,exempt:subtotal-taxable-unclassified,unclassified,base,breakdown,policy_version:policy.version,address_version:address.version,registration:policy.registration,lines:lines.map((l,i)=>({id:l.id,net:net[i],exempt:qualified[i]&&meetsExemption,version:l.classification?.version ?? null,
+      ...(l.classification?.value_test?{value_test:l.classification.value_test,coin_valuation:l.classification.coin_valuation,
+        denomination_cents:l.classification.denomination_cents,denomination_currency:l.classification.denomination_currency,
+        face_usd_cents:l.classification.face_usd_cents,cad_per_usd_10000:l.classification.cad_per_usd_10000,face_fx_source:l.classification.face_fx_source,face_fx_observed_on:l.classification.face_fx_observed_on}:{}),...(state==='NY' && qualified[i] ? {market_day:l.classification.market_observed_on,market_basis:l.classification.market_basis,market_source:l.classification.market_source,market_unit_cents:l.classification.market_unit_cents,market_calendar_source:l.classification.market_calendar_source,fine_oz_numerator:l.classification.fine_oz_numerator,fine_oz_max_numerator:l.classification.fine_oz_max_numerator,fine_oz_denominator:l.classification.fine_oz_denominator,face_usd_cents:l.classification.face_usd_cents,face_fx_source:l.classification.face_fx_source} : {})}))};
 }
 export const usd=c=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(c/100);

@@ -94,9 +94,24 @@ function NewOrderReports({from,to,request}){
     {page.next&&<button className="text-button" onClick={()=>setBefore(page.next)}>Older orders</button>}</>}
   </section>;
 }
+function RuleCoverage({request}){
+  const [data,setData]=useState(null),[error,setError]=useState('');
+  useEffect(()=>{
+    let live=true;
+    request('?view=rule_coverage').then(value=>{if(live)setData(value);}).catch(e=>{if(live)setError(e.message);});
+    return ()=>{live=false;};
+  },[request]);
+  if(error)return <p role="alert">{error}</p>;
+  if(!data)return <p>Loading rule coverage…</p>;
+  return <details><summary>Rule coverage as of {data.day} · {data.product_reviews} of {data.product_total} product reviews</summary>
+    <p>{data.policies} of {data.destinations} destination policies reviewed. Each order also needs a verified address and collection decision.</p>
+    {data.remaining.length>0&&<div className="tax-table"><table><thead><tr><th>Destination</th><th>Collection policy</th><th>Products awaiting review</th></tr></thead>
+      <tbody>{data.remaining.map(r=><tr key={r.state_code}><th>{name(r.state_code)}</th><td>{r.policy?'Reviewed':'Pending'}</td><td>{r.pending.join(', ')||'—'}</td></tr>)}</tbody></table></div>}
+  </details>;
+}
 export default function OrderTaxReport({from,to,request}){
   const [period,showPeriod]=useState(false);
-  return <><NewOrderReports key={from+to} from={from} to={to} request={request}/>
+  return <><RuleCoverage request={request}/><NewOrderReports key={from+to} from={from} to={to} request={request}/>
     <details onToggle={e=>showPeriod(e.currentTarget.open)}><summary>Paid-order history and CSV</summary>
     {period&&<PaymentPeriodReport from={from} to={to} request={request}/>}</details></>;
 }

@@ -229,6 +229,7 @@ test('dated product pack applies over the live eight-listing baseline and preser
  await db.exec("update products set is_active=true, name='1 oz Canadian Silver Maple Leaf Coin BU (Random Year)' where id=909; update products set is_active=true where id=905");
  await db.exec(await migration('20261127060806_alaska_specie_order_evidence.sql'));
  await db.exec(await migration('20261127062115_colorado_city_bullion_rules.sql'));
+ await db.exec(await migration('20261127063152_gallatin_resort_address_rules.sql'));
  const policyCount=await db.query("select count(*)::int n from private.tax_states s where private.tax_report_version(s.state,'policy','state',$1)->>'approval'='approved'",[day]);
  assert.equal(policyCount.rows[0].n,45);
  const actor='00000000-0000-4000-8000-000000000009';await db.query('insert into admin_users(user_id) values($1)',[actor]);
@@ -334,6 +335,45 @@ test('dated product pack applies over the live eight-listing baseline and preser
    const stored=(await db.query('select public.tax_admin_new_orders($1,$2,$2,null) v',[actor,next])).rows[0].v.orders.find(r=>r.id===40);
    assert.deepEqual(stored.result,result);
  }
+ const {montanaStructureEvidence}=await import('../server/tax/montanaStructures.js');
+ const mtExamples=JSON.parse(await readFile(new URL('./fixtures/tax/montana-gallatin-streets.json',import.meta.url),'utf8'));
+ const mtExpected=['structure_outside_resort_areas','town_resort_district','rural_resort_district',undefined,undefined];
+ for(const [i,civic] of mtExamples.entries()){
+   await db.query('update orders set shipping_address=$1 where id=40',[civic.address]);
+   await db.exec('select private.queue_new_order_reports()');
+   const lease=(await db.query('select lease from public.claim_new_order_tax_reports() where order_id=40')).rows[0].lease;
+   const inputs=(await db.query('select public.new_order_tax_inputs(40,$1) v',[lease])).rows[0].v;
+   const verify=(a,d)=>confirmDestination(a,d,async()=>({ok:true,json:async()=>({result:{addressMatches:[civic.census]}})}));
+   const check=async (input,edit=()=>{})=>calculateAdminOrder(input,{today:next,localEvidence:(a,d,options)=>
+     resolveRegionalEvidence(a,d,{...options,verify,structure:(address,day,geo,_,rule)=>
+       montanaStructureEvidence(address,day,geo,async()=>{
+         const data=structuredClone(civic.structures);edit(data);return {ok:true,json:async()=>data};
+       },rule)})});
+   const result=await check(inputs);
+   assert.equal(result.status,'review');assert.equal(result.tax,undefined);
+   assert.equal(result.local_evidence?.scope,mtExpected[i],civic.address.address_line_1);
+   if(i===1){assert.deepEqual(result.local_evidence.resort_components.map(c=>c.ppm),[30000,10000]);assert.equal(result.local_evidence.point_ids.length,2);}
+   if(i===2)assert.deepEqual(result.local_evidence.resort_components.map(c=>c.ppm),[30000]);
+   assert.equal((await check({...inputs,mt_gallatin_rule:{...inputs.mt_gallatin_rule,approval:'requires_review'}})).local_evidence,undefined);
+   if(i===1){
+     const shapes=JSON.parse(await readFile(new URL('../server/tax/montanaGallatinBoundaries.json',import.meta.url),'utf8'));
+     for(const bad of [{x:-111.033032,y:45.681247},{x:-110.4,y:48.5}]){
+       assert.equal((await check(inputs,data=>{data.features.forEach(f=>{f.geometry=bad;});})).local_evidence,undefined);
+     }
+     const [x,y]=shapes.town[0];assert.equal((await check(inputs,data=>{data.features.forEach(f=>{f.geometry={x,y};});})).local_evidence,undefined);
+   }
+   assert.equal((await db.query('select public.finish_new_order_tax_report(40,$1,$2,false) v',[lease,result])).rows[0].v,true);
+   const stored=(await db.query('select public.tax_admin_new_orders($1,$2,$2,null) v',[actor,next])).rows[0].v.orders.find(r=>r.id===40);
+   assert.deepEqual(stored.result,JSON.parse(JSON.stringify(result)));
+ }
+ assert.equal((await db.query("select private.tax_version('MT','policy','gallatin_resort_geography',$1) v",[next])).rows[0].v,null);
+ const mtShapes=JSON.parse(await readFile(new URL('../server/tax/montanaGallatinBoundaries.json',import.meta.url),'utf8'));
+ const mtLaw=async()=>(await db.query("select private.tax_report_version('MT','policy','gallatin_resort_geography',$1) v",[next])).rows[0].v;
+ assert.ok(mtShapes.feature_queries.every(u=>(typeof u==='string') && u.startsWith('https://')));
+ assert.deepEqual((await mtLaw()).authority_sources.slice(-3),mtShapes.feature_queries);
+ await db.query("insert into private.tax_sources(url,state,changed_at) values($1,'MT',now()+interval '1 hour')",[mtShapes.feature_queries[1]]);
+ assert.equal((await mtLaw()).approval,'requires_review');
+ await db.query("delete from private.tax_sources where url=$1",[mtShapes.feature_queries[1]]);
  const ruleByDay=async d=>(await db.query('select private.tax_co_municipal_rules($1) v',[d])).rows[0].v;
  for(const offDay of ['2026-11-26','2027-01-01'])assert.deepEqual(await ruleByDay(offDay),{});
  const arvada=(await ruleByDay(next))['0803455'];

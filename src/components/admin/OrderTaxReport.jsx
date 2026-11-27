@@ -22,6 +22,8 @@ function ReviewReason({result}){
     municipal_bullion_tax:'The city taxes retail bullion purchases, including investment and bulk purchases. Its rules distinguish bullion from currency exchanged at its ordinary exchange value.',
     municipal_bullion_exemption:'The city exempts qualifying coins and precious metal bullion from municipal sales and use tax.',
     aurora_bullion_rule:'Aurora exempts qualifying coins and precious metal bullion from its municipal sales and use tax.',
+    town_resort_district:'The verified building is inside the town’s resort tax district.',
+    rural_resort_district:'The verified building is inside the Hebgen Basin Rural Resort Area District.',
     structure_outside_resort_areas:'The verified building lies outside the published resort area and district boundaries.',
     no_general_retail_tax:'The municipality has no general retail sales tax on bullion.',
     member_general_rates:'Published general retail rates for the verified location'};
@@ -29,6 +31,7 @@ function ReviewReason({result}){
     <AlaskaSaleEvidence facts={specie}/>
     {state&&<p>{scopes[state.scope]} <a href={state.source} target="_blank" rel="noreferrer">State authority</a></p>}
     {e&&<><p>{[e.geography.municipality?.name,e.geography.county.name].filter(Boolean).join(' · ')} · {notes[e.scope]}</p>
+    {e.resort_components&&<p>{e.district_name} · {e.resort_components.map(c=>c.name+' '+c.ppm/10000+'%').join(' · ')}. The order’s bullion taxability and seller collection obligation require separate verification.</p>}
     {e.municipal_ppm!=null&&<p>City rate {e.municipal_ppm/10000}%. {e.shipping==='included'&&'The city includes shipping in the taxable price. '}<a href={e.rate_source} target="_blank" rel="noreferrer">City rate source</a></p>}
     {result.member_threshold&&<p>The verified delivery is in a commission member jurisdiction. Website receipts, including this order, are below its remote-seller threshold. <a href={result.member_threshold.source} target="_blank" rel="noreferrer">Commission rule</a></p>}
     {e.rates?.map(r=><p key={r.code}>{r.name} · {r.ppm/10000}% · Filing code {r.code}

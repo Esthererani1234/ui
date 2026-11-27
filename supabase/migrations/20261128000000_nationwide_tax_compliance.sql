@@ -229,7 +229,7 @@ declare f private.tax_filings; begin
  perform 1 from private.tax_states where state=p_state for update;
  if not found then raise exception 'Invalid state';end if;
  if p_action='settings' then
- if p_data->>'registration' not in ('Registered','Registration Pending','Registration Required','No Current Obligation','Requires Legal Review') or p_data->>'registration' is null then raise exception 'Invalid registration';end if;
+ if p_data->>'registration' not in ('Registered','Registration Pending','Registration Required','Not Registered','No Current Obligation','Requires Legal Review') or p_data->>'registration' is null then raise exception 'Invalid registration';end if;
  if (p_data->>'registration'='No Current Obligation' and (select physical from private.tax_states where state=p_state)) then raise exception 'Physical nexus requires review';end if;
  update private.tax_states set active_confirmed_on=case
  when p_data->>'registration'<>'Registered' then null

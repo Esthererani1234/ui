@@ -140,6 +140,13 @@ test('preview migration, permissions, exact address, order and filing accounting
  }
  const waReport=await val("select public.tax_period_components('WA',$1,$1)",[date]);
  assert.equal(waReport.reduce((sum,row)=>sum+row.cents,0),9825000);
+ const openQuote=await val("insert into checkout_quotes values(gen_random_uuid(),$1,'active',now()+interval '10 minutes',now(),500000,0,0,'[]','{}') returning id",[actor]);
+ await db.query("select public.tax_admin_change($1,'WA','settings',$2)",[actor,{registration:'Not Registered',disabled:false}]);
+ const waPolicy=await val("select public.tax_quote_inputs($1,$2,$3)->'policy'",[actor,openQuote,{...address,state:'WA'}]);
+ assert.equal(waPolicy.registration,'Not Registered');
+ assert.equal(waPolicy.shipping_disabled,false);
+ assert.equal(waPolicy.collection,'review');
+ assert.equal(await val("select count(*)::int from private.tax_states where not disabled"),51);
  }finally{await db.close();}
 });
 

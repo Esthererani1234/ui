@@ -230,6 +230,7 @@ test('dated product pack applies over the live eight-listing baseline and preser
  await db.exec(await migration('20261127060806_alaska_specie_order_evidence.sql'));
  await db.exec(await migration('20261127062115_colorado_city_bullion_rules.sql'));
  await db.exec(await migration('20261127063152_gallatin_resort_address_rules.sql'));
+ await db.exec(await migration('20261127064933_store_bullion_reporting_treatment.sql'));
  const policyCount=await db.query("select count(*)::int n from private.tax_states s where private.tax_report_version(s.state,'policy','state',$1)->>'approval'='approved'",[day]);
  assert.equal(policyCount.rows[0].n,45);
  const actor='00000000-0000-4000-8000-000000000009';await db.query('insert into admin_users(user_id) values($1)',[actor]);
@@ -280,6 +281,28 @@ test('dated product pack applies over the live eight-listing baseline and preser
  insert into order_items(order_id,product_id,sku,product_name,metal,metal_weight_oz,quantity,unit_price,line_total,pricing_snapshot)
  values(40,902,'AGE-1OZ-BU-RY','1 oz American Gold Eagle BU (Random Year)','gold',1,1,60000,60000,'{"spot":60000,"premium_percent":0,"premium_fixed":0,"price_mode":"dynamic"}')`);
  await db.exec("insert into order_items(order_id,product_id,sku,product_name,metal,metal_weight_oz) values(40,910,'NEW-SILVER','New silver bar','silver',10)");
+ // The owner’s reporting preference starts at the release instant. Verified tax
+ // and previously placed orders retain their own independent results.
+ await db.exec("update private.tax_store_bullion_exemptions set effective_at='2026-11-27T09:00:00Z'");
+ const storeReport=async()=>(await db.query('select public.tax_admin_new_orders($1,$2,$2,null) v',[actor,next])).rows[0].v;
+ const ownerMark=async address=>{
+   await db.query('update orders set shipping_address=$1 where id=40',[address]);
+   return (await storeReport()).orders.find(o=>o.id===40).store_treatment;
+ };
+ for(const address of [{state:'AK',country:'US'},{address:{state:'Colorado',country:'US'},fulfillment:'delivery'}]){
+   assert.equal((await ownerMark(address)).amount_cents,0);
+   assert.equal((await storeReport()).orders.find(o=>o.id===40).result,null);
+ }
+ for(const address of [{state:'MT',country:'US'},{state:'CO',country:'CA'},{state:'AK',country:'US',fulfillment:'pickup'},
+   {state:'AK',address:{state:'CO',country:'US'}}])assert.equal(await ownerMark(address),null);
+ const alaskaDelivery={state:'AK',country:'US'};
+ await db.exec("update orders set created_at='2026-11-27T08:59:59.999999Z' where id=40");assert.equal(await ownerMark(alaskaDelivery),null);
+ await db.exec("update orders set created_at='2026-11-27T09:00:00Z' where id=40;update order_items set metal='platinum' where product_id=910");
+ assert.equal(await ownerMark(alaskaDelivery),null);
+ await db.exec("update order_items set metal='silver' where product_id=910");
+ assert.equal((await ownerMark(alaskaDelivery)).treatment,'exempt');
+ assert.deepEqual(await today(),todayCoverage);
+ await db.exec(`update orders set shipping_address='{"state":"ID"}' where id=40`);
  const family=async(state,ordinary=true)=>(await db.query("select private.tax_report_item_rule($1,i,$2,$3) r from order_items i where i.product_id=910",[state,next,ordinary])).rows[0].r;
  assert.equal((await family('WA')).treatment,'taxable');assert.equal((await family('WA')).catalog_weight,10);
  for(const state of ['HI','ME','NM','DC','WA']){

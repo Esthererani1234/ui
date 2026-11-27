@@ -22,6 +22,15 @@ test('wire HTML and plain text contain complete instructions, exact total/refere
   assert.match(mail.html,/&lt;kept verbatim&gt; &amp; complete/);
   assert.match(mail.subject,/Wire payment instructions/);
 });
+test('zero and legacy wire tax stay off both customer email formats',()=>{
+  for (const amount of [null, 0, '0.00']) {
+    const value=sample();
+    value.order.tax_amount=amount;
+    const {html,text}=render(value);
+    assert.ok(!html.includes('Sales tax'));
+    assert.ok(!text.includes('Sales tax'));
+  }
+});
 test('deadline uses New York daylight/standard time, including date rollover',()=>{
   const value=sample();value.order.payment_due_at='2099-01-16T02:30:00Z';
   const mail=render(value);

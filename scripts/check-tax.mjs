@@ -5,6 +5,8 @@ import {PGlite} from '@electric-sql/pglite';
 import {assess,allocate,cents} from '../server/tax/engine.js';
 import {washingtonResult,washingtonStreetCode} from '../server/tax/washington.js';
 import {orderTotalCents} from '../server/tax/orderAmounts.js';
+import {renderOrderEmail} from '../supabase/functions/_shared/orderEmail.js';
+import {WIRE_AGREEMENT_VERSION} from '../supabase/functions/_shared/wireAgreement.js';
 import {normalizeAddress} from '../server/tax/quote.js';
 import states from '../shared/taxSources.json' with {type:'json'};
 const day='2026-11-26';
@@ -113,6 +115,30 @@ test('preview migration, permissions, exact address, order and filing accounting
  assert.equal((await db.query("select count(*)::int as count from pg_trigger where tgrelid='public.orders'::regclass and not tgisinternal")).rows[0].count,0);
  assert.ok((await db.query("select to_regprocedure('public.tax_quote_inputs(uuid,uuid,jsonb)') is not null as installed")).rows[0].installed);
  await db.exec(await readFile(new URL('../supabase/migrations/20261128000100_activate_tax_checkout.sql',import.meta.url),'utf8'));
+ // Install the public checkout entry point, its wire agreement and email queues.
+ const migration = name => readFile(new URL('../supabase/migrations/'+name,import.meta.url),'utf8');
+ await db.exec(`alter table orders add column status text default 'awaiting_payment', add column terms_version text,
+   add column terms_accepted_at timestamptz, add column terms_user_agent text, add column terms_ip_hash text,
+   add column payment_provider text, add column payment_reference text, add column payment_due_at timestamptz,
+   add column insurance_amount numeric default 0, add column tracking_number text;
+   alter table auth.users add column email text default 'fixture@example.invalid', add column email_confirmed_at timestamptz default now();
+   create table app_settings(key text primary key,value jsonb);
+   insert into app_settings values('order_emails_enabled','true');
+   create table order_email_outbox(order_id bigint,event_key text,event_type text constraint order_email_outbox_event_type_check check(event_type in ('placed')),
+     recipient text,order_snapshot jsonb,status text default 'pending',attempts integer default 0,last_error text,available_at timestamptz,unique(order_id,event_key));
+   create table order_delivery_info(order_id bigint,details jsonb);
+   create function public.get_wire_instructions_secret() returns jsonb language sql as $$select '{"bank_name":"Test Bank","beneficiary_name":"Test","routing_number":"000000000","account_number":"00000000"}'::jsonb$$;`);
+ await db.exec(await migration('20261022214403_wire_agreement_and_reliable_instructions.sql'));
+ await db.exec(await migration('20261023030443_versioned_purchase_terms.sql'));
+ await db.exec(`alter table order_items add column id bigint generated always as identity;
+   create table order_unit_tags(order_id bigint,line_id bigint,unit int,serial text,details jsonb);`);
+ const documents = await migration('20261116173317_order_documents_delivery.sql');
+ await db.exec(documents.match(/create function public\.order_document_state[\s\S]+?\$\$;/)[0]);
+ const ach = await migration('20261107233400_ach_checkout.sql');
+ await db.exec(ach.match(/CREATE OR REPLACE FUNCTION public\.place_checkout_order[\s\S]+?\$function\$\s*;/)[0]);
+ await db.exec(await migration('20261116180336_order_email_milestones.sql'));
+ await db.exec('create trigger order_email_queue after insert or update of status,payment_status,tracking_number on orders for each row execute function private.queue_order_email()');
+ await db.exec(await migration('20261128000200_checkout_tax_receipts.sql'));
  const val=async(sql,args=[])=>Object.values((await db.query(sql,args)).rows[0])[0];
  assert.equal(await val('select count(*)::int from private.tax_states'),51);
  assert.equal(await val("select has_function_privilege('authenticated','public.tax_admin_overview(date,date)','execute')"),false);
@@ -170,13 +196,51 @@ test('preview migration, permissions, exact address, order and filing accounting
    const result=assess(purchase);
    const quoteId=await val("insert into checkout_quotes values(gen_random_uuid(),$1,'active',now()+interval '10 minutes',now(),500000,0,0,'[]','{}') returning id",[actor]);
    const assessmentId=await val("select public.store_tax_assessment($1,$2,$3,'wire','delivery',$4,(select revision from private.tax_revision))",[actor,quoteId,ship,{...result,day:date}]);
-   const placed=await val("select public.create_order_from_quote($1,$2,$3,$4,'wire',null)",[actor,quoteId,contact,{...ship,tax_assessment_id:assessmentId}]);
+   const placeWire=()=>val('select public.place_checkout_order($1,$2,$3,$4,$5,null,$6,$7,null,null)',
+     [actor,quoteId,contact,{...ship,tax_assessment_id:assessmentId},'wire',{accepted:true,version:'2026-10-22-v2'},{accepted:true,version:WIRE_AGREEMENT_VERSION}]);
+   const placed=await placeWire();
+   const replayed=await placeWire();
+   assert.equal(replayed.order_id,placed.order_id);
+   for (const receipt of [placed,replayed]) {
+     assert.equal(cents(receipt.tax_amount),expectedTax);
+     assert.equal(cents(receipt.total),50000000+expectedTax);
+   }
+   const agreed=await val('select wire_agreed_total from orders where id=$1',[placed.order_id]);
+   assert.equal(cents(agreed),cents(placed.total));
    const stored=(await db.query("update orders set payment_status='paid' where id=$1 returning *",[placed.order_id])).rows[0];
+   const emails=(await db.query('select event_type,order_snapshot from order_email_outbox where order_id=$1',[placed.order_id])).rows;
+   assert.deepEqual(emails.map(e=>e.event_type).sort(),['paid','placed','wire_instructions']);
+   const wire=await val('select public.get_wire_instructions_secret()');
+   for (const email of emails) {
+     assert.equal(cents(email.order_snapshot.tax_amount),expectedTax);
+     assert.equal(cents(email.order_snapshot.total),cents(placed.total));
+     const message=renderOrderEmail({event:email.event_type,order:email.order_snapshot,wire});
+     const amount=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(expectedTax/100);
+     assert.ok(message.text.includes('Sales tax: '+amount));
+     assert.ok(message.html.includes(amount));
+   }
+   const invoice=await val('select public.order_document_state($1)',[placed.order_id]);
+   assert.equal(cents(invoice.order.tax_amount),expectedTax);
+   assert.equal(cents(invoice.order.total),orderTotalCents(stored));
    assert.equal(cents(stored.tax_amount),expectedTax);
    assert.equal(orderTotalCents(stored),50000000+expectedTax);
    assert.equal(cents(placed.total),orderTotalCents(stored));
    assert.equal(await val("select tax::int from private.tax_ledger where order_id=$1",[placed.order_id]),expectedTax);
    assert.throws(()=>orderTotalCents({...stored,tax_amount:'0.01'}),/reconciliation/);
+ }
+ // The card amount includes its fee. Retry must return the persisted assessment.
+ const cardQuote=await val("insert into checkout_quotes values(gen_random_uuid(),$1,'active',now()+interval '10 minutes',now(),100,0,4,'[]','{}') returning id",[actor]);
+ const cardAssessment=await val("select public.store_tax_assessment($1,$2,$3,'card','pickup',$4,(select revision from private.tax_revision))",
+   [actor,cardQuote,address,{day:date,state:'NY',collection:'collect',subtotal:10000,taxable:10400,exempt:0,tax:923,total:11323,breakdown:[{level:'state',code:'NY',ppm:40000,cents:416},{level:'city',code:'NYC',ppm:45000,cents:468},{level:'district',code:'MCTD',ppm:3750,cents:39}]}]);
+ const placeCard=()=>val("select public.place_checkout_order($1,$2,$3,$4,'card',null,$5,null,null,null)",
+   [actor,cardQuote,contact,{...address,fulfillment:'pickup',tax_assessment_id:cardAssessment},{accepted:true,version:'2026-10-22-v2'}]);
+ const card=await placeCard(), repeatedCard=await placeCard();
+ assert.equal(repeatedCard.order_id,card.order_id);
+ const cardOrder=await val('select to_jsonb(o) from orders o where id=$1',[card.order_id]);
+ assert.equal(orderTotalCents(cardOrder),11323);
+ for(const receipt of [card,repeatedCard]) {
+   assert.equal(cents(receipt.tax_amount),923);
+   assert.equal(cents(receipt.total),orderTotalCents(cardOrder));
  }
  const waReport=await val("select public.tax_period_components('WA',$1,$1)",[date]);
  assert.equal(waReport.reduce((sum,row)=>sum+row.cents,0),9825000);

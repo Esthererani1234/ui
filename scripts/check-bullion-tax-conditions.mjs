@@ -279,6 +279,14 @@ test('dated product pack applies over the live eight-listing baseline and preser
  await db.exec("insert into order_items(order_id,product_id,sku,product_name,metal,metal_weight_oz) values(40,910,'NEW-SILVER','New silver bar','silver',10)");
  const family=async(state,ordinary=true)=>(await db.query("select private.tax_report_item_rule($1,i,$2,$3) r from order_items i where i.product_id=910",[state,next,ordinary])).rows[0].r;
  assert.equal((await family('WA')).treatment,'taxable');assert.equal((await family('WA')).catalog_weight,10);
+ for(const state of ['HI','ME','NM','DC','WA']){
+   assert.equal((await family(state)).treatment,'taxable',state);
+   assert.equal(await family(state,false),null,state);
+ }
+ assert.equal(await family('VT'),null);
+ await db.exec(`update orders set shipping_address=shipping_address||'{"investment_purchase":true}'::jsonb where id=40`);
+ assert.equal((await family('VT')).treatment,'taxable');assert.equal(await family('VT',false),null);
+ await db.exec(`update orders set shipping_address=shipping_address-'investment_purchase' where id=40`);
  for(const state of ['NH','OR','DE'])assert.equal((await family(state)).treatment,'eligible');
  assert.equal(await family('AZ'),null);assert.equal(await family('WA',false),null);
  await db.exec("update order_items set metal='platinum' where product_id=910");assert.equal(await family('WA'),null);

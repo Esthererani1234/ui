@@ -634,6 +634,11 @@ select true,r.state,'product','retail_gold_silver',jsonb_build_object('origin','
  'scope','retail_gold_silver','treatment',r.treatment),r.source,date '2026-11-27',date '2026-12-31',date '2026-11-27','approved'
 from (values
  ('WA','taxable','https://dor.wa.gov/education/industry-guides/jewelry-stores/currency-coins-and-precious-metal-bullion'),
+ ('HI','taxable','https://tax.hawaii.gov/get/'),
+ ('ME','taxable','https://legislature.maine.gov/statutes/36/title36sec1811.html'),
+ ('NM','taxable','https://www.tax.newmexico.gov/businesses/gross-receipts-overview/'),
+ ('VT','taxable','https://tax.vermont.gov/sites/tax/files/documents/SU%20Regs%20Effective%201%201%2019.pdf'),
+ ('DC','taxable','https://code.dccouncil.gov/us/dc/council/code/sections/47-2002'),
  ('DE','eligible','https://revenue.delaware.gov/business-tax-forms/doing-business-in-delaware/step-4-gross-receipts-taxes/'),
  ('NH','eligible','https://www.revenue.nh.gov/faq/does-new-hampshire-have-sales-tax'),
  ('OR','eligible','https://www.oregon.gov/dor/programs/businesses/Pages/Sales-Tax.aspx')
@@ -649,6 +654,11 @@ begin
     or nullif(trim(i.sku),'') is null or nullif(trim(i.product_name),'') is null then return specific;end if;
  shared_rule:=private.tax_report_version(s,'product','retail_gold_silver',d);
  if shared_rule->>'scope' is distinct from 'retail_gold_silver' then return null;end if;
+ -- Vermont distinguishes purchases as a medium of exchange from investments.
+ -- For an otherwise unclassified listing use only the original order's
+ -- affirmative investment declaration. An existing specific rule takes priority.
+ if s='VT' and not exists(select from public.orders o where o.id=i.order_id
+     and o.shipping_address->'investment_purchase'='true'::jsonb) then return null;end if;
  return shared_rule||jsonb_build_object('catalog_sku',i.sku,'catalog_name',i.product_name,'metal',i.metal::text,'catalog_weight',i.metal_weight_oz);
 end $$;
 revoke all on function private.tax_report_item_rule(text,public.order_items,date,boolean) from public,anon,authenticated;

@@ -53,12 +53,12 @@ export function regionalEvidence(state,day,location,municipalRules={}) {
     verified_on:alaska.reviewed_on,valid_until:alaska.through,source_sha256:alaska.sha256,rates};
 }
 
-export async function resolveRegionalEvidence(address,day,{verify=confirmDestination,structure=montanaStructureEvidence,municipalRules}={}){
+export async function resolveRegionalEvidence(address,day,{verify=confirmDestination,structure=montanaStructureEvidence,municipalRules,gallatinRule}={}){
   if(!address || !['AK','CO','MT'].includes(address.state))return null;
   const match=await verify(address,day);
   const evidence=regionalEvidence(address.state,day,match.geography,municipalRules);
   if(evidence || address.state!=='MT')return evidence;
-  return structure(address,day,match.geography);
+  return structure(address,day,match.geography,undefined,gallatinRule);
 }
 
 export async function alaskaReportAddress(address,day){

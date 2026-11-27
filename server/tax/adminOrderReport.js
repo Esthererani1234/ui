@@ -21,7 +21,7 @@ export async function calculateAdminOrder(input,{localEvidence=resolveRegionalEv
     if(input.state_scope)result.state_scope=input.state_scope;
     if(input.ak_specie)result.ak_specie=input.ak_specie;
     if(input.regional_destination && input.day===today){
-      const evidence=await localEvidence(input.regional_destination,input.day,{municipalRules:input.co_city_rules}).catch(()=>null);
+      const evidence=await localEvidence(input.regional_destination,input.day,{municipalRules:input.co_city_rules,gallatinRule:input.mt_gallatin_rule}).catch(()=>null);
       if(evidence && !(evidence.state==='AK' && evidence.scope==='no_general_retail_tax' && Object.hasOwn(input,'anchorage_policy') &&
         !current(input.anchorage_policy,input.day))){
         result.local_evidence=evidence;

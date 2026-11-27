@@ -1,0 +1,456 @@
+[
+  {
+    "address": {
+      "address_line_1": "121 N Rouse Avenue",
+      "city": "Bozeman",
+      "state": "MT",
+      "postal_code": "59715",
+      "country": "US"
+    },
+    "authority": "https://weblink.bozeman.net/weblink/0/doc/52289/Electronic.aspx",
+    "retrieved": "2026-11-27",
+    "census": {
+      "matchedAddress": "121 N ROUSE AVE, BOZEMAN, MT, 59715",
+      "addressComponents": {
+        "city": "BOZEMAN",
+        "state": "MT",
+        "zip": "59715"
+      },
+      "geographies": {
+        "States": [
+          {
+            "GEOID": "30",
+            "NAME": "Montana",
+            "STUSAB": "MT"
+          }
+        ],
+        "Counties": [
+          {
+            "GEOID": "30031",
+            "NAME": "Gallatin County"
+          }
+        ],
+        "Incorporated Places": [
+          {
+            "GEOID": "3008950",
+            "NAME": "Bozeman city"
+          }
+        ],
+        "County Subdivisions": [
+          {
+            "GEOID": "3003190420",
+            "NAME": "Bozeman CCD"
+          }
+        ]
+      }
+    },
+    "structures": {
+      "geometryType": "esriGeometryPoint",
+      "spatialReference": {
+        "wkid": 4326,
+        "latestWkid": 4326
+      },
+      "features": [
+        {
+          "attributes": {
+            "NGUID": "99031000.{75340}",
+            "DateUpdate": 1708387200000,
+            "Effective": null,
+            "Expire": null,
+            "State": "MT",
+            "County": "Gallatin County",
+            "Add_Number": 121,
+            "AddNum_Pre": null,
+            "AddNum_Suf": null,
+            "St_PreMod": null,
+            "St_PreDir": "North",
+            "St_PreTyp": null,
+            "St_Name": "Rouse",
+            "St_PosTyp": "Avenue",
+            "St_PosDir": null,
+            "St_PosMod": null,
+            "Post_Comm": "Bozeman",
+            "Post_Code": "59715",
+            "Placement": "Structure"
+          },
+          "geometry": {
+            "x": -111.03303199985018,
+            "y": 45.681246781982985
+          }
+        }
+      ]
+    }
+  },
+  {
+    "address": {
+      "address_line_1": "209 Grizzly Avenue",
+      "city": "West Yellowstone",
+      "state": "MT",
+      "postal_code": "59758",
+      "country": "US"
+    },
+    "authority": "https://tools.usps.com/locations/home.htm?location=1387238",
+    "retrieved": "2026-11-27",
+    "census": {
+      "matchedAddress": "209 GRIZZLY AVE, WEST YELLOWSTONE, MT, 59758",
+      "addressComponents": {
+        "city": "WEST YELLOWSTONE",
+        "state": "MT",
+        "zip": "59758"
+      },
+      "geographies": {
+        "States": [
+          {
+            "GEOID": "30",
+            "NAME": "Montana",
+            "STUSAB": "MT"
+          }
+        ],
+        "Counties": [
+          {
+            "GEOID": "30031",
+            "NAME": "Gallatin County"
+          }
+        ],
+        "Incorporated Places": [
+          {
+            "GEOID": "3079525",
+            "NAME": "West Yellowstone town"
+          }
+        ],
+        "County Subdivisions": [
+          {
+            "GEOID": "3003193780",
+            "NAME": "West Yellowstone CCD"
+          }
+        ]
+      }
+    },
+    "structures": {
+      "geometryType": "esriGeometryPoint",
+      "spatialReference": {
+        "wkid": 4326,
+        "latestWkid": 4326
+      },
+      "features": [
+        {
+          "attributes": {
+            "NGUID": "99031000.{8ACF3419-0A2D-4952-A020-6F8783B9EABE}",
+            "DateUpdate": 1173830400000,
+            "Effective": 1751241600000,
+            "Expire": null,
+            "State": "MT",
+            "County": "Gallatin County",
+            "Add_Number": 209,
+            "AddNum_Pre": null,
+            "AddNum_Suf": null,
+            "St_PreMod": null,
+            "St_PreDir": null,
+            "St_PreTyp": null,
+            "St_Name": "Grizzly",
+            "St_PosTyp": "Avenue",
+            "St_PosDir": null,
+            "St_PosMod": null,
+            "Post_Comm": "West Yellowstone",
+            "Post_Code": "59758",
+            "Placement": "Structure"
+          },
+          "geometry": {
+            "x": -111.10383895651886,
+            "y": 44.65691388237503
+          }
+        },
+        {
+          "attributes": {
+            "NGUID": "305115000.4656f3fa-887e-4553-9344-b9f0e8ee94a4",
+            "DateUpdate": 1598379662000,
+            "Effective": null,
+            "Expire": null,
+            "State": "MT",
+            "County": "Gallatin County",
+            "Add_Number": 209,
+            "AddNum_Pre": null,
+            "AddNum_Suf": null,
+            "St_PreMod": null,
+            "St_PreDir": null,
+            "St_PreTyp": null,
+            "St_Name": "Grizzly",
+            "St_PosTyp": "Avenue",
+            "St_PosDir": null,
+            "St_PosMod": null,
+            "Post_Comm": "West Yellowstone",
+            "Post_Code": "59758",
+            "Placement": "Structure"
+          },
+          "geometry": {
+            "x": -111.10383893903477,
+            "y": 44.656913932123736
+          }
+        }
+      ]
+    }
+  },
+  {
+    "address": {
+      "address_line_1": "1279 Grayling Creek Road",
+      "city": "West Yellowstone",
+      "state": "MT",
+      "postal_code": "59758",
+      "country": "US"
+    },
+    "authority": "https://visitmt.com/listing/parade-rest-guest-ranch-381",
+    "retrieved": "2026-11-27",
+    "census": {
+      "matchedAddress": "1279 GRAYLING CREEK RD, WEST YELLOWSTONE, MT, 59758",
+      "addressComponents": {
+        "city": "WEST YELLOWSTONE",
+        "state": "MT",
+        "zip": "59758"
+      },
+      "geographies": {
+        "States": [
+          {
+            "GEOID": "30",
+            "NAME": "Montana",
+            "STUSAB": "MT"
+          }
+        ],
+        "Counties": [
+          {
+            "GEOID": "30031",
+            "NAME": "Gallatin County"
+          }
+        ],
+        "Incorporated Places": [],
+        "County Subdivisions": [
+          {
+            "GEOID": "3003193780",
+            "NAME": "West Yellowstone CCD"
+          }
+        ]
+      }
+    },
+    "structures": {
+      "geometryType": "esriGeometryPoint",
+      "spatialReference": {
+        "wkid": 4326,
+        "latestWkid": 4326
+      },
+      "features": [
+        {
+          "attributes": {
+            "NGUID": "99031000.{471383D1-FF1C-45F5-AD6B-83B9489A4080}",
+            "DateUpdate": 1093996800000,
+            "Effective": 1751241600000,
+            "Expire": null,
+            "State": "MT",
+            "County": "Gallatin County",
+            "Add_Number": 1279,
+            "AddNum_Pre": null,
+            "AddNum_Suf": null,
+            "St_PreMod": null,
+            "St_PreDir": null,
+            "St_PreTyp": null,
+            "St_Name": "Grayling Creek",
+            "St_PosTyp": "Road",
+            "St_PosDir": null,
+            "St_PosMod": null,
+            "Post_Comm": "West Yellowstone",
+            "Post_Code": "59758",
+            "Placement": "Structure"
+          },
+          "geometry": {
+            "x": -111.13434479135059,
+            "y": 44.79549357416924
+          }
+        }
+      ]
+    }
+  },
+  {
+    "address": {
+      "address_line_1": "6 Moose Drive",
+      "city": "West Yellowstone",
+      "state": "MT",
+      "postal_code": "59758",
+      "country": "US"
+    },
+    "authority": "https://www.hbrfd.com/stations-and-apparatus",
+    "retrieved": "2026-11-27",
+    "census": {
+      "matchedAddress": "6 MOOSE DR, WEST YELLOWSTONE, MT, 59758",
+      "addressComponents": {
+        "city": "WEST YELLOWSTONE",
+        "state": "MT",
+        "zip": "59758"
+      },
+      "geographies": {
+        "States": [
+          {
+            "GEOID": "30",
+            "NAME": "Montana",
+            "STUSAB": "MT"
+          }
+        ],
+        "Counties": [
+          {
+            "GEOID": "30031",
+            "NAME": "Gallatin County"
+          }
+        ],
+        "Incorporated Places": [],
+        "County Subdivisions": [
+          {
+            "GEOID": "3003193780",
+            "NAME": "West Yellowstone CCD"
+          }
+        ]
+      }
+    },
+    "structures": {
+      "geometryType": "esriGeometryPoint",
+      "spatialReference": {
+        "wkid": 4326,
+        "latestWkid": 4326
+      },
+      "features": [
+        {
+          "attributes": {
+            "NGUID": "99031000.{C7DF658E-7CA4-4FBA-B83F-5AAB6716B6FC}",
+            "DateUpdate": 1568592000000,
+            "Effective": 1751241600000,
+            "Expire": null,
+            "State": "MT",
+            "County": "Gallatin County",
+            "Add_Number": 6,
+            "AddNum_Pre": null,
+            "AddNum_Suf": null,
+            "St_PreMod": null,
+            "St_PreDir": null,
+            "St_PreTyp": null,
+            "St_Name": "Moose",
+            "St_PosTyp": "Drive",
+            "St_PosDir": null,
+            "St_PosMod": null,
+            "Post_Comm": "West Yellowstone",
+            "Post_Code": "59758",
+            "Placement": "Structure"
+          },
+          "geometry": {
+            "x": -111.18643274124331,
+            "y": 44.76738037237169
+          }
+        },
+        {
+          "attributes": {
+            "NGUID": "305115000.86275",
+            "DateUpdate": 1595456375000,
+            "Effective": null,
+            "Expire": null,
+            "State": "MT",
+            "County": "Gallatin County",
+            "Add_Number": 6,
+            "AddNum_Pre": null,
+            "AddNum_Suf": null,
+            "St_PreMod": null,
+            "St_PreDir": null,
+            "St_PreTyp": null,
+            "St_Name": "Moose",
+            "St_PosTyp": "Drive",
+            "St_PosDir": null,
+            "St_PosMod": null,
+            "Post_Comm": "West Yellowstone",
+            "Post_Code": "59758",
+            "Placement": "Structure"
+          },
+          "geometry": {
+            "x": -111.18633962859369,
+            "y": 44.767138235946405
+          }
+        }
+      ]
+    }
+  },
+  {
+    "address": {
+      "address_line_1": "440 Yellowstone Avenue",
+      "city": "West Yellowstone",
+      "state": "MT",
+      "postal_code": "59758",
+      "country": "US"
+    },
+    "authority": "https://www.townofwestyellowstone.com/contact/",
+    "retrieved": "2026-11-27",
+    "census": {
+      "matchedAddress": "440 YELLOWSTONE AVE, WEST YELLOWSTONE, MT, 59758",
+      "addressComponents": {
+        "city": "WEST YELLOWSTONE",
+        "state": "MT",
+        "zip": "59758"
+      },
+      "geographies": {
+        "States": [
+          {
+            "GEOID": "30",
+            "NAME": "Montana",
+            "STUSAB": "MT"
+          }
+        ],
+        "Counties": [
+          {
+            "GEOID": "30031",
+            "NAME": "Gallatin County"
+          }
+        ],
+        "Incorporated Places": [
+          {
+            "GEOID": "3079525",
+            "NAME": "West Yellowstone town"
+          }
+        ],
+        "County Subdivisions": [
+          {
+            "GEOID": "3003193780",
+            "NAME": "West Yellowstone CCD"
+          }
+        ]
+      }
+    },
+    "structures": {
+      "geometryType": "esriGeometryPoint",
+      "spatialReference": {
+        "wkid": 4326,
+        "latestWkid": 4326
+      },
+      "features": [
+        {
+          "attributes": {
+            "NGUID": "99031000.{0B3DEB52-EA41-4741-BA3B-0451FD2CF16B}",
+            "DateUpdate": 1370476800000,
+            "Effective": 1751241600000,
+            "Expire": null,
+            "State": "MT",
+            "County": "Gallatin County",
+            "Add_Number": 440,
+            "AddNum_Pre": null,
+            "AddNum_Suf": null,
+            "St_PreMod": null,
+            "St_PreDir": null,
+            "St_PreTyp": null,
+            "St_Name": "Yellowstone",
+            "St_PosTyp": "Avenue",
+            "St_PosDir": null,
+            "St_PosMod": null,
+            "Post_Comm": "West Yellowstone",
+            "Post_Code": "59758",
+            "Placement": "Structure"
+          },
+          "geometry": {
+            "x": -111.10796178266827,
+            "y": 44.658512511186196
+          }
+        }
+      ]
+    }
+  }
+]

@@ -7,10 +7,12 @@ function reviewed(result) {
   if (!Number.isSafeInteger(result.tax) || result.tax<0) throw new TaxReview('The tax amount needs verification.');
   return {day:result.day,state:result.state,tax:result.tax,taxable:result.taxable,exempt:result.exempt,
     unclassified:result.unclassified,collection:result.collection,breakdown:result.breakdown || [],
-    policy_source:result.policy_source,rate_source:result.rate_source};
+    geography:result.geography, jurisdictions:result.jurisdictions,policy_source:result.policy_source,policy_version:result.policy_version,
+    rate_source:result.rate_source,address_version:result.address_version,lines:result.lines,seller_taxes:result.seller_taxes};
 }
 
 export async function calculateAdminOrder(input) {
+  if(input.report)return input.report;
   if(input.review)return {status:'review',reason:input.review,day:input.day};
   try {
     if(input.saved)return {status:'recorded',...reviewed(input.saved)};
@@ -21,7 +23,10 @@ export async function calculateAdminOrder(input) {
       if (a?.state!==state || a.country!=='US' || !a.address_line_1 || !a.city || !/^\d{5}(?:-\d{4})?$/.test(a.postal_code))
         throw new TaxReview('The original street address needs verification.');
       const lookup=streetRateResolvers[state] || (policy.collection==='no_obligation'?confirmDestination:null);
-      if(lookup)district=await lookup(a,day);
+      if(lookup){
+        try{district=await lookup(a,day);}
+        catch{return {status:'review',day,reason:'The street jurisdiction or rate could not be verified.',retryable:true};}
+      }
     }
     if(!current(district,day))throw new TaxReview('A verified street jurisdiction and rates for the original order date are needed.');
     if(input.insurance!=null && cents(input.insurance)>0)throw new TaxReview('The separate insurance charge needs review.');

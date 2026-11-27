@@ -11,11 +11,12 @@ export default async function handler(req,res){
     if(req.method==='GET'){
       const day=dayNow(),from=date(req.query.from||day.slice(0,4)+'-01-01'),to=date(req.query.to||day);
       if(from>to)return json(res,400,{error:'Invalid period.'});
-      if(req.query.view==='orders'||req.query.view==='order_calculation')res.setHeader('cache-control','private, no-store');
-      if(req.query.view==='orders'){
+      if(['orders','new_orders','order_calculation'].includes(req.query.view))res.setHeader('cache-control','private, no-store');
+      if(req.query.view==='orders'||req.query.view==='new_orders'){
         const state=req.query.state==='UNASSIGNED'?'UNASSIGNED':req.query.state?jurisdiction(req.query.state):null;
         const before=req.query.before==null?null:Number(req.query.before);
         if(before!==null && (!Number.isSafeInteger(before)||before<1))return json(res,400,{error:'Invalid order cursor.'});
+        if(req.query.view==='new_orders')return json(res,200,await rpc(db,'tax_admin_new_orders',{p_actor:user.id,p_from:from,p_to:to,p_before:before}));
         return json(res,200,await rpc(db,'tax_admin_order_report',{p_actor:user.id,p_from:from,p_to:to,p_state:state,p_before:before}));
       }
       if(req.query.view==='order_calculation'){

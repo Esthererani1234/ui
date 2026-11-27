@@ -112,9 +112,9 @@ test('November Alaska street jurisdictions retain borough and city caps and Mont
      assert.equal(new URL(url).hostname,'geocoding.geo.census.gov');
      return {ok:true,json:async()=>({result:{addressMatches:civic.matches}})};
    });
-   const actual=await resolveRegionalEvidence(civic.address,when,verify);
+   const actual=await resolveRegionalEvidence(civic.address,when,{verify});
    assert.equal(actual.scope,expected[civic.address.city]);
-   await assert.rejects(resolveRegionalEvidence({...civic.address,address_line_1:'999 Wrong Street'},when,verify));
+   await assert.rejects(resolveRegionalEvidence({...civic.address,address_line_1:'999 Wrong Street'},when,{verify}));
  }
  const ketchikan=geo('02130','0238970');
  const city=regionalEvidence('AK',when,ketchikan);
@@ -228,6 +228,7 @@ test('dated product pack applies over the live eight-listing baseline and preser
  const pack=await migration('20261127051002_reviewed_catalog_tax_conditions.sql');await db.exec(pack);
  await db.exec("update products set is_active=true, name='1 oz Canadian Silver Maple Leaf Coin BU (Random Year)' where id=909; update products set is_active=true where id=905");
  await db.exec(await migration('20261127060806_alaska_specie_order_evidence.sql'));
+ await db.exec(await migration('20261127062115_colorado_city_bullion_rules.sql'));
  const policyCount=await db.query("select count(*)::int n from private.tax_states s where private.tax_report_version(s.state,'policy','state',$1)->>'approval'='approved'",[day]);
  assert.equal(policyCount.rows[0].n,45);
  const actor='00000000-0000-4000-8000-000000000009';await db.query('insert into admin_users(user_id) values($1)',[actor]);
@@ -304,6 +305,43 @@ test('dated product pack applies over the live eight-listing baseline and preser
  const akInput=async()=>(await db.query('select private.tax_report_calculation_inputs(40) v')).rows[0].v;
  assert.equal((await akFacts()).metal_price_cents,6000000);assert.equal((await akFacts()).markup_cents,0);
  assert.equal((await akInput()).ak_specie.metal_price_cents,6000000);
+ const {confirmDestination}=await import('../server/tax/destinationRates.js');
+ const {regionalEvidence,resolveRegionalEvidence}=await import('../server/tax/regionalEvidence.js');
+ const municipalities=JSON.parse(await readFile(new URL('./fixtures/tax/colorado-home-rule-streets.json',import.meta.url),'utf8'));
+ for(const destination of municipalities){
+   await db.query('update orders set shipping_address=$1 where id=40',[destination.address]);
+   await db.exec('select private.queue_new_order_reports()');
+   const lease=(await db.query('select lease from public.claim_new_order_tax_reports() where order_id=40')).rows[0].lease;
+   const inputs=(await db.query('select public.new_order_tax_inputs(40,$1) v',[lease])).rows[0].v;
+   const lookup=(a,d,{municipalRules})=>resolveRegionalEvidence(a,d,{municipalRules,
+     verify:(street,day)=>confirmDestination(street,day,async()=>({ok:true,json:()=>({result:{addressMatches:destination.matches}})}))});
+   const result=await calculateAdminOrder(inputs,{localEvidence:lookup,today:next});
+   const evidence=result.local_evidence;
+   assert.equal(result.status,'review');assert.equal(result.tax,undefined);
+   assert.equal(evidence.geography.municipality.name,destination.address.city+' city');
+   assert.equal(evidence.municipal_ppm,{Arvada:34600,Pueblo:37000}[destination.address.city]);
+   assert.equal(evidence.scope,destination.address.city==='Lafayette'?'municipal_bullion_exemption':'municipal_bullion_tax');
+   const wrongStreet=await calculateAdminOrder({...inputs,regional_destination:{...inputs.regional_destination,address_line_1:'999 Different Road'}},{localEvidence:lookup,today:next});
+   assert.equal(wrongStreet.local_evidence,undefined);
+   const geo=evidence.geography,rules=inputs.co_city_rules;
+   for(const mismatch of [{municipality:null},{county:{geoid:'08031',name:'Denver County'}},{state:{geoid:'56'}}])
+     assert.equal(regionalEvidence('CO',next,{...geo,...mismatch},rules),null);
+   if(destination.address.city==='Arvada'){
+     assert.equal(regionalEvidence('CO',next,{...geo,county:{geoid:'08001',name:'Adams County'}},rules).municipal_ppm,34600);
+     assert.equal(regionalEvidence('CO',next,{...geo,county:{geoid:'08001',name:'Denver County'}},rules),null);
+   }
+   assert.equal((await db.query('select public.finish_new_order_tax_report(40,$1,$2,false) v',[lease,result])).rows[0].v,true);
+   const stored=(await db.query('select public.tax_admin_new_orders($1,$2,$2,null) v',[actor,next])).rows[0].v.orders.find(r=>r.id===40);
+   assert.deepEqual(stored.result,result);
+ }
+ const ruleByDay=async d=>(await db.query('select private.tax_co_municipal_rules($1) v',[d])).rows[0].v;
+ for(const offDay of ['2026-11-26','2027-01-01'])assert.deepEqual(await ruleByDay(offDay),{});
+ const arvada=(await ruleByDay(next))['0803455'];
+ await db.query("insert into private.tax_sources(url,state,changed_at) values($1,'CO',now()+interval '1 hour')",[arvada.rate_source]);
+ assert.equal((await ruleByDay(next))['0803455'],undefined);assert.ok((await ruleByDay(next))['0862000']);
+ await db.query("delete from private.tax_sources where url=$1",[arvada.rate_source]);
+ assert.equal((await db.query("select private.tax_version('CO','policy','municipality_0803455',$1) v",[next])).rows[0].v,null);
+ await db.exec(`update orders set shipping_address='{"state":"AK"}' where id=40`);
  const mint=(await akFacts()).lines[0].specification_source;
  assert.match(mint,/usmint[.]gov/);
  await db.query("insert into private.tax_sources(url,state,changed_at) values($1,'AK',now()+interval '1 hour')",[mint]);
@@ -371,7 +409,7 @@ test('state structure points distinguish two Flathead County city halls and reje
      assert.equal(url.searchParams.get('where'),"Add_Number="+parseInt(a.address_line_1,10)+" AND Post_Code='"+a.postal_code+"'");
      return {ok:true,json:()=>edit(structuredClone(civic.structures))};
    });
-   return resolveRegionalEvidence(civic.address,day,verify,structure);
+   return resolveRegionalEvidence(civic.address,day,{verify,structure});
  }
  const outside=await resolve(kalispell);
  assert.equal(outside.scope,'structure_outside_resort_areas');assert.equal(outside.geography.county.geoid,'30029');
@@ -398,10 +436,10 @@ test('Colorado identifies affirmative municipal rules from street geography and 
  const expected={'Estes Park':'state_administered_municipality',Aurora:'aurora_bullion_rule'};
  for(const civic of fixtures){
    const verify=(a,day)=>confirmDestination(a,day,async()=>({ok:true,json:()=>({result:{addressMatches:civic.matches}})}));
-   const result=await resolveRegionalEvidence(civic.address,d,verify);
+   const result=await resolveRegionalEvidence(civic.address,d,{verify});
    assert.equal(result.scope,expected[civic.address.city]);
    assert.equal(result.geography.state.geoid,'08');
-   await assert.rejects(resolveRegionalEvidence({...civic.address,address_line_1:'999 Unrelated St'},d,verify));
+   await assert.rejects(resolveRegionalEvidence({...civic.address,address_line_1:'999 Unrelated St'},d,{verify}));
    assert.equal(regionalEvidence('CO',d,{...result.geography,county:{geoid:'08031',name:'Denver County'}}),null);
    assert.equal(regionalEvidence('CO',d,{...result.geography,municipality:null}),null);
    assert.equal(regionalEvidence('CO','2027-01-01',result.geography),null);

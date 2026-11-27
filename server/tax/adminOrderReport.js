@@ -14,14 +14,14 @@ function reviewed(result) {
     rate_source:result.rate_source,address_version:result.address_version,lines:result.lines,seller_taxes:result.seller_taxes};
 }
 
-export async function calculateAdminOrder(input,{localEvidence=resolveRegionalEvidence}={}) {
+export async function calculateAdminOrder(input,{localEvidence=resolveRegionalEvidence,today=businessDay()}={}) {
   if(input.report)return input.report;
   if(input.review){
     const result={status:'review',reason:input.review,day:input.day};
     if(input.state_scope)result.state_scope=input.state_scope;
     if(input.ak_specie)result.ak_specie=input.ak_specie;
-    if(input.regional_destination && input.day===businessDay()){
-      const evidence=await localEvidence(input.regional_destination,input.day).catch(()=>null);
+    if(input.regional_destination && input.day===today){
+      const evidence=await localEvidence(input.regional_destination,input.day,{municipalRules:input.co_city_rules}).catch(()=>null);
       if(evidence && !(evidence.state==='AK' && evidence.scope==='no_general_retail_tax' && Object.hasOwn(input,'anchorage_policy') &&
         !current(input.anchorage_policy,input.day))){
         result.local_evidence=evidence;
@@ -40,7 +40,7 @@ export async function calculateAdminOrder(input,{localEvidence=resolveRegionalEv
     const alaskaMetal=state==='AK' && Object.hasOwn(input,'anchorage_policy') && policy?.collection==='collect' &&
       input.lines?.some(item=>['gold','silver'].includes(item.metal));
     let district=input.district;
-    if (!district && day===businessDay()) {
+    if (!district && day===today) {
       const a=input.destination;
       if (a?.state!==state || a.country!=='US' || !a.address_line_1 || !a.city || !/^\d{5}(?:-\d{4})?$/.test(a.postal_code))
         throw new TaxReview('The original street address needs verification.');

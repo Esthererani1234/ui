@@ -19,6 +19,8 @@ function ReviewReason({result}){
     consumer_bullion_exemption:'Arizona exempts qualifying bullion sold to the ultimate consumer. Coins sold to manufacture jewelry or art have separate treatment.'};
   const notes={outside_resort_areas:'The verified county is outside the published resort areas.',
     state_administered_municipality:'The state administers this municipality’s tax. Its bullion exemption covers qualifying gold and silver.',
+    municipal_bullion_tax:'The city taxes retail bullion purchases, including investment and bulk purchases. Its rules distinguish bullion from currency exchanged at its ordinary exchange value.',
+    municipal_bullion_exemption:'The city exempts qualifying coins and precious metal bullion from municipal sales and use tax.',
     aurora_bullion_rule:'Aurora exempts qualifying coins and precious metal bullion from its municipal sales and use tax.',
     structure_outside_resort_areas:'The verified building lies outside the published resort area and district boundaries.',
     no_general_retail_tax:'The municipality has no general retail sales tax on bullion.',
@@ -27,6 +29,7 @@ function ReviewReason({result}){
     <AlaskaSaleEvidence facts={specie}/>
     {state&&<p>{scopes[state.scope]} <a href={state.source} target="_blank" rel="noreferrer">State authority</a></p>}
     {e&&<><p>{[e.geography.municipality?.name,e.geography.county.name].filter(Boolean).join(' · ')} · {notes[e.scope]}</p>
+    {e.municipal_ppm!=null&&<p>City rate {e.municipal_ppm/10000}%. {e.shipping==='included'&&'The city includes shipping in the taxable price. '}<a href={e.rate_source} target="_blank" rel="noreferrer">City rate source</a></p>}
     {result.member_threshold&&<p>The verified delivery is in a commission member jurisdiction. Website receipts, including this order, are below its remote-seller threshold. <a href={result.member_threshold.source} target="_blank" rel="noreferrer">Commission rule</a></p>}
     {e.rates?.map(r=><p key={r.code}>{r.name} · {r.ppm/10000}% · Filing code {r.code}
       {Object.entries(r.caps).filter(([,v])=>v.limit_cents!=null).map(([k,v])=><span key={k}> · {money(v.limit_cents)} {k==='per_item'?'per item':'per transaction'} taxable-base limit</span>)}</p>)}

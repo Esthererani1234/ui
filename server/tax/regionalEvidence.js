@@ -2,6 +2,7 @@ import colorado from './coloradoMunicipalities.json' with {type:'json'};
 import alaska from './alaskaNovember.json' with {type:'json'};
 import montana from './montanaCounties.json' with {type:'json'};
 import {montanaStructureEvidence} from './montanaStructures.js';
+import {current} from './engine.js';
 import {confirmDestination} from './destinationRates.js';
 
 const alaskaMembers='https://arsstc.org/business-sellers/member-jurisdictions/';
@@ -11,10 +12,24 @@ const montanaDesignations='https://commerce.mt.gov/Data-Research/Resort-Tax-Anal
 const consolidated=new Set(['02110','02220','02230','02275','02282']);
 const covered=(dataset,day)=>day>=dataset.reviewed_on && day<=dataset.through;
 
-export function regionalEvidence(state,day,location) {
+export function regionalEvidence(state,day,location,municipalRules={}) {
   const county=location?.county?.geoid,place=location?.municipality?.geoid;
   if(!county)return null;
   if(state==='CO' && covered(colorado,day) && location.state?.geoid==='08' && county.startsWith('08')){
+    const rule=municipalRules?.[place];
+    if(rule && current(rule,day) && rule.state==='CO' && rule.place_geoid===place &&
+       rule.place_name===location.municipality.name && Object.hasOwn(rule.counties||{},county) &&
+       rule.counties[county]===location.county.name &&
+       ['municipal_bullion_tax','municipal_bullion_exemption'].includes(rule.scope)){
+      const taxable=rule.scope==='municipal_bullion_tax';
+      if(taxable && (!Number.isSafeInteger(rule.municipal_ppm) || rule.municipal_ppm<=0 ||
+        rule.municipal_ppm>1000000 || !rule.rate_source?.startsWith('https://')))return null;
+      return {state,day,scope:rule.scope,geography:location,source:rule.source,version:rule.version,
+        verified_on:rule.verified_on,valid_until:rule.valid_until,
+        ...(rule.law_effective?{law_effective:rule.law_effective}:{}),
+        ...(taxable?{municipal_ppm:rule.municipal_ppm,rate_source:rule.rate_source}:{}),
+        ...(rule.shipping?{shipping:rule.shipping}:{})};
+    }
     const city=colorado.places[place];
     if(city && city.name===location.municipality?.name && city.counties.includes(location.county.name)){
       return {state,day,scope:city.source?'aurora_bullion_rule':'state_administered_municipality',
@@ -38,10 +53,10 @@ export function regionalEvidence(state,day,location) {
     verified_on:alaska.reviewed_on,valid_until:alaska.through,source_sha256:alaska.sha256,rates};
 }
 
-export async function resolveRegionalEvidence(address,day,verify=confirmDestination,structure=montanaStructureEvidence){
+export async function resolveRegionalEvidence(address,day,{verify=confirmDestination,structure=montanaStructureEvidence,municipalRules}={}){
   if(!address || !['AK','CO','MT'].includes(address.state))return null;
   const match=await verify(address,day);
-  const evidence=regionalEvidence(address.state,day,match.geography);
+  const evidence=regionalEvidence(address.state,day,match.geography,municipalRules);
   if(evidence || address.state!=='MT')return evidence;
   return structure(address,day,match.geography);
 }

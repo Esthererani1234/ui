@@ -1,0 +1,149 @@
+[
+  {
+    "address": {
+      "address_line_1": "8101 Ralston Road",
+      "city": "Arvada",
+      "postal_code": "80002",
+      "state": "CO",
+      "country": "US"
+    },
+    "authority": "https://www.arvadaco.gov/592/Contact-Us",
+    "source": "https://geocoding.geo.census.gov/geocoder/geographies/address?street=8101+Ralston+Road&city=Arvada&state=CO&zip=80002&benchmark=Public_AR_Current&vintage=Current_Current&format=json",
+    "retrieved": "2026-11-27",
+    "matches": [
+      {
+        "matchedAddress": "8101 RALSTON RD, ARVADA, CO, 80002",
+        "addressComponents": {
+          "city": "ARVADA",
+          "state": "CO",
+          "zip": "80002"
+        },
+        "geographies": {
+          "States": [
+            {
+              "GEOID": "08",
+              "NAME": "Colorado",
+              "STUSAB": "CO"
+            }
+          ],
+          "Counties": [
+            {
+              "GEOID": "08059",
+              "NAME": "Jefferson County"
+            }
+          ],
+          "Incorporated Places": [
+            {
+              "GEOID": "0803455",
+              "NAME": "Arvada city"
+            }
+          ],
+          "County Subdivisions": [
+            {
+              "GEOID": "0805992641",
+              "NAME": "Northeast Jefferson CCD"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "address": {
+      "address_line_1": "200 S Main Street",
+      "city": "Pueblo",
+      "postal_code": "81003",
+      "state": "CO",
+      "country": "US"
+    },
+    "authority": "https://www.pueblo.us/2994/Parade-Permit",
+    "source": "https://geocoding.geo.census.gov/geocoder/geographies/address?street=200+S+Main+Street&city=Pueblo&state=CO&zip=81003&benchmark=Public_AR_Current&vintage=Current_Current&format=json",
+    "retrieved": "2026-11-27",
+    "matches": [
+      {
+        "matchedAddress": "200 S MAIN ST, PUEBLO, CO, 81003",
+        "addressComponents": {
+          "city": "PUEBLO",
+          "state": "CO",
+          "zip": "81003"
+        },
+        "geographies": {
+          "States": [
+            {
+              "GEOID": "08",
+              "NAME": "Colorado",
+              "STUSAB": "CO"
+            }
+          ],
+          "Counties": [
+            {
+              "GEOID": "08101",
+              "NAME": "Pueblo County"
+            }
+          ],
+          "Incorporated Places": [
+            {
+              "GEOID": "0862000",
+              "NAME": "Pueblo city"
+            }
+          ],
+          "County Subdivisions": [
+            {
+              "GEOID": "0810192983",
+              "NAME": "Pueblo CCD"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "address": {
+      "address_line_1": "1290 S Public Road",
+      "city": "Lafayette",
+      "postal_code": "80026",
+      "state": "CO",
+      "country": "US"
+    },
+    "authority": "https://www.lafayetteco.gov/3862/Resources",
+    "source": "https://geocoding.geo.census.gov/geocoder/geographies/address?street=1290+S+Public+Road&city=Lafayette&state=CO&zip=80026&benchmark=Public_AR_Current&vintage=Current_Current&format=json",
+    "retrieved": "2026-11-27",
+    "matches": [
+      {
+        "matchedAddress": "1290 S PUBLIC RD, LAFAYETTE, CO, 80026",
+        "addressComponents": {
+          "city": "LAFAYETTE",
+          "state": "CO",
+          "zip": "80026"
+        },
+        "geographies": {
+          "States": [
+            {
+              "GEOID": "08",
+              "NAME": "Colorado",
+              "STUSAB": "CO"
+            }
+          ],
+          "Counties": [
+            {
+              "GEOID": "08013",
+              "NAME": "Boulder County"
+            }
+          ],
+          "Incorporated Places": [
+            {
+              "GEOID": "0841835",
+              "NAME": "Lafayette city"
+            }
+          ],
+          "County Subdivisions": [
+            {
+              "GEOID": "0801392052",
+              "NAME": "Lafayette-Louisville CCD"
+            }
+          ]
+        }
+      }
+    ]
+  }
+]

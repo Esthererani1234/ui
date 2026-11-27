@@ -81,6 +81,7 @@ declare
   v_quote public.checkout_quotes%rowtype;
   v_order_id bigint;
   assessment private.tax_assessments;
+  effective_policy jsonb;
   tax numeric(14,2);
   v_order_number text;
   v_item jsonb;
@@ -124,10 +125,17 @@ begin
    and a.fulfillment=coalesce(p_shipping->>'fulfillment','delivery')
    and a.result->>'day'=(clock_timestamp() at time zone 'America/New_York')::date::text for share of r;
   if not found then raise exception 'Review the tax and total for this address and payment method.' using errcode='P2005';end if;
-  if private.tax_collection_gate(assessment.result->>'state',
-    private.tax_version(assessment.result->>'state','policy','state',(assessment.result->>'day')::date) ||
-    jsonb_build_object('collection',assessment.result->>'collection'),(assessment.result->>'day')::date)='review' then
+  effective_policy:=public.tax_quote_inputs(p_user_id,p_quote_id,private.tax_normalize_address(p_shipping))->'policy';
+  if effective_policy->>'approval' is distinct from 'approved'
+     or coalesce((effective_policy->>'valid_until')::date < (assessment.result->>'day')::date,true)
+     or effective_policy->>'shipping_disabled' is distinct from 'false'
+     or assessment.result->>'state' is distinct from upper(trim(p_shipping->>'state'))
+     or coalesce(effective_policy->>'collection','review') not in ('collect','no_obligation')
+     or effective_policy->>'collection' is distinct from assessment.result->>'collection' then
     raise exception 'The collection obligation needs review.' using errcode='P2005';end if;
+  if assessment.result->>'state'='NY' and (assessment.result->>'exempt')::bigint>0
+     and coalesce(effective_policy->>'ny_dealer_status','') not in ('registered','registration_not_required') then
+    raise exception 'New York bullion dealer eligibility needs review.' using errcode='P2005';end if;
   tax:=(assessment.result->>'tax')::bigint/100.0;
   v_total:=v_total+tax;
   if v_total*100 is distinct from (assessment.result->>'total')::bigint then raise exception 'Refresh the tax calculation.' using errcode='P2005';end if;

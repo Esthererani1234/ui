@@ -1,6 +1,6 @@
 import states from '../../shared/taxSources.json' with {type:'json'};
 import {normalizeAddress} from './quote.js';
-import {TaxReview} from './engine.js';
+import {TaxReview,validateRateComponents} from './engine.js';
 const codes=new Set(states.map(s=>s.code));
 export const dayNow=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 const check=(ok,msg)=>{if(!ok)throw new TaxReview(msg);};
@@ -21,13 +21,15 @@ export function validateVersion(state,v){
     check(subject==='state'&&num(data.first_eligible_cent)&&typeof data.store_minimum==='boolean'&&
       ['combined','component'].includes(data.rounding)&&['full_if_taxable','proportional','excluded'].includes(data.shipping_base)&&
       ['full_if_taxable','proportional','excluded'].includes(data.fee_base),'Check the threshold, rounding and charge treatments.');
+    if(state==='NY' && data.ny_dealer_status!=null)
+      check(['registered','registration_not_required','required_unregistered'].includes(data.ny_dealer_status),'Check the bullion dealer registration status.');
     if (['HI','NM'].includes(state)) check(['absorb','pass_through'].includes(data.seller_levy_treatment),'Choose whether the business absorbs or passes on the reviewed destination levy.');
     check(data.uniform_jurisdiction_base===true && data.separate_seller_tax_reviewed===true,'Confirm the local tax bases and seller taxes are supported. Keep complex treatments in review.');
   }else if(kind==='product'){
     check(/^\d+$/.test(subject)&&['eligible','taxable'].includes(data.treatment)&&['bar','coin','ingot','round','jewelry','collectible','other'].includes(data.form),'Enter the product ID, form and local eligibility.');
   }else if(kind==='address'){
     const addr=normalizeAddress(JSON.parse(subject));check(addr.state===state,'The address must match the selected state.');
-    check(Array.isArray(data.rates)&&data.rates.length>0&&data.rates.every(r=>num(r.ppm)&&r.ppm<=1000000&&typeof r.code==='string'&&r.code.trim()&&['state','county','city','district','combined_local','combined'].includes(r.level)),'Enter verified jurisdiction components and integer rates per million.');
+    validateRateComponents(data.rates);
     check(new Set(data.rates.map(r=>r.code)).size===data.rates.length &&
       data.rates.every(r=>(r.name==null || typeof r.name==='string') && (r.county==null || typeof r.county==='string') &&
       (r.districts==null || (Array.isArray(r.districts) && r.districts.every(d=>typeof d==='string')))),

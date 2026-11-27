@@ -10,7 +10,7 @@ import states from '../shared/taxSources.json' with {type:'json'};
 const day='2026-11-26';
 const record={source:'https://www.nysenate.gov/legislation/laws/TAX/1115',approval:'approved',version:1,valid_from:'2026-01-01',valid_until:'2026-12-31',verified_on:day};
 const product={...record,treatment:'eligible',form:'bar',metal:'gold',market_day:day,market_unit_cents:200000,market_source:record.source};
-const policy={...record,state:'NY',collection:'collect',registration:'Registered',first_eligible_cent:100001,store_minimum:true,shipping_base:'full_if_taxable',fee_base:'full_if_taxable',rounding:'combined'};
+const policy={...record,state:'NY',collection:'collect',registration:'Registered',ny_dealer_status:'registered',first_eligible_cent:100001,store_minimum:true,shipping_base:'full_if_taxable',fee_base:'full_if_taxable',rounding:'combined'};
 const address={...record,state:'NY',rates:[{code:'NY',level:'state',ppm:40000},{code:'NYC',level:'city',ppm:45000},{code:'MCTD',level:'district',ppm:3750}]};
 function input(n){return {day,state:'NY',address,policy,subtotal:n,shipping:0,fee:0,investment:true,lines:[{id:1,quantity:1,gross:n,classification:product}]};}
 for(const s of states)test(s.code+' unreviewed jurisdiction blocks checkout',()=>{
@@ -90,6 +90,8 @@ test('preview migration, permissions, exact address, order and filing accounting
  await db.query("insert into private.tax_versions(state,kind,subject,valid_from,valid_until,verified_on,source,approval,data,actor) values('NY','policy','state',current_date-1,current_date+1,current_date,'https://www.tax.ny.gov/','approved','{}',$1)",[actor]);
  const id=await val("select public.store_tax_assessment($1,$2,$3,'wire','pickup',$4,(select revision from private.tax_revision))",[actor,qid,address,{day:date,state:'NY',collection:'collect',subtotal:10000,taxable:10000,exempt:0,tax:888,total:10888,breakdown:[{level:'state',code:'NY',ppm:40000,cents:400},{level:'city',code:'NYC',ppm:45000,cents:450},{level:'district',code:'MCTD',ppm:3750,cents:38}]}]);
  await assert.rejects(place({...address,fulfillment:'pickup',tax_assessment_id:id,city:'Changed'}));
+ await assert.rejects(place({...address,fulfillment:'pickup',tax_assessment_id:id}),/collection obligation/);
+ await db.exec("update private.tax_states set registration='Registered',effective=current_date-1,collect_from=current_date-1 where state in ('NY','WA')");
  const order=await place({...address,fulfillment:'pickup',tax_assessment_id:id});assert.equal(order.total,108.88);
  await db.exec("update orders set payment_status='paid'");await db.exec("update orders set payment_status='paid'");
  assert.equal(await val("select count(*)::int from private.tax_ledger where kind='sale' and state='NY'"),1);
@@ -282,4 +284,21 @@ test('coverage export includes all published records and labels special cases',(
   assert.equal(count('NM'),nmLocations.locations.reduce((n,r)=>n+(r.code?1:r.tribal_codes.length),0));
   assert.equal(new Set(nmLocations.locations.map(r=>r.county)).size,33);
   assert.ok(lines.some(line=>line.includes('Tribal reporting class 2')));
+});
+
+test('NY investment exemption requires a reviewed dealer determination independent of the sales tax permit',()=>{
+  const q=input(140000);
+  q.policy={...policy,ny_dealer_status:null};
+  assert.throws(()=>assess(q),/dealer eligibility/);
+  q.policy.ny_dealer_status='required_unregistered';assert.equal(assess(q).tax,12425);
+  q.policy.ny_dealer_status='registration_not_required';assert.equal(assess(q).tax,0);
+  q.policy.ny_dealer_status=null;q.investment=false;assert.equal(assess(q).tax,12425);
+});
+test('checkout rejects a combined rate layered on its own components',()=>{
+  const q=input(140000);q.investment=false;
+  for(const extra of [{code:'NY-TOTAL',level:'combined',ppm:88750},{code:'LOCAL',level:'combined_local',ppm:48750},
+    {code:'STATE-2',level:'state',ppm:40000},{code:'nyc ',level:'city',ppm:45000}]){
+    q.address={...address,rates:[...address.rates,extra]};assert.throws(()=>assess(q),/overlap|duplicated/);
+  }
+  q.address={...address,rates:[{code:'ALL',level:'combined',ppm:88750}]};assert.equal(assess(q).tax,12425);
 });

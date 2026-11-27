@@ -2315,8 +2315,8 @@
       },
       {
         "purpose": "product",
-        "title": "BILL AS INTRODUCED",
-        "url": "https://legislature.vermont.gov/Documents/2026/Docs/BILLS/H-0711/H-0711%20As%20Introduced.pdf"
+        "title": "Municipal local option sales tax",
+        "url": "https://tax.vermont.gov/business/local-option-tax"
       },
       {
         "purpose": "nexus",
@@ -2341,7 +2341,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "The sales tax regulations distinguish numismatic purchases from coins purchased for use as a medium of exchange. A separate finding is needed for bars.",
+    "finding": "Vermont classifies bullion, ingots and wafers as tangible personal property. Coins purchased for use as a medium of exchange are excluded. Ordinary retail bullion sales use the destination sales tax rate.",
     "effectiveFrom": null
   },
   {

@@ -12,7 +12,7 @@ const exampleDay = '2026-11-26';
 const samples = {
   WA: {source:'https://dor.wa.gov/wa-sales-tax-rate-lookup-url-interface'},
   ME: {source:'https://www.maine.gov/revenue/taxes/sales-use-service-provider-tax/rates-due-dates', rates:[['state','ME',55000]]},
-  VT: {source:'https://tax.vermont.gov/tax-law-and-guidance/formal-rulings/fr-2024-02', rates:[['state','VT',60000],['city','Burlington',10000]]},
+  VT: {source:'https://tax.vermont.gov/business/local-option-tax', rates:[['state','VT',60000],['city','Burlington',10000]]},
   DC: {source:'https://otr.cfo.dc.gov/release/notice-oct-1-2026-tax-changes', rates:[['district','DC',60000]]},
   HI: {source:hawaiiSource, rates:[['state','HI',hawaiiRetail.state],['county','Honolulu',hawaiiRetail.county]], max_pass_on_ppm:hawaiiRetail.maxPassOn},
   NM: {source:'https://www.tax.newmexico.gov/grt-rate-finder-tools/', rates:[['combined','01-123',nmSchedule.locations.find(r=>r.code==='01-123').ppm]]},
@@ -39,7 +39,7 @@ export function previewExample(state, amount, place = 'olympia', verifiedAddress
     valid_from:day,valid_until:day,verified_on:day};
   try {
     const result=assess({day,state,subtotal:amount,shipping:0,fee:0,investment:true,
-      policy:{...base,registration:'Sample',collection:'collect',first_eligible_cent:storeFloor(state,day),
+      policy:{...base,registration:'Sample',ny_dealer_status:'registration_not_required',collection:'collect',first_eligible_cent:storeFloor(state,day),
         store_minimum:true,shipping_base:'excluded',fee_base:'excluded',rounding:'combined',seller_levy_treatment:'pass_through'},
       address:verifiedAddress || {...base,max_pass_on_ppm:sample?.max_pass_on_ppm,rates:(sample?.rates || []).map(([level,code,ppm])=>({level,code,ppm}))},
       lines:[{id:1,quantity:1,gross:amount,classification:{...base,treatment:sample?'taxable':'eligible',

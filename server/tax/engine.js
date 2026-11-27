@@ -32,6 +32,21 @@ export function current(record, day) {
     record.valid_from && record.valid_from<=day && record.valid_until>=day &&
     record.verified_on && record.verified_on<=day && record.version);
 }
+// A total rate already contains all components; a combined local rate contains every local component.
+export function validateRateComponents(rates) {
+  const levels=['state','county','city','district','combined_local','combined'];
+  if(!Array.isArray(rates) || !rates.length) review('The local rate is unavailable.');
+  const codes=new Set();
+  for(const r of rates){
+    if(!r || !levels.includes(r.level) || typeof r.code!=='string' || !r.code.trim() ||
+       codes.has(r.code.trim().toUpperCase()) || integer(r.ppm)>1000000) review('A jurisdiction rate is invalid or duplicated.');
+    codes.add(r.code.trim().toUpperCase());
+  }
+  const local=rates.filter(r=>r.level!=='state');
+  if((rates.some(r=>r.level==='combined') && rates.length>1) ||
+     (local.some(r=>r.level==='combined_local') && local.length>1) ||
+     rates.filter(r=>r.level==='state').length>1) review('The jurisdiction rates overlap.');
+}
 function eligibility(line, net, state, day, investment) {
   const p=line.classification;
   if (!current(p,day) || !['eligible','taxable'].includes(p.treatment)) review('A product tax classification needs review.');
@@ -88,7 +103,12 @@ export function assess({day,state,policy,address,lines,subtotal,shipping,fee,inv
       return integer(sum + integer(p.market_unit_cents, 1) * line.quantity);
     }, 0);
   }
-  const meetsExemption = thresholdValue >= minimum;
+  let meetsExemption = thresholdValue >= minimum;
+  if(state==='NY' && meetsExemption && qualifiedSum>0){
+    if(policy.ny_dealer_status==='required_unregistered') meetsExemption=false;
+    else if(!['registered','registration_not_required'].includes(policy.ny_dealer_status))
+      review('New York bullion dealer eligibility needs review.');
+  }
   const taxable=net.reduce((sum,n,i)=>sum+(!qualified[i]||!meetsExemption?n:0),0);
   const chargeBase=(amount,mode)=>{
     if(!amount || !taxable)return 0;
@@ -105,8 +125,8 @@ export function assess({day,state,policy,address,lines,subtotal,shipping,fee,inv
   let breakdown=[], tax=0, destinationLevy=null;
   if(collect && base) {
     if(!Array.isArray(address.rates) || !address.rates.length || !['combined','component'].includes(policy.rounding)) review('The local rate or rounding rule is unavailable.');
-    const rates=address.rates.map(r=>integer(r.ppm));
-    if(rates.some(n=>n>1000000)) review('A jurisdiction rate is invalid.');
+    validateRateComponents(address.rates);
+    const rates=address.rates.map(r=>r.ppm);
     const combined=rates.reduce((a,b)=>a+b,0);
     if (levyKind) {
       if (policy.seller_taxes?.some(item=>item.kind===levyKind)) review('The seller levy was configured twice.');

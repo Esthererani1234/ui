@@ -1,0 +1,1032 @@
+{
+  "from": "2026-10-01",
+  "through": "2026-12-31",
+  "source": "https://tax.vermont.gov/business/local-option-tax",
+  "geographies": "https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2025_Gazetteer/2025_gaz_cousubs_50.txt",
+  "municipalities": {
+    "5000100325": [
+      "Addison town",
+      0
+    ],
+    "5000108575": [
+      "Bridport town",
+      0
+    ],
+    "5000109025": [
+      "Bristol town",
+      10000
+    ],
+    "5000116000": [
+      "Cornwall town",
+      0
+    ],
+    "5000126300": [
+      "Ferrisburgh town",
+      0
+    ],
+    "5000128600": [
+      "Goshen town",
+      0
+    ],
+    "5000129575": [
+      "Granville town",
+      0
+    ],
+    "5000131525": [
+      "Hancock town",
+      0
+    ],
+    "5000139325": [
+      "Leicester town",
+      0
+    ],
+    "5000140075": [
+      "Lincoln town",
+      0
+    ],
+    "5000144350": [
+      "Middlebury town",
+      10000
+    ],
+    "5000145550": [
+      "Monkton town",
+      0
+    ],
+    "5000148700": [
+      "New Haven town",
+      0
+    ],
+    "5000153725": [
+      "Orwell town",
+      0
+    ],
+    "5000153950": [
+      "Panton town",
+      0
+    ],
+    "5000159650": [
+      "Ripton town",
+      0
+    ],
+    "5000162575": [
+      "Salisbury town",
+      0
+    ],
+    "5000165050": [
+      "Shoreham town",
+      0
+    ],
+    "5000170075": [
+      "Starksboro town",
+      0
+    ],
+    "5000174650": [
+      "Vergennes city",
+      10000
+    ],
+    "5000176075": [
+      "Waltham town",
+      0
+    ],
+    "5000183275": [
+      "Weybridge town",
+      0
+    ],
+    "5000183800": [
+      "Whiting town",
+      0
+    ],
+    "5000301450": [
+      "Arlington town",
+      0
+    ],
+    "5000304825": [
+      "Bennington town",
+      0
+    ],
+    "5000317725": [
+      "Dorset town",
+      0
+    ],
+    "5000327962": [
+      "Glastenbury town",
+      0
+    ],
+    "5000339025": [
+      "Landgrove town",
+      0
+    ],
+    "5000342850": [
+      "Manchester town",
+      10000
+    ],
+    "5000355000": [
+      "Peru town",
+      10000
+    ],
+    "5000357025": [
+      "Pownal town",
+      0
+    ],
+    "5000358600": [
+      "Readsboro town",
+      0
+    ],
+    "5000361000": [
+      "Rupert town",
+      0
+    ],
+    "5000362875": [
+      "Sandgate town",
+      0
+    ],
+    "5000363175": [
+      "Searsburg town",
+      0
+    ],
+    "5000363550": [
+      "Shaftsbury town",
+      0
+    ],
+    "5000369775": [
+      "Stamford town",
+      0
+    ],
+    "5000371425": [
+      "Sunderland town",
+      0
+    ],
+    "5000385075": [
+      "Winhall town",
+      10000
+    ],
+    "5000385675": [
+      "Woodford town",
+      0
+    ],
+    "5000502875": [
+      "Barnet town",
+      0
+    ],
+    "5000510450": [
+      "Burke town",
+      0
+    ],
+    "5000517125": [
+      "Danville town",
+      0
+    ],
+    "5000530550": [
+      "Groton town",
+      0
+    ],
+    "5000531825": [
+      "Hardwick town",
+      0
+    ],
+    "5000537900": [
+      "Kirby town",
+      0
+    ],
+    "5000541725": [
+      "Lyndon town",
+      0
+    ],
+    "5000547725": [
+      "Newark town",
+      0
+    ],
+    "5000554400": [
+      "Peacham town",
+      0
+    ],
+    "5000561525": [
+      "Ryegate town",
+      0
+    ],
+    "5000562200": [
+      "St. Johnsbury town",
+      0
+    ],
+    "5000564075": [
+      "Sheffield town",
+      0
+    ],
+    "5000569925": [
+      "Stannard town",
+      0
+    ],
+    "5000571575": [
+      "Sutton town",
+      0
+    ],
+    "5000575700": [
+      "Walden town",
+      0
+    ],
+    "5000577125": [
+      "Waterford town",
+      0
+    ],
+    "5000583500": [
+      "Wheelock town",
+      0
+    ],
+    "5000706550": [
+      "Bolton town",
+      0
+    ],
+    "5000710300": [
+      "Buels gore",
+      0
+    ],
+    "5000710675": [
+      "Burlington city",
+      10000
+    ],
+    "5000713300": [
+      "Charlotte town",
+      0
+    ],
+    "5000714875": [
+      "Colchester town",
+      10000
+    ],
+    "5000724175": [
+      "Essex town",
+      0
+    ],
+    "5000724400": [
+      "Essex Junction city",
+      10000
+    ],
+    "5000733475": [
+      "Hinesburg town",
+      0
+    ],
+    "5000734600": [
+      "Huntington town",
+      0
+    ],
+    "5000736700": [
+      "Jericho town",
+      0
+    ],
+    "5000745250": [
+      "Milton town",
+      0
+    ],
+    "5000759275": [
+      "Richmond town",
+      0
+    ],
+    "5000762050": [
+      "St. George town",
+      0
+    ],
+    "5000764300": [
+      "Shelburne town",
+      10000
+    ],
+    "5000766175": [
+      "South Burlington city",
+      10000
+    ],
+    "5000773975": [
+      "Underhill town",
+      0
+    ],
+    "5000780350": [
+      "Westford town",
+      0
+    ],
+    "5000784475": [
+      "Williston town",
+      10000
+    ],
+    "5000785150": [
+      "Winooski city",
+      10000
+    ],
+    "5000902125": [
+      "Averill town",
+      0
+    ],
+    "5000902162": [
+      "Avery's gore",
+      0
+    ],
+    "5000906325": [
+      "Bloomfield town",
+      0
+    ],
+    "5000908725": [
+      "Brighton town",
+      0
+    ],
+    "5000910075": [
+      "Brunswick town",
+      0
+    ],
+    "5000911800": [
+      "Canaan town",
+      0
+    ],
+    "5000915250": [
+      "Concord town",
+      0
+    ],
+    "5000921250": [
+      "East Haven town",
+      0
+    ],
+    "5000925975": [
+      "Ferdinand town",
+      0
+    ],
+    "5000929125": [
+      "Granby town",
+      0
+    ],
+    "5000930775": [
+      "Guildhall town",
+      0
+    ],
+    "5000939700": [
+      "Lemington town",
+      0
+    ],
+    "5000939775": [
+      "Lewis town",
+      0
+    ],
+    "5000941425": [
+      "Lunenburg town",
+      0
+    ],
+    "5000942475": [
+      "Maidstone town",
+      0
+    ],
+    "5000952750": [
+      "Norton town",
+      0
+    ],
+    "5000975175": [
+      "Victory town",
+      0
+    ],
+    "5000976337": [
+      "Warner's grant",
+      0
+    ],
+    "5000976562": [
+      "Warren's gore",
+      0
+    ],
+    "5001102500": [
+      "Bakersfield town",
+      0
+    ],
+    "5001105425": [
+      "Berkshire town",
+      0
+    ],
+    "5001124050": [
+      "Enosburgh town",
+      0
+    ],
+    "5001124925": [
+      "Fairfax town",
+      0
+    ],
+    "5001125225": [
+      "Fairfield town",
+      0
+    ],
+    "5001126500": [
+      "Fletcher town",
+      0
+    ],
+    "5001127100": [
+      "Franklin town",
+      0
+    ],
+    "5001127700": [
+      "Georgia town",
+      0
+    ],
+    "5001133025": [
+      "Highgate town",
+      0
+    ],
+    "5001145850": [
+      "Montgomery town",
+      0
+    ],
+    "5001159125": [
+      "Richford town",
+      0
+    ],
+    "5001161675": [
+      "St. Albans city",
+      10000
+    ],
+    "5001161750": [
+      "St. Albans town",
+      10000
+    ],
+    "5001164600": [
+      "Sheldon town",
+      0
+    ],
+    "5001171725": [
+      "Swanton town",
+      10000
+    ],
+    "5001300860": [
+      "Alburgh town",
+      0
+    ],
+    "5001329275": [
+      "Grand Isle town",
+      0
+    ],
+    "5001335875": [
+      "Isle La Motte town",
+      0
+    ],
+    "5001350650": [
+      "North Hero town",
+      0
+    ],
+    "5001367000": [
+      "South Hero town",
+      0
+    ],
+    "5001504375": [
+      "Belvidere town",
+      0
+    ],
+    "5001511500": [
+      "Cambridge town",
+      0
+    ],
+    "5001523500": [
+      "Eden town",
+      0
+    ],
+    "5001523725": [
+      "Elmore town",
+      0
+    ],
+    "5001535050": [
+      "Hyde Park town",
+      0
+    ],
+    "5001537075": [
+      "Johnson town",
+      0
+    ],
+    "5001546675": [
+      "Morristown town",
+      10000
+    ],
+    "5001570525": [
+      "Stowe town",
+      10000
+    ],
+    "5001577425": [
+      "Waterville town",
+      0
+    ],
+    "5001585375": [
+      "Wolcott town",
+      0
+    ],
+    "5001707375": [
+      "Bradford town",
+      0
+    ],
+    "5001707600": [
+      "Braintree town",
+      0
+    ],
+    "5001709325": [
+      "Brookfield town",
+      0
+    ],
+    "5001713525": [
+      "Chelsea town",
+      0
+    ],
+    "5001715700": [
+      "Corinth town",
+      0
+    ],
+    "5001725675": [
+      "Fairlee town",
+      0
+    ],
+    "5001748175": [
+      "Newbury town",
+      0
+    ],
+    "5001753425": [
+      "Orange town",
+      0
+    ],
+    "5001758075": [
+      "Randolph town",
+      0
+    ],
+    "5001770675": [
+      "Strafford town",
+      0
+    ],
+    "5001772400": [
+      "Thetford town",
+      0
+    ],
+    "5001773075": [
+      "Topsham town",
+      0
+    ],
+    "5001773675": [
+      "Tunbridge town",
+      0
+    ],
+    "5001774950": [
+      "Vershire town",
+      0
+    ],
+    "5001776750": [
+      "Washington town",
+      0
+    ],
+    "5001779975": [
+      "West Fairlee town",
+      0
+    ],
+    "5001784175": [
+      "Williamstown town",
+      0
+    ],
+    "5001900475": [
+      "Albany town",
+      0
+    ],
+    "5001903550": [
+      "Barton town",
+      0
+    ],
+    "5001909850": [
+      "Brownington town",
+      0
+    ],
+    "5001913150": [
+      "Charleston town",
+      0
+    ],
+    "5001916150": [
+      "Coventry town",
+      0
+    ],
+    "5001916300": [
+      "Craftsbury town",
+      0
+    ],
+    "5001917350": [
+      "Derby town",
+      0
+    ],
+    "5001928075": [
+      "Glover town",
+      0
+    ],
+    "5001930175": [
+      "Greensboro town",
+      0
+    ],
+    "5001933775": [
+      "Holland town",
+      0
+    ],
+    "5001935575": [
+      "Irasburg town",
+      0
+    ],
+    "5001936325": [
+      "Jay town",
+      0
+    ],
+    "5001940525": [
+      "Lowell town",
+      0
+    ],
+    "5001946450": [
+      "Morgan town",
+      0
+    ],
+    "5001948850": [
+      "Newport city",
+      0
+    ],
+    "5001948925": [
+      "Newport town",
+      0
+    ],
+    "5001973525": [
+      "Troy town",
+      0
+    ],
+    "5001980200": [
+      "Westfield town",
+      0
+    ],
+    "5001981700": [
+      "Westmore town",
+      0
+    ],
+    "5002105200": [
+      "Benson town",
+      0
+    ],
+    "5002107750": [
+      "Brandon town",
+      10000
+    ],
+    "5002111950": [
+      "Castleton town",
+      0
+    ],
+    "5002114350": [
+      "Chittenden town",
+      0
+    ],
+    "5002114500": [
+      "Clarendon town",
+      0
+    ],
+    "5002116825": [
+      "Danby town",
+      0
+    ],
+    "5002125375": [
+      "Fair Haven town",
+      10000
+    ],
+    "5002134450": [
+      "Hubbardton town",
+      0
+    ],
+    "5002135425": [
+      "Ira town",
+      0
+    ],
+    "5002137685": [
+      "Killington town",
+      0
+    ],
+    "5002144125": [
+      "Mendon town",
+      10000
+    ],
+    "5002144800": [
+      "Middletown Springs town",
+      0
+    ],
+    "5002147200": [
+      "Mount Holly town",
+      0
+    ],
+    "5002147425": [
+      "Mount Tabor town",
+      0
+    ],
+    "5002154250": [
+      "Pawlet town",
+      0
+    ],
+    "5002155450": [
+      "Pittsfield town",
+      0
+    ],
+    "5002155600": [
+      "Pittsford town",
+      0
+    ],
+    "5002156875": [
+      "Poultney town",
+      0
+    ],
+    "5002157250": [
+      "Proctor town",
+      0
+    ],
+    "5002161225": [
+      "Rutland city",
+      10000
+    ],
+    "5002161300": [
+      "Rutland town",
+      10000
+    ],
+    "5002165275": [
+      "Shrewsbury town",
+      0
+    ],
+    "5002171050": [
+      "Sudbury town",
+      0
+    ],
+    "5002172925": [
+      "Tinmouth town",
+      0
+    ],
+    "5002175925": [
+      "Wallingford town",
+      0
+    ],
+    "5002177950": [
+      "Wells town",
+      0
+    ],
+    "5002180875": [
+      "West Haven town",
+      0
+    ],
+    "5002182300": [
+      "West Rutland town",
+      0
+    ],
+    "5002303175": [
+      "Barre city",
+      10000
+    ],
+    "5002303250": [
+      "Barre town",
+      0
+    ],
+    "5002305650": [
+      "Berlin town",
+      10000
+    ],
+    "5002311125": [
+      "Cabot town",
+      0
+    ],
+    "5002311350": [
+      "Calais town",
+      0
+    ],
+    "5002318550": [
+      "Duxbury town",
+      0
+    ],
+    "5002321925": [
+      "East Montpelier town",
+      0
+    ],
+    "5002325825": [
+      "Fayston town",
+      0
+    ],
+    "5002343600": [
+      "Marshfield town",
+      0
+    ],
+    "5002344500": [
+      "Middlesex town",
+      0
+    ],
+    "5002346000": [
+      "Montpelier city",
+      10000
+    ],
+    "5002346225": [
+      "Moretown town",
+      0
+    ],
+    "5002350275": [
+      "Northfield town",
+      0
+    ],
+    "5002355825": [
+      "Plainfield town",
+      0
+    ],
+    "5002360625": [
+      "Roxbury town",
+      0
+    ],
+    "5002375325": [
+      "Waitsfield town",
+      10000
+    ],
+    "5002376525": [
+      "Warren town",
+      0
+    ],
+    "5002376975": [
+      "Waterbury town",
+      10000
+    ],
+    "5002385525": [
+      "Woodbury town",
+      0
+    ],
+    "5002386125": [
+      "Worcester town",
+      0
+    ],
+    "5002501900": [
+      "Athens town",
+      0
+    ],
+    "5002507900": [
+      "Brattleboro town",
+      10000
+    ],
+    "5002509475": [
+      "Brookline town",
+      0
+    ],
+    "5002517875": [
+      "Dover town",
+      10000
+    ],
+    "5002518325": [
+      "Dummerston town",
+      0
+    ],
+    "5002528900": [
+      "Grafton town",
+      0
+    ],
+    "5002530925": [
+      "Guilford town",
+      0
+    ],
+    "5002531150": [
+      "Halifax town",
+      0
+    ],
+    "5002536175": [
+      "Jamaica town",
+      0
+    ],
+    "5002540225": [
+      "Londonderry town",
+      0
+    ],
+    "5002543375": [
+      "Marlboro town",
+      10000
+    ],
+    "5002548400": [
+      "Newfane town",
+      0
+    ],
+    "5002557700": [
+      "Putney town",
+      0
+    ],
+    "5002560250": [
+      "Rockingham town",
+      0
+    ],
+    "5002565762": [
+      "Somerset town",
+      0
+    ],
+    "5002570750": [
+      "Stratton town",
+      10000
+    ],
+    "5002573300": [
+      "Townshend town",
+      0
+    ],
+    "5002574800": [
+      "Vernon town",
+      0
+    ],
+    "5002576225": [
+      "Wardsboro town",
+      0
+    ],
+    "5002581400": [
+      "Westminster town",
+      0
+    ],
+    "5002583950": [
+      "Whitingham town",
+      0
+    ],
+    "5002584700": [
+      "Wilmington town",
+      10000
+    ],
+    "5002584850": [
+      "Windham town",
+      0
+    ],
+    "5002701300": [
+      "Andover town",
+      0
+    ],
+    "5002702575": [
+      "Baltimore town",
+      0
+    ],
+    "5002702725": [
+      "Barnard town",
+      0
+    ],
+    "5002705800": [
+      "Bethel town",
+      0
+    ],
+    "5002708275": [
+      "Bridgewater town",
+      0
+    ],
+    "5002712250": [
+      "Cavendish town",
+      0
+    ],
+    "5002713675": [
+      "Chester town",
+      0
+    ],
+    "5002732275": [
+      "Hartford town",
+      10000
+    ],
+    "5002732425": [
+      "Hartland town",
+      0
+    ],
+    "5002741275": [
+      "Ludlow town",
+      10000
+    ],
+    "5002752900": [
+      "Norwich town",
+      0
+    ],
+    "5002756050": [
+      "Plymouth town",
+      0
+    ],
+    "5002756350": [
+      "Pomfret town",
+      10000
+    ],
+    "5002758375": [
+      "Reading town",
+      0
+    ],
+    "5002760100": [
+      "Rochester town",
+      0
+    ],
+    "5002760850": [
+      "Royalton town",
+      0
+    ],
+    "5002763775": [
+      "Sharon town",
+      0
+    ],
+    "5002769550": [
+      "Springfield town",
+      0
+    ],
+    "5002770375": [
+      "Stockbridge town",
+      0
+    ],
+    "5002777500": [
+      "Weathersfield town",
+      0
+    ],
+    "5002782000": [
+      "Weston town",
+      0
+    ],
+    "5002783050": [
+      "West Windsor town",
+      0
+    ],
+    "5002784925": [
+      "Windsor town",
+      0
+    ],
+    "5002785975": [
+      "Woodstock town",
+      10000
+    ]
+  }
+}

@@ -1,3 +1,5 @@
+import {DeliveryAddressCheck,useDeliveryAddress} from '../components/checkout/DeliveryAddressCheck';
+import {addressFields,fillAddressFields,draftAddress} from '../../shared/deliveryAddress.js';
 import {officeAddress} from '../../shared/business.js';
 
 import {cardLimitMessage,CARD_CHARGE_MAXIMUM} from "../../shared/cardLimits.js";
@@ -474,6 +476,9 @@ function ShippingCheckout() {
 
   const pickup=orderInfo ? (orderInfo.fulfillment==='pickup'||quote?.shipping_address?.fulfillment==='pickup') : !resumeOrderId && searchParams.get('fulfillment')==='pickup';
   useEffect(()=>{setForm(v=>({...v,agree:false,wireAgree:false}))},[pickup]);
+  const deliveryCheck = useDeliveryAddress(draftAddress(form),Boolean(user) && !pickup && !orderInfo && !resumeOrderId);
+  const confirmedAddress = deliveryCheck.canonical;
+  const deliveryAddress = confirmedAddress || draftAddress(form);
   const basePricing=quote || fallbackEstimate;
   const pricing=pickup ? {...basePricing,shipping:0,wire_total:Number(basePricing.subtotal),card_total:Math.round((Number(basePricing.subtotal)+Number(basePricing.card_surcharge))*100)/100}:basePricing;
   const wireTotal = Number.isFinite(Number(pricing.wire_total))
@@ -516,11 +521,11 @@ function ShippingCheckout() {
   const shippingPayload = () => ({
     name: `${form.firstName.trim()} ${form.lastName.trim()}`.trim(),
     address: {
-      line1: form.address1.trim(),
-      line2: form.address2.trim() || undefined,
-      city: form.city.trim(),
-      state: form.state.trim().toUpperCase(),
-      postal_code: form.postalCode.trim(),
+      line1: deliveryAddress.address_line_1.trim(),
+      line2: deliveryAddress.address_line_2.trim() || undefined,
+      city: deliveryAddress.city.trim(),
+      state: deliveryAddress.state.trim().toUpperCase(),
+      postal_code: deliveryAddress.postal_code.trim(),
       country: "US",
     },
   });
@@ -543,6 +548,9 @@ function ShippingCheckout() {
       !form.phone.trim()
     ) {
       return "Complete your name and phone number.";
+    }
+    if (!pickup && ['suggestion','needs_input'].includes(deliveryCheck.result?.status)) {
+      return deliveryCheck.result.message || 'Confirm or edit your delivery address before continuing.';
     }
     if (!pickup && (!form.address1.trim() || !form.city.trim())) {
       return "Enter a complete insured-delivery address.";
@@ -579,14 +587,7 @@ function ShippingCheckout() {
             email: user.email,
             phone: form.phone.trim(),
           },
-          shipping: pickup?{}:{
-            address_line_1: form.address1.trim(),
-            address_line_2: form.address2.trim(),
-            city: form.city.trim(),
-            state: form.state.trim().toUpperCase(),
-            postal_code: form.postalCode.trim(),
-            country: "US",
-          },
+          shipping: pickup?{}:deliveryAddress,
           payment_method: form.paymentMethod,
           notes: form.notes.trim(),
           terms: { accepted: true, version: TERMS_VERSION },
@@ -612,11 +613,11 @@ function ShippingCheckout() {
         first_name: form.firstName.trim(),
         last_name: form.lastName.trim(),
         // Contact phone on this order must not revoke the verified sign-in phone.
-        address_line_1: form.address1.trim(),
-        address_line_2: form.address2.trim() || null,
-        city: form.city.trim(),
-        state: form.state.trim().toUpperCase(),
-        postal_code: form.postalCode.trim(),
+        address_line_1: deliveryAddress.address_line_1.trim(),
+        address_line_2: deliveryAddress.address_line_2.trim() || null,
+        city: deliveryAddress.city.trim(),
+        state: deliveryAddress.state.trim().toUpperCase(),
+        postal_code: deliveryAddress.postal_code.trim(),
       })
       .eq("id", user.id);
     await refreshProfile();
@@ -979,6 +980,10 @@ function ShippingCheckout() {
                 />
               </label>
             </div>
+            <DeliveryAddressCheck check={deliveryCheck}
+              onFill={(a,keys)=>setForm(f=>fillAddressFields(f,a,keys))}
+              onUse={a=>setForm(f=>({...f,...addressFields(a),agree:false,wireAgree:false}))}
+              onEdit={()=>document.querySelector('input[autocomplete="address-line1"]')?.focus()}/>
             <label className="checkout-check">
               <input
                 type="checkbox"

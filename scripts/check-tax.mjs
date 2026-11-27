@@ -621,3 +621,24 @@ test('street evidence retains official boundaries and rejects conflicting counti
   geography.Counties.push({GEOID:'12011',NAME:'Broward County'});
   await assert.rejects(confirmDestination(street,day,fetcher),/verification/);
 });
+
+test('NY uses only the prior business day close and keeps face conversion evidence',async()=>{
+ const {previousMarketDay,parseClosingNote,completeNyMarketInputs}=await import('../server/tax/newYorkClose.js');
+ assert.equal(previousMarketDay('2026-11-27'),'2026-11-25');
+ assert.equal(previousMarketDay('2026-11-30'),'2026-11-27');
+ assert.equal(previousMarketDay('2026-12-28'),'2026-12-24');
+ assert.throws(()=>previousMarketDay('2027-01-04'));
+ const closeUrl='https://www.ausecure.com/gold-market-close-nov-25-2026/';
+ const html='<link rel="canonical" href="'+closeUrl+'" />5:00 PM ET close on Nov 25, 2026.<h3>Gold</h3><p class="p n">$3,588.45</p><h3>Silver</h3><p class="p n">$41.14</p>';
+ assert.throws(()=>parseClosingNote(html.replace('Nov 25','Nov 24'),'2026-11-25'));
+ assert.throws(()=>parseClosingNote(html+'<h3>Gold</h3>','2026-11-25'));
+ const base={...record,treatment:'eligible',origin:'catalog_policy_release_2026_11_26',catalog_weight:1};
+ const rules={1:{...base,catalog_sku:'APMEX-1OZ-TEP',form:'bar',metal:'gold'},
+   2:{...base,catalog_sku:'SML-1OZ-BU-RY',form:'coin',metal:'silver'},3:{...base,catalog_sku:'UNVERIFIED'}};
+ const fetcher=async url=>url===closeUrl?{ok:true,text:async()=>html}:{ok:true,json:async()=>({observations:[{d:'2026-11-27',FXUSDCAD:{v:'1.4000'}}]})};
+ const result=await completeNyMarketInputs(rules,'2026-11-27',fetcher);
+ assert.equal(result[1].market_unit_cents,358845);assert.equal(result[2].market_unit_cents,4114);
+ assert.equal(result[2].face_usd_cents,357);assert.match(result[2].face_fx_source,/bankofcanada/);
+ assert.equal(result[3].market_unit_cents,undefined);
+ await assert.rejects(completeNyMarketInputs(rules,'2026-11-27',async url=>url===closeUrl?fetcher(url):{ok:true,json:async()=>({observations:[]})}),/dated bullion/);
+});

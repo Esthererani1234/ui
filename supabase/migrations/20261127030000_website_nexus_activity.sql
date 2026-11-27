@@ -117,7 +117,9 @@ revoke all on function private.tax_ny_market_inputs(jsonb,date) from public,anon
 alter function public.tax_quote_inputs(uuid,uuid,jsonb) rename to tax_jurisdiction_inputs;
 create function public.tax_quote_inputs(p_user uuid,p_quote uuid,p_address jsonb) returns jsonb stable language sql security definer set search_path='' as $$
  select case when p_address->>'state'='NY' and jsonb_typeof(raw->'products')='object' then
-  raw||jsonb_build_object('products',(select jsonb_object_agg(k,private.tax_ny_market_inputs(v,(raw->>'day')::date))
+  raw||jsonb_build_object('policy',(raw->'policy')||jsonb_build_object('market_close_lookup',
+    coalesce(raw->'policy'->>'origin'='catalog_policy_release_2026_11_26',false)),
+   'products',(select jsonb_object_agg(k,private.tax_ny_market_inputs(v,(raw->>'day')::date))
    from jsonb_each(raw->'products') e(k,v))) else raw end
  from (select public.tax_jurisdiction_inputs(p_user,p_quote,p_address) raw) q
 $$;

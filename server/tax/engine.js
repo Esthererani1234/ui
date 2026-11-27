@@ -1,9 +1,12 @@
+import {transactionEligibility} from './transactionConditions.js';
 import {minimumMessage, storeFloor} from '../../shared/bullionMinimums.js';
 
 // All inputs to this module come from a locked quote and reviewed server records.
 export class TaxReview extends Error {
   constructor(message) { super(message); this.status = 409; }
 }
+class MissingSaleEvidence extends TaxReview {}
+const missingEvidence=message=>{throw new MissingSaleEvidence(message);};
 const review = message => { throw new TaxReview(message); };
 function integer(value, min = 0) {
   if (!Number.isSafeInteger(value) || value < min) review('A tax calculation input needs review.');
@@ -47,6 +50,28 @@ export function validateRateComponents(rates) {
      (local.some(r=>r.level==='combined_local') && local.length>1) ||
      rates.filter(r=>r.level==='state').length>1) review('The jurisdiction rates overlap.');
 }
+function alaskaTaxParts(address,lines,net,eligible,meetsExemption,shippingBase,feeBase) {
+  if(address.cap_basis!=='arsstc_monthly_retail' || shippingBase || feeBase)
+    review('Alaska tax caps and the allocation of ancillary charges need verification.');
+  const cap=(term)=>{
+    if(!term || !Object.hasOwn(term,'limit_cents') || !/^https?:\/\/\S+$/.test(term.source))review('The local Alaska tax cap needs verification.');
+    return term.limit_cents===null?null:integer(term.limit_cents);
+  };
+  return address.rates.map(rate=>{
+    const itemCap=cap(rate.caps?.per_item),transactionCap=cap(rate.caps?.per_transaction);
+    const beforeTransaction=lines.reduce((sum,line,i)=>{
+      if(eligible[i] && meetsExemption)return sum;
+      let lineBase=net[i];
+      if(itemCap!==null){
+        const capForQuantity=BigInt(itemCap)*BigInt(line.quantity);
+        if(capForQuantity<BigInt(lineBase))lineBase=Number(capForQuantity);
+      }
+      return integer(sum+lineBase);
+    },0);
+    const amount=transactionCap===null?beforeTransaction:Math.min(beforeTransaction,transactionCap);
+    return {code:rate.code,level:rate.level,ppm:rate.ppm,base_cents:amount,cents:roundRatio(amount,rate.ppm,1000000),caps:rate.caps};
+  });
+}
 function faceInUsd(rule,day) {
   const face=integer(rule.denomination_cents,1);
   if(rule.denomination_currency==='USD')return face;
@@ -87,6 +112,8 @@ function eligibility(line, net, state, day, investment) {
   const p=line.classification;
   if (!current(p,day) || !['eligible','taxable'].includes(p.treatment)) review('A product tax classification needs review.');
   if (p.treatment==='taxable') return false;
+  const transaction=transactionEligibility(p,line,net,state,day,review,missingEvidence);
+  if(transaction!==undefined)return transaction;
   if(p.value_test==='nv_coin_face_premium'){
     const [face,denominator]=faceRatioInUsd(p,day);
     const unitFloor=Math.floor(net/line.quantity),unitCeiling=Math.ceil(net/line.quantity);
@@ -159,9 +186,16 @@ export function assess({day,state,policy,address,lines,subtotal,shipping,fee,inv
   if (remoteOnly && policy.collection!=='no_obligation')
     review('An active registration requires reviewed collection and fee rules.');
   const florida=state==='FL'?floridaCoinEligibility(lines,net,day):null;
+  const evidenceNeeded=new Map();
   const qualified=lines.map((line,i)=>{
     if (remoteOnly && !current(line.classification,day)) return null;
-    return (!florida || florida[i]) && eligibility(line,net[i],state,day,investment);
+    try {
+      return (!florida || florida[i]) && eligibility(line,net[i],state,day,investment);
+    }catch(error){
+      if(!remoteOnly || policy.collection!=='no_obligation' || !(error instanceof MissingSaleEvidence))throw error;
+      evidenceNeeded.set(i,error.message);
+      return null;
+    }
   });
   const qualifiedSum=net.reduce((sum,n,i)=>sum+(qualified[i]?n:0),0);
   // Store minimum and statutory eligibility are separate. Exclusive thresholds
@@ -208,7 +242,11 @@ export function assess({day,state,policy,address,lines,subtotal,shipping,fee,inv
     validateRateComponents(address.rates);
     const rates=address.rates.map(r=>r.ppm);
     const combined=rates.reduce((a,b)=>a+b,0);
-    if (levyKind) {
+    if(state==='AK' && historicalReport){
+      if(policy.rounding!=='component')review('The rounding treatment for each Alaska local tax needs verification.');
+      breakdown=alaskaTaxParts(address,lines,net,qualified,meetsExemption,chargeBase(shipping,policy.shipping_base),chargeBase(fee,policy.fee_base));
+      tax=breakdown.reduce((sum,row)=>integer(sum+row.cents),0);
+    }else if (levyKind) {
       if (policy.seller_taxes?.some(item=>item.kind===levyKind)) review('The seller levy was configured twice.');
       if (!combined || combined>=1000000) review('The seller tax rate needs review.');
       const amount = state==='HI' && passThrough==='pass_through'
@@ -240,8 +278,10 @@ export function assess({day,state,policy,address,lines,subtotal,shipping,fee,inv
   }
   if (destinationLevy) sellerTaxes.push(destinationLevy);
   const jurisdictions = (address.rates || []).map(({level,code,name,county,districts,reporting_code})=>({level,code,name,county,districts,reporting_code}));
-  return {jurisdictions,remote_basis:policy.remote_basis,receipts_upper_bound_cents:policy.receipts_upper_bound_cents,
+  return {jurisdictions,related_receipts_version:policy.related_receipts_version,related_receipts_document:policy.related_receipts_document,remote_basis:policy.remote_basis,receipts_upper_bound_cents:policy.receipts_upper_bound_cents,
     transactions_upper_bound:policy.transactions_upper_bound,geography:address.geography,rate_source:address.source,rate_verified_on:address.verified_on,rate_effective_from:address.valid_from,rate_valid_until:address.valid_until,policy_source:policy.source,seller_taxes:sellerTaxes,state,day,collection:policy.collection,status:merchandiseOnly?'exempt':collect?(base?'taxable':'exempt'):'not_collected',subtotal,shipping,fee,tax,total:integer(subtotal+shipping+fee+tax),taxable,exempt:subtotal-taxable-unclassified,unclassified,base,breakdown,policy_version:policy.version,address_version:address.version,registration:policy.registration,lines:lines.map((l,i)=>({id:l.id,net:net[i],exempt:qualified[i]&&meetsExemption,version:l.classification?.version ?? null,
+      ...(evidenceNeeded.has(i)?{evidence_needed:evidenceNeeded.get(i)}:{}),...(l.sale_evidence?{sale_evidence:l.sale_evidence}:{}),
+      ...(l.metal_priced===true && l.classification?.value_test?{locked_metal_price:true}:{}),
       ...(l.classification?.value_test?{value_test:l.classification.value_test,coin_valuation:l.classification.coin_valuation,
         denomination_cents:l.classification.denomination_cents,denomination_currency:l.classification.denomination_currency,
         face_usd_cents:l.classification.face_usd_cents,cad_per_usd_10000:l.classification.cad_per_usd_10000,face_fx_source:l.classification.face_fx_source,face_fx_observed_on:l.classification.face_fx_observed_on}:{}),...(state==='NY' && qualified[i] ? {market_day:l.classification.market_observed_on,market_basis:l.classification.market_basis,market_source:l.classification.market_source,market_unit_cents:l.classification.market_unit_cents,market_calendar_source:l.classification.market_calendar_source,fine_oz_numerator:l.classification.fine_oz_numerator,fine_oz_max_numerator:l.classification.fine_oz_max_numerator,fine_oz_denominator:l.classification.fine_oz_denominator,face_usd_cents:l.classification.face_usd_cents,face_fx_source:l.classification.face_fx_source} : {})}))};

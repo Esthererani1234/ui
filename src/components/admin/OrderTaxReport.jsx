@@ -3,6 +3,23 @@ import states from '../../../shared/taxSources.json';
 const names=Object.fromEntries(states.map(s=>[s.code,s.name]));
 const money=c=>c==null?'—':(Number(c)/100).toLocaleString('en-US',{style:'currency',currency:'USD'});
 const name=code=>names[code]||'Unassigned destination';
+function ReviewReason({result}){
+  const e=result.local_evidence;
+  const state=result.state_scope;
+  if(!e && !state)return <span>{result.reason}</span>;
+  const scopes={no_state_general_sales_tax:'The state has no general sales tax.',
+    state_administered_bullion_exemption:'Colorado exempts qualifying coins and bullion from state and state-administered taxes. Self-collecting cities set their own treatment.',
+    consumer_bullion_exemption:'Arizona exempts qualifying bullion sold to the ultimate consumer. Coins sold to manufacture jewelry or art have separate treatment.'};
+  const notes={outside_resort_areas:'The verified county is outside the published resort areas.',
+    no_general_retail_tax:'The municipality has no general retail sales tax on bullion.',
+    member_general_rates:'Published general retail rates for the verified location'};
+  return <details><summary>{result.reason}</summary>
+    {state&&<p>{scopes[state.scope]} <a href={state.source} target="_blank" rel="noreferrer">State authority</a></p>}
+    {e&&<><p>{e.geography.county.name} · {notes[e.scope]}</p>
+    {e.rates?.map(r=><p key={r.code}>{r.name} · {r.ppm/10000}% · Filing code {r.code}
+      {Object.entries(r.caps).filter(([,v])=>v.limit_cents!=null).map(([k,v])=><span key={k}> · {money(v.limit_cents)} {k==='per_item'?'per item':'per transaction'} taxable-base limit</span>)}</p>)}
+    <a href={e.source} target="_blank" rel="noreferrer">Jurisdiction source</a></>}</details>;
+}
 function OrderCalculation({orderId,request}){
   const [result,setResult]=useState(null),[loading,setLoading]=useState(false);
   async function run(){
@@ -11,9 +28,9 @@ function OrderCalculation({orderId,request}){
     catch(e){setResult({status:'review',reason:e.message});}finally{setLoading(false);}
   }
   if(!result)return <button type="button" className="text-button" onClick={run} disabled={loading}>{loading?'Calculating…':'Check tax'}</button>;
-  if(result.status==='review')return <span>{result.reason}</span>;
+  if(result.status==='review')return <ReviewReason result={result}/>;
   return <details><summary>{result.status==='recorded'?'Verified order tax':'Calculated tax'} {money(result.tax)}</summary>
-    <p>{result.state} · {result.day} · Taxable merchandise {money(result.taxable)} · Exempt merchandise {money(result.exempt)}</p>
+    <p>{result.state} · {result.day} · Taxable merchandise {money(result.taxable)} · Exempt merchandise {money(result.exempt)}{result.unclassified>0&&<> · Awaiting classification {money(result.unclassified)}</>}</p>
     {result.breakdown.map((b,i)=><p key={i}>{[b.name||b.code,b.county,...(b.districts||[])].filter(Boolean).join(' · ')} · {Number(b.ppm)/10000}% · {money(b.cents)}</p>)}
     {result.rate_source?.startsWith('https://')&&<a href={result.rate_source} target="_blank" rel="noreferrer">Rate source</a>}
   </details>;
@@ -85,8 +102,8 @@ function NewOrderReports({from,to,request}){
     {page&&<><p>Orders placed from {new Date(page.starts_at).toLocaleString('en-US',{timeZone:'America/New_York',dateStyle:'medium',timeStyle:'short'})} New York time are checked automatically.</p>
     {!page.orders.length?<p>No new orders in this period.</p>:<div className="tax-table"><table><thead><tr><th>Order</th><th>Destination</th><th>Calculated tax</th></tr></thead>
     <tbody>{page.orders.map(o=><tr key={o.id}><th>{o.order_number||o.id}</th><td>{name(o.state)}</td><td>
-      {!o.result?'Queued':o.result.status==='review'?o.result.reason:<details><summary>{money(o.result.tax)}</summary>
-        <p>Taxable merchandise {money(o.result.taxable)} · Exempt merchandise {money(o.result.exempt)}</p>
+      {!o.result?'Queued':o.result.status==='review'?<ReviewReason result={o.result}/>:<details><summary>{money(o.result.tax)}</summary>
+        <p>Taxable merchandise {money(o.result.taxable)} · Exempt merchandise {money(o.result.exempt)}{o.result.unclassified>0&&<> · Awaiting classification {money(o.result.unclassified)}</>}</p>
         {o.result.breakdown.map((b,i)=><p key={i}>{[b.name||b.code,b.county,...(b.districts||[])].filter(Boolean).join(' · ')} · {Number(b.ppm)/10000}% · {money(b.cents)}</p>)}
         {o.result.rate_source?.startsWith('https://')&&<a href={o.result.rate_source} target="_blank" rel="noreferrer">Rate source</a>}
       </details>}</td></tr>)}</tbody></table></div>}
@@ -104,7 +121,7 @@ function RuleCoverage({request}){
   if(error)return <p role="alert">{error}</p>;
   if(!data)return <p>Loading rule coverage…</p>;
   return <details><summary>Rule coverage as of {data.day} · {data.product_reviews} of {data.product_total} product reviews</summary>
-    <p>{data.policies} of {data.destinations} destination policies reviewed. Each order also needs a verified address and collection decision.</p>
+    <p>{data.policies} of {data.destinations} destination policies reviewed. {data.state_only_reviews>0&&<>{data.state_only_reviews} additional product reviews cover state law and still need local verification. </>}Each order also needs a verified address and collection decision.</p>
     {data.remaining.length>0&&<div className="tax-table"><table><thead><tr><th>Destination</th><th>Collection policy</th><th>Products awaiting review</th></tr></thead>
       <tbody>{data.remaining.map(r=><tr key={r.state_code}><th>{name(r.state_code)}</th><td>{r.policy?'Reviewed':'Pending'}</td><td>{r.pending.join(', ')||'—'}</td></tr>)}</tbody></table></div>}
   </details>;

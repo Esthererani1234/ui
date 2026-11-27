@@ -46,7 +46,13 @@ export default async function handler(req,res){
     const {state,action,data}=await readJson(req,2900000);jurisdiction(state);
     const actor={p_actor:user.id,p_state:state};
     if(action==='evidence')await saveEvidence(db,user.id,state,data);
-    else if(action==='version'){
+    else if(action==='item_fact'){
+      await rpc(db,'tax_record_item_fact',{...actor,p_order:data.order,p_product:data.product,p_basis:data.basis,
+        p_document:data.document,p_fmv:state==='NJ' && data.basis==='numismatic_pricing'?data.fmv:null});
+    }else if(action==='related_receipts'){
+      await rpc(db,'tax_record_related_receipts',{...actor,p_day:date(data.day),p_prior:data.prior,p_current:data.current,
+        p_document:data.document,p_commodity:data.commodity||null});
+    }else if(action==='version'){
       validateVersion(state,data);
       await rpc(db,'tax_publish_version',{...actor,p_kind:data.kind,p_subject:data.subject,p_data:data.data,p_source:data.source,p_start:data.start,p_end:data.end,p_verified:data.verified,p_approval:data.approval});
     }else if(action==='refund'){

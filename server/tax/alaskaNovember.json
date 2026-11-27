@@ -1,0 +1,1590 @@
+{
+  "source": "https://arsstc.org/wp-content/uploads/2026/11/ARSSTC-Sales-Tax-Rate-Sheet-11-1-26.xlsx",
+  "sha256": "4a817afdf2bf6b25a1e01aec8835018dcc8042ecc0780a602af3b2e3082decc8",
+  "reviewed_on": "2026-11-27",
+  "through": "2026-11-30",
+  "combinations": [
+    {
+      "county": "02016",
+      "place": "0200065",
+      "area": "Adak City",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9001",
+          "name": "Adak",
+          "ppm": 40000,
+          "collection_start": "2020-05-01",
+          "rate_from": "2020-05-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": "https://adak.municipalcodeonline.com/book?type=ordinances#name=4.06.005_Sales_Tax_Levy"
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": "https://adak.municipalcodeonline.com/book?type=ordinances#name=4.06.005_Sales_Tax_Levy"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02016",
+      "place": "0266470",
+      "area": "Saint Paul City",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9078",
+          "name": "St. Paul",
+          "ppm": 35000,
+          "collection_start": "2020-08-01",
+          "rate_from": "2020-08-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": "https://saintpaul.municipal.codes/CCO/4.25"
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": "https://saintpaul.municipal.codes/CCO/4.25"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02016",
+      "place": "0280770",
+      "area": "Unalaska City",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9100",
+          "name": "Unalaska",
+          "ppm": 30000,
+          "collection_start": "2020-06-01",
+          "rate_from": "2020-06-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": "https://codelibrary.amlegal.com/codes/unalaska/latest/unalaska_ak/0-0-0-24278#JD_6.40.020"
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": "https://codelibrary.amlegal.com/codes/unalaska/latest/unalaska_ak/0-0-0-24278#JD_6.40.020"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02050",
+      "place": "0203550",
+      "area": "Aniak",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9007",
+          "name": "Aniak",
+          "ppm": 20000,
+          "collection_start": "2021-10-01",
+          "rate_from": "2021-10-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 100000,
+              "source": "City of Aniak, Alaska Code of Ordin. sec. 5.30.050(A)(15)"
+            },
+            "per_transaction": {
+              "limit_cents": 100000,
+              "source": "City of Aniak, Alaska Code of Ordin. sec. 5.30.050(A)(15)"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02050",
+      "place": "0206520",
+      "area": "Bethel City",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9008",
+          "name": "Bethel",
+          "ppm": 60000,
+          "collection_start": "2020-10-01",
+          "rate_from": "2020-10-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 1000000,
+              "source": "https://bethel.municipal.codes/BMC/4.16.160"
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": "https://bethel.municipal.codes/BMC/4.16.070"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02050",
+      "place": "0247990",
+      "area": "Mekoryuk City",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9052",
+          "name": "Mekoryuk",
+          "ppm": 40000,
+          "collection_start": "2024-10-01",
+          "rate_from": "2024-10-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": null
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": null
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02050",
+      "place": "0252720",
+      "area": "Napaskiak",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9055",
+          "name": "Napaskiak",
+          "ppm": 30000,
+          "collection_start": "2025-02-01",
+          "rate_from": "2025-02-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": null
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": null
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02050",
+      "place": "0278240",
+      "area": "Toksook Bay City",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9098",
+          "name": "Toksook Bay",
+          "ppm": 20000,
+          "collection_start": "2020-08-01",
+          "rate_from": "2020-08-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": null
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": null
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02050",
+      "place": "0264600",
+      "area": "Quinhagak",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9074",
+          "name": "Quinhagak",
+          "ppm": 30000,
+          "collection_start": "2022-05-01",
+          "rate_from": "2022-05-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": "City of Quinhagak, Alaska Code of Ordin. secs. 06.01.020, 06.01.030, 06.01.050."
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": "City of Quinhagak, Alaska Code of Ordin. secs. 06.01.020, 06.01.030, 06.01.050."
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02063",
+      "place": "0217410",
+      "area": "Cordova City",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9026",
+          "name": "Cordova",
+          "ppm": 70000,
+          "collection_start": "2020-06-01",
+          "rate_from": "2024-02-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 500000,
+              "source": "https://library.municode.com/ak/cordova/codes/code_of_ordinances?nodeId=TIT5REFI_CH5.40SATA_5.40.030EXEN"
+            },
+            "per_transaction": {
+              "limit_cents": 500000,
+              "source": "https://library.municode.com/ak/cordova/codes/code_of_ordinances?nodeId=TIT5REFI_CH5.40SATA_5.40.030EXEN"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02070",
+      "place": "0201420",
+      "area": "Aleknagik",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9004",
+          "name": "Aleknagik",
+          "ppm": 50000,
+          "collection_start": "2021-05-01",
+          "rate_from": "2021-05-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": "https://aleknagikak.gov/ord/Chapter%2013-20.html#5.16.030"
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": "https://aleknagikak.gov/ord/Chapter%2013-20.html#5.16.030"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02070",
+      "place": "0218950",
+      "area": "Dillingham City",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9017",
+          "name": "Dillingham",
+          "ppm": 60000,
+          "collection_start": "2020-07-01",
+          "rate_from": "2020-07-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 350000,
+              "source": "https://www.codepublishing.com/AK/Dillingham/#!/Dillingham04/Dillingham0420.html#4.20.050"
+            },
+            "per_transaction": {
+              "limit_cents": 350000,
+              "source": "https://www.codepublishing.com/AK/Dillingham/#!/Dillingham04/Dillingham0420.html#4.20.050"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02070",
+      "place": "0277690",
+      "area": "Togiak City",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9097",
+          "name": "Togiak",
+          "ppm": 20000,
+          "collection_start": "2020-08-01",
+          "rate_from": "2020-08-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": "https://www.commerce.alaska.gov/web/Portals/4/pub/Togiak%20Code%20of%20Ordinances.pdf"
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": "https://www.commerce.alaska.gov/web/Portals/4/pub/Togiak%20Code%20of%20Ordinances.pdf"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02090",
+      "place": "0255910",
+      "area": "North Pole",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9062",
+          "name": "North Pole",
+          "ppm": 55000,
+          "collection_start": "2021-04-01",
+          "rate_from": "2021-04-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 30000,
+              "source": null
+            },
+            "per_transaction": {
+              "limit_cents": 30000,
+              "source": null
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02100",
+      "place": null,
+      "area": "Haines Borough",
+      "rates": [
+        {
+          "level": "county",
+          "code": "800032",
+          "name": "Haines Borough",
+          "ppm": 45000,
+          "collection_start": "2020-05-01",
+          "rate_from": "2026-10-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 1000000,
+              "source": "https://hainesborough.borough.codes/HBC/3.80.050"
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": "https://hainesborough.borough.codes/HBC/3.80.030"
+            }
+          }
+        }
+      ],
+      "requires_area_code": true
+    },
+    {
+      "county": "02100",
+      "place": null,
+      "area": "Haines Borough - Rural",
+      "rates": [
+        {
+          "level": "county",
+          "code": "800034",
+          "name": "Haines Borough - Rural",
+          "ppm": 30000,
+          "collection_start": "2020-05-01",
+          "rate_from": "2026-10-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 1000000,
+              "source": "https://hainesborough.borough.codes/HBC/3.80.050"
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": "https://hainesborough.borough.codes/HBC/3.80.030"
+            }
+          }
+        }
+      ],
+      "requires_area_code": true
+    },
+    {
+      "county": "02100",
+      "place": null,
+      "area": "Excursion Inlet",
+      "rates": [
+        {
+          "level": "city",
+          "code": "800036",
+          "name": "Excursion Inlet",
+          "ppm": 25000,
+          "collection_start": "2020-05-01",
+          "rate_from": "2026-10-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 1000000,
+              "source": "https://hainesborough.borough.codes/HBC/3.80.050"
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": "https://hainesborough.borough.codes/HBC/3.80.030"
+            }
+          }
+        }
+      ],
+      "requires_area_code": true
+    },
+    {
+      "county": "02105",
+      "place": "0230940",
+      "area": "Gustavus City",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9110",
+          "name": "Gustavus",
+          "ppm": 30000,
+          "collection_start": "2020-06-01",
+          "rate_from": "2020-06-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": "https://library.municode.com/ak/gustavus/codes/code_of_ordinances?nodeId=CD_ORD_TIT4REFI_CH4.15SATA_S4.15.030IMSATA"
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": "https://library.municode.com/ak/gustavus/codes/code_of_ordinances?nodeId=CD_ORD_TIT4REFI_CH4.15SATA_S4.15.030IMSATA"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02105",
+      "place": "0259650",
+      "area": "Pelican City",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9068",
+          "name": "Pelican",
+          "ppm": 40000,
+          "collection_start": "2022-02-01",
+          "rate_from": "2026-10-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": null
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": null
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02105",
+      "place": "0276260",
+      "area": "Tenakee Springs City",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9095",
+          "name": "Tenakee Springs",
+          "ppm": 20000,
+          "collection_start": "2020-07-01",
+          "rate_from": "2020-07-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 750000,
+              "source": "http://www.tenakeespringsak.com/uploads/4/9/8/2/49826515/title_9_revenue_and_finance.pdf"
+            },
+            "per_transaction": {
+              "limit_cents": 750000,
+              "source": "http://www.tenakeespringsak.com/uploads/4/9/8/2/49826515/title_9_revenue_and_finance.pdf"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02110",
+      "place": null,
+      "area": "Juneau, City and Borough",
+      "rates": [
+        {
+          "level": "county",
+          "code": "9033",
+          "name": "Juneau",
+          "ppm": 50000,
+          "collection_start": "2020-04-01",
+          "rate_from": "2020-04-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 5000000,
+              "source": "https://library.municode.com/ak/juneau/codes/code_of_ordinances?nodeId=COLABOJUALVOII_TIT69RETA_CH69.05UNSATA_69.05.040EX"
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": "https://library.municode.com/ak/juneau/codes/code_of_ordinances?nodeId=COLABOJUALVOII_TIT69RETA_CH69.05UNSATA_69.05.020IMRA"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02122",
+      "place": "0233140",
+      "area": "Homer City",
+      "rates": [
+        {
+          "level": "county",
+          "code": "9036",
+          "name": "Kenai Peninsula Borough",
+          "ppm": 30000,
+          "collection_start": "2020-04-01",
+          "rate_from": "2020-04-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 50000,
+              "source": "https://library.municode.com/ak/kenai_peninsula_borough/codes/code_of_ordinances?nodeId=TIT5REFI_CH5.18SATA_5.18.430COAXTA"
+            },
+            "per_transaction": {
+              "limit_cents": 50000,
+              "source": "https://library.municode.com/ak/kenai_peninsula_borough/codes/code_of_ordinances?nodeId=TIT5REFI_CH5.18SATA_5.18.430COAXTA"
+            }
+          }
+        },
+        {
+          "level": "city",
+          "code": "9028",
+          "name": "Homer",
+          "ppm": 48500,
+          "collection_start": "2020-04-01",
+          "rate_from": "2020-04-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 50000,
+              "source": "https://www.codepublishing.com/AK/Homer/#!/Homer03/Homer0316.html#3.16"
+            },
+            "per_transaction": {
+              "limit_cents": 50000,
+              "source": "https://www.codepublishing.com/AK/Homer/#!/Homer03/Homer0316.html#3.16"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02122",
+      "place": "0238420",
+      "area": "Kenai City",
+      "rates": [
+        {
+          "level": "county",
+          "code": "9036",
+          "name": "Kenai Peninsula Borough",
+          "ppm": 30000,
+          "collection_start": "2020-04-01",
+          "rate_from": "2020-04-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 50000,
+              "source": "https://library.municode.com/ak/kenai_peninsula_borough/codes/code_of_ordinances?nodeId=TIT5REFI_CH5.18SATA_5.18.430COAXTA"
+            },
+            "per_transaction": {
+              "limit_cents": 50000,
+              "source": "https://library.municode.com/ak/kenai_peninsula_borough/codes/code_of_ordinances?nodeId=TIT5REFI_CH5.18SATA_5.18.430COAXTA"
+            }
+          }
+        },
+        {
+          "level": "city",
+          "code": "9035",
+          "name": "Kenai",
+          "ppm": 30000,
+          "collection_start": "2020-04-01",
+          "rate_from": "2020-04-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 50000,
+              "source": "https://library.municode.com/ak/kenai_peninsula_borough/codes/code_of_ordinances?nodeId=TIT5REFI_CH5.18SATA_5.18.430COAXTA"
+            },
+            "per_transaction": {
+              "limit_cents": 50000,
+              "source": "https://library.municode.com/ak/kenai_peninsula_borough/codes/code_of_ordinances?nodeId=TIT5REFI_CH5.18SATA_5.18.430COAXTA"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02122",
+      "place": "0268340",
+      "area": "Seldovia City",
+      "rates": [
+        {
+          "level": "county",
+          "code": "9036",
+          "name": "Kenai Peninsula Borough",
+          "ppm": 30000,
+          "collection_start": "2020-04-01",
+          "rate_from": "2020-04-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 50000,
+              "source": "https://library.municode.com/ak/kenai_peninsula_borough/codes/code_of_ordinances?nodeId=TIT5REFI_CH5.18SATA_5.18.430COAXTA"
+            },
+            "per_transaction": {
+              "limit_cents": 50000,
+              "source": "https://library.municode.com/ak/kenai_peninsula_borough/codes/code_of_ordinances?nodeId=TIT5REFI_CH5.18SATA_5.18.430COAXTA"
+            }
+          }
+        },
+        {
+          "level": "city",
+          "code": "9084",
+          "name": "Seldovia",
+          "ppm": 20000,
+          "collection_start": "2020-04-01",
+          "rate_from": "2026-10-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 50000,
+              "source": "https://library.municode.com/ak/kenai_peninsula_borough/codes/code_of_ordinances?nodeId=TIT5REFI_CH5.18SATA_5.18.430COAXTA"
+            },
+            "per_transaction": {
+              "limit_cents": 50000,
+              "source": "https://library.municode.com/ak/kenai_peninsula_borough/codes/code_of_ordinances?nodeId=TIT5REFI_CH5.18SATA_5.18.430COAXTA"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02122",
+      "place": "0268560",
+      "area": "Seward City",
+      "rates": [
+        {
+          "level": "county",
+          "code": "9036",
+          "name": "Kenai Peninsula Borough",
+          "ppm": 30000,
+          "collection_start": "2020-04-01",
+          "rate_from": "2020-04-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 50000,
+              "source": "https://library.municode.com/ak/kenai_peninsula_borough/codes/code_of_ordinances?nodeId=TIT5REFI_CH5.18SATA_5.18.430COAXTA"
+            },
+            "per_transaction": {
+              "limit_cents": 50000,
+              "source": "https://library.municode.com/ak/kenai_peninsula_borough/codes/code_of_ordinances?nodeId=TIT5REFI_CH5.18SATA_5.18.430COAXTA"
+            }
+          }
+        },
+        {
+          "level": "city",
+          "code": "9085",
+          "name": "Seward",
+          "ppm": 40000,
+          "collection_start": "2020-04-01",
+          "rate_from": "2020-04-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 50000,
+              "source": "https://library.municode.com/ak/seward/codes/code_of_ordinances?nodeId=CD_ORD_TIT5REFI_CH5.35SATA"
+            },
+            "per_transaction": {
+              "limit_cents": 50000,
+              "source": "https://library.municode.com/ak/seward/codes/code_of_ordinances?nodeId=CD_ORD_TIT5REFI_CH5.35SATA"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02122",
+      "place": "0271640",
+      "area": "Soldotna City",
+      "rates": [
+        {
+          "level": "county",
+          "code": "9036",
+          "name": "Kenai Peninsula Borough",
+          "ppm": 30000,
+          "collection_start": "2020-04-01",
+          "rate_from": "2020-04-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 50000,
+              "source": "https://library.municode.com/ak/kenai_peninsula_borough/codes/code_of_ordinances?nodeId=TIT5REFI_CH5.18SATA_5.18.430COAXTA"
+            },
+            "per_transaction": {
+              "limit_cents": 50000,
+              "source": "https://library.municode.com/ak/kenai_peninsula_borough/codes/code_of_ordinances?nodeId=TIT5REFI_CH5.18SATA_5.18.430COAXTA"
+            }
+          }
+        },
+        {
+          "level": "city",
+          "code": "9091",
+          "name": "Soldotna",
+          "ppm": 30000,
+          "collection_start": "2020-04-01",
+          "rate_from": "2020-04-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 50000,
+              "source": "https://library.municode.com/ak/soldotna/codes/code_of_ordinances?nodeId=TIT3REFI"
+            },
+            "per_transaction": {
+              "limit_cents": 50000,
+              "source": "https://library.municode.com/ak/soldotna/codes/code_of_ordinances?nodeId=TIT3REFI"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02122",
+      "place": null,
+      "area": "Kenai Peninsula Borough",
+      "rates": [
+        {
+          "level": "county",
+          "code": "9036",
+          "name": "Kenai Peninsula Borough",
+          "ppm": 30000,
+          "collection_start": "2020-04-01",
+          "rate_from": "2020-04-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 50000,
+              "source": "https://library.municode.com/ak/kenai_peninsula_borough/codes/code_of_ordinances?nodeId=TIT5REFI_CH5.18SATA_5.18.430COAXTA"
+            },
+            "per_transaction": {
+              "limit_cents": 50000,
+              "source": "https://library.municode.com/ak/kenai_peninsula_borough/codes/code_of_ordinances?nodeId=TIT5REFI_CH5.18SATA_5.18.430COAXTA"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02130",
+      "place": null,
+      "area": "Ketchikan Gateway Borough",
+      "rates": [
+        {
+          "level": "county",
+          "code": "9038",
+          "name": "Ketchikan Gateway Borough",
+          "ppm": 25000,
+          "collection_start": "2020-09-01",
+          "rate_from": "2020-09-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 200000,
+              "source": "https://www.codepublishing.com/AK/KetchikanGatewayBorough/#!/KetchikanGatewayBorough04/KetchikanGatewayBorough0450.html#4.50.030"
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": "https://www.codepublishing.com/AK/KetchikanGatewayBorough/#!/KetchikanGatewayBorough04/KetchikanGatewayBorough0450.html#4.50.030"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02130",
+      "place": "0238970",
+      "area": "Ketchikan City",
+      "rates": [
+        {
+          "level": "county",
+          "code": "9038",
+          "name": "Ketchikan Gateway Borough",
+          "ppm": 25000,
+          "collection_start": "2020-09-01",
+          "rate_from": "2020-09-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 200000,
+              "source": "https://www.codepublishing.com/AK/KetchikanGatewayBorough/#!/KetchikanGatewayBorough04/KetchikanGatewayBorough0450.html#4.50.030"
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": "https://www.codepublishing.com/AK/KetchikanGatewayBorough/#!/KetchikanGatewayBorough04/KetchikanGatewayBorough0450.html#4.50.030"
+            }
+          }
+        },
+        {
+          "level": "city",
+          "code": "9037",
+          "name": "Ketchikan",
+          "ppm": 30000,
+          "collection_start": "2020-11-01",
+          "rate_from": "2026-10-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 200000,
+              "source": "https://www.codepublishing.com/AK/Ketchikan/#!/Ketchikan03/Ketchikan0312.html#3.12"
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": "https://www.codepublishing.com/AK/Ketchikan/#!/Ketchikan03/Ketchikan0312.html#3.12"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02130",
+      "place": "0267570",
+      "area": "Saxman City ",
+      "rates": [
+        {
+          "level": "county",
+          "code": "9038",
+          "name": "Ketchikan Gateway Borough",
+          "ppm": 25000,
+          "collection_start": "2020-09-01",
+          "rate_from": "2020-09-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 200000,
+              "source": "https://www.codepublishing.com/AK/KetchikanGatewayBorough/#!/KetchikanGatewayBorough04/KetchikanGatewayBorough0450.html#4.50.030"
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": "https://www.codepublishing.com/AK/KetchikanGatewayBorough/#!/KetchikanGatewayBorough04/KetchikanGatewayBorough0450.html#4.50.030"
+            }
+          }
+        },
+        {
+          "level": "city",
+          "code": "9081",
+          "name": "Saxman",
+          "ppm": 40000,
+          "collection_start": "2020-11-01",
+          "rate_from": "2020-11-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 200000,
+              "source": "https://www.codepublishing.com/AK/Saxman/#!/Saxman03/Saxman0330.html#3.30.120"
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": "https://www.codepublishing.com/AK/Saxman/#!/Saxman03/Saxman0330.html#3.30.120"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02150",
+      "place": "0240950",
+      "area": "Kodiak City",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9044",
+          "name": "Kodiak",
+          "ppm": 70000,
+          "collection_start": "2020-06-01",
+          "rate_from": "2020-06-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 300000,
+              "source": "https://www.codepublishing.com/AK/Kodiak/#!/Kodiak03/Kodiak0308.html#3.08.120"
+            },
+            "per_transaction": {
+              "limit_cents": 300000,
+              "source": "https://www.codepublishing.com/AK/Kodiak/#!/Kodiak03/Kodiak0308.html#3.08.120"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02150",
+      "place": "0257340",
+      "area": "Old Harbor",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9065",
+          "name": "Old Harbor",
+          "ppm": 30000,
+          "collection_start": "2023-09-01",
+          "rate_from": "2023-09-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 500000,
+              "source": "City of Old Harbor Alaska Ordinance No. 26-03"
+            },
+            "per_transaction": {
+              "limit_cents": 500000,
+              "source": "City of Old Harbor Alaska Ordinance No. 26-03"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02150",
+      "place": "0258550",
+      "area": "Ouzinkie City",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9066",
+          "name": "Ouzinkie",
+          "ppm": 60000,
+          "collection_start": "2021-07-01",
+          "rate_from": "2022-07-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": null
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": null
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02158",
+      "place": "0251180",
+      "area": "Mountain Village City",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9053",
+          "name": "Mountain Village",
+          "ppm": 30000,
+          "collection_start": "2020-08-01",
+          "rate_from": "2020-08-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": null
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": null
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02158",
+      "place": "0267680",
+      "area": "Scammon Bay",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9082",
+          "name": "Scammon Bay",
+          "ppm": 60000,
+          "collection_start": "2025-04-01",
+          "rate_from": "2025-04-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": null
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": null
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02164",
+      "place": "0213550",
+      "area": "Chignik City",
+      "rates": [
+        {
+          "level": "city",
+          "code": "800042",
+          "name": "Chignik",
+          "ppm": 0,
+          "collection_start": "2026-06-01",
+          "rate_from": "2026-11-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": null
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": null
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02170",
+      "place": "0258660",
+      "area": "Palmer City",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9067",
+          "name": "Palmer",
+          "ppm": 40000,
+          "collection_start": "2020-05-01",
+          "rate_from": "2026-04-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 100000,
+              "source": "https://palmer.municipal.codes/PMC/3.16.033"
+            },
+            "per_transaction": {
+              "limit_cents": 100000,
+              "source": "https://palmer.municipal.codes/PMC/3.16.033"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02170",
+      "place": "0283080",
+      "area": "Wasilla City",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9102",
+          "name": "Wasilla",
+          "ppm": 25000,
+          "collection_start": "2020-04-01",
+          "rate_from": "2020-04-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 50000,
+              "source": "https://wasilla.municipal.codes/WMC/5.16.035"
+            },
+            "per_transaction": {
+              "limit_cents": 50000,
+              "source": "https://wasilla.municipal.codes/WMC/5.16.035"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02170",
+      "place": "0233800",
+      "area": "Houston City",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9031",
+          "name": "Houston",
+          "ppm": 20000,
+          "collection_start": "2020-11-01",
+          "rate_from": "2020-11-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 50000,
+              "source": "https://www.codepublishing.com/AK/Houston/#!/Houston04/Houston0420.html#4.20"
+            },
+            "per_transaction": {
+              "limit_cents": 50000,
+              "source": "https://www.codepublishing.com/AK/Houston/#!/Houston04/Houston0420.html#4.20"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02180",
+      "place": "0222250",
+      "area": "Elim City",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9020",
+          "name": "Elim",
+          "ppm": 30000,
+          "collection_start": "2025-05-01",
+          "rate_from": "2025-05-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": "No online code link"
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": "No online code link"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02180",
+      "place": "0254920",
+      "area": "Nome City",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9059",
+          "name": "Nome",
+          "ppm": 60000,
+          "collection_start": "2021-05-01",
+          "rate_from": "2026-01-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": "https://www.codepublishing.com/AK/Nome/#!/Nome17/Nome1710.html#17.10.020"
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": "https://www.codepublishing.com/AK/Nome/#!/Nome17/Nome1710.html#17.10.010"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02180",
+      "place": "0280660",
+      "area": "Unalakleet",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9099",
+          "name": "Unalakleet",
+          "ppm": 50000,
+          "collection_start": "2022-11-01",
+          "rate_from": "2022-11-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": null
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": null
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02180",
+      "place": "0284070",
+      "area": "White Mountain",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9103",
+          "name": "White Mountain",
+          "ppm": 30000,
+          "collection_start": "2023-07-01",
+          "rate_from": "2024-12-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": null
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": null
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02188",
+      "place": "0241830",
+      "area": "Kotzebue",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9046",
+          "name": "Kotzebue",
+          "ppm": 60000,
+          "collection_start": "2022-01-01",
+          "rate_from": "2022-01-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": "https://library.municode.com/ak/kotzebue/codes/code_of_ordinances?nodeId=TIT3REFI_CH3.20SATA"
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": "https://library.municode.com/ak/kotzebue/codes/code_of_ordinances?nodeId=TIT3REFI_CH3.20SATA"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02188",
+      "place": "0268230",
+      "area": "Selawik City",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9083",
+          "name": "Selawik",
+          "ppm": 65000,
+          "collection_start": "2021-08-01",
+          "rate_from": "2021-08-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": null
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": null
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02188",
+      "place": "0270100",
+      "area": "Shungnak City",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9088",
+          "name": "Shungnak",
+          "ppm": 20000,
+          "collection_start": "2023-07-01",
+          "rate_from": "2023-07-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": null
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": null
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02195",
+      "place": null,
+      "area": "Petersburg Borough",
+      "rates": [
+        {
+          "level": "county",
+          "code": "9069",
+          "name": "Petersburg Borough",
+          "ppm": 60000,
+          "collection_start": "2020-06-01",
+          "rate_from": "2020-06-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 120000,
+              "source": "https://library.municode.com/ak/petersburg/codes/borough_code_of_ordinances?nodeId=TIT4REFI_CH4.28SATA_4.28.120EX"
+            },
+            "per_transaction": {
+              "limit_cents": 120000,
+              "source": "https://library.municode.com/ak/petersburg/codes/borough_code_of_ordinances?nodeId=TIT4REFI_CH4.28SATA_4.28.120EX"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02198",
+      "place": "0217740",
+      "area": "Craig City",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9015",
+          "name": "Craig",
+          "ppm": 60000,
+          "collection_start": "2020-07-01",
+          "rate_from": "2026-10-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": "https://www.craigak.com/sites/default/files/fileattachments/city_clerk/page/6241/title_3-revenue_and_finance.pdf"
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": "https://www.craigak.com/sites/default/files/fileattachments/city_clerk/page/6241/title_3-revenue_and_finance.pdf"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02198",
+      "place": "0236770",
+      "area": "Kake City",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9034",
+          "name": "Kake",
+          "ppm": 50000,
+          "collection_start": "2025-09-01",
+          "rate_from": "2025-09-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": null
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": null
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02198",
+      "place": "0277140",
+      "area": "Thorne Bay City",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9096",
+          "name": "Thorne Bay",
+          "ppm": 60000,
+          "collection_start": "2020-09-01",
+          "rate_from": "2020-09-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 750000,
+              "source": "https://thornebay-ak.gov/wp-content/uploads/2020/07/Title-3-Sales-Tax-Codified-July-2020.pdf"
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": "https://thornebay-ak.gov/wp-content/uploads/2020/07/Title-3-Sales-Tax-Codified-July-2020.pdf"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02230",
+      "place": null,
+      "area": "Skagway, Municipality of",
+      "rates": [
+        {
+          "level": "county",
+          "code": "9090",
+          "name": "Skagway",
+          "ppm": 30000,
+          "collection_start": "2024-03-01",
+          "rate_from": "2026-10-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": null
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": null
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02220",
+      "place": null,
+      "area": "Sitka, City and Borough",
+      "rates": [
+        {
+          "level": "county",
+          "code": "9089",
+          "name": "Sitka",
+          "ppm": 50000,
+          "collection_start": "2020-06-01",
+          "rate_from": "2026-10-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 1200000,
+              "source": "https://www.codepublishing.com/AK/Sitka/"
+            },
+            "per_transaction": {
+              "limit_cents": 1200000,
+              "source": "https://www.codepublishing.com/AK/Sitka/"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02275",
+      "place": null,
+      "area": "Wrangell, City and Borough",
+      "rates": [
+        {
+          "level": "county",
+          "code": "9105",
+          "name": "Wrangell",
+          "ppm": 70000,
+          "collection_start": "2020-04-01",
+          "rate_from": "2020-04-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": 500000,
+              "source": "https://www.codepublishing.com/AK/Wrangell/#!/Wrangell05/Wrangell0508.html#5.08"
+            },
+            "per_transaction": {
+              "limit_cents": 500000,
+              "source": "https://www.codepublishing.com/AK/Wrangell/#!/Wrangell05/Wrangell0508.html#5.08"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02282",
+      "place": null,
+      "area": "Yakutat, City and Borough",
+      "rates": [
+        {
+          "level": "county",
+          "code": "9106",
+          "name": "Yakutat",
+          "ppm": 50000,
+          "collection_start": "2020-07-01",
+          "rate_from": "2020-07-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": "https://yakutatak.govoffice2.com/vertical/sites/%7B6349CA29-2633-4DA2-A860-125A317CCB51%7D/uploads/Title_6_Revenue_and_Finance_-_December_2020.pdf"
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": "https://yakutatak.govoffice2.com/vertical/sites/%7B6349CA29-2633-4DA2-A860-125A317CCB51%7D/uploads/Title_6_Revenue_and_Finance_-_December_2020.pdf"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02290",
+      "place": "0227530",
+      "area": "Galena",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9024",
+          "name": "Galena",
+          "ppm": 30000,
+          "collection_start": "2022-12-01",
+          "rate_from": "2022-12-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": "https://library.municode.com/ak/galena/codes/code_of_ordinances?nodeId=TIT3REFI_CH3.08SATA"
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": "https://library.municode.com/ak/galena/codes/code_of_ordinances?nodeId=TIT3REFI_CH3.08SATA"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    },
+    {
+      "county": "02290",
+      "place": "0253050",
+      "area": "Nenana",
+      "rates": [
+        {
+          "level": "city",
+          "code": "9056",
+          "name": "Nenana",
+          "ppm": 40000,
+          "collection_start": "2021-10-01",
+          "rate_from": "2021-10-01",
+          "caps": {
+            "per_item": {
+              "limit_cents": null,
+              "source": "https://www.cityofnenana.com/city-docs"
+            },
+            "per_transaction": {
+              "limit_cents": null,
+              "source": "https://www.cityofnenana.com/city-docs"
+            }
+          }
+        }
+      ],
+      "requires_area_code": false
+    }
+  ]
+}

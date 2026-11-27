@@ -1,9 +1,30 @@
 lock table private.tax_versions in share row exclusive mode;
+alter table private.tax_versions add column report_only boolean not null default false;
+
+create function private.tax_rule_at_day(s text,k text,sub text,d date,include_reports boolean)
+returns jsonb stable language sql set search_path='' as $$
+ select v.data||jsonb_build_object('version',v.id,'state',v.state,'approval',
+   case when src.changed_at>v.created_at then 'requires_review' else v.approval end,
+   'source',v.source,'verified_on',v.verified_on,'valid_from',v.valid_from,'valid_until',v.valid_until)
+ from private.tax_versions v left join private.tax_sources src on src.url=v.source
+ where v.state=s and v.kind=k and v.subject=sub and v.valid_from<=d and (include_reports or not v.report_only)
+ order by v.valid_from desc,v.id desc limit 1
+$$;
+create or replace function private.tax_version(s text,k text,sub text,d date)
+returns jsonb stable language sql set search_path='' as $$
+ select private.tax_rule_at_day(s,k,sub,d,false)
+$$;
+create function private.tax_report_version(s text,k text,sub text,d date)
+returns jsonb stable language sql set search_path='' as $$
+ select private.tax_rule_at_day(s,k,sub,d,true)
+$$;
+revoke all on function private.tax_rule_at_day(text,text,text,date,boolean),private.tax_report_version(text,text,text,date) from public,anon,authenticated;
+
 -- The NY investment price test covers proof coins. Preserve the prior review in history.
 -- Gold Buffalo proof specifications are verified by the US Mint. Compare the locked
 -- individual selling price with the statutory limit, including the $50 face value.
-insert into private.tax_versions(state,kind,subject,data,source,valid_from,valid_until,verified_on,approval)
-select v.state,v.kind,v.subject,v.data||jsonb_build_object(
+insert into private.tax_versions(report_only,state,kind,subject,data,source,valid_from,valid_until,verified_on,approval)
+select true,v.state,v.kind,v.subject,v.data||jsonb_build_object(
  'specification_source','https://www.usmint.gov/news/press-releases/2026-american-buffalo-one-ounce-gold-proof-coin-available-may-7'),
  v.source,v.valid_from,v.valid_until,v.verified_on,'approved'
 from private.tax_versions v join public.products p on p.id::text=v.subject
@@ -65,14 +86,14 @@ with authorities(state,scope,treatment,source) as (values
 ), listings as (
  select p.id,p.sku,v.rule
  from public.products p cross join lateral
-   (select private.tax_version('NY','product',p.id::text,'2026-11-26') as rule) v
+   (select private.tax_report_version('NY','product',p.id::text,'2026-11-26') as rule) v
  where p.is_active and v.rule->>'approval'='approved' and v.rule->>'origin'='catalog_policy_release_2026_11_26'
  and (p.sku,p.name,p.metal::text,p.metal_weight_oz)=(v.rule->>'catalog_sku',v.rule->>'catalog_name',v.rule->>'metal',(v.rule->>'catalog_weight')::numeric)
  and p.sku in ('AGE-1OZ-BU-RY','GOTS-GBP-1OZ-RY-001','MAPLE-1OZ-BU-RY','SML-1OZ-BU-RY',
  'APMEX-1OZ-TEP','GOTS-834790','PAMP-1OZ-FORTUNA-ASSAY','RAND-0033')
 )
-insert into private.tax_versions(state,kind,subject,data,source,valid_from,valid_until,verified_on,approval)
-select a.state,'product',p.id::text,jsonb_build_object('origin','catalog_policy_release_2026_11_26','catalog_sku',p.sku,
+insert into private.tax_versions(report_only,state,kind,subject,data,source,valid_from,valid_until,verified_on,approval)
+select true,a.state,'product',p.id::text,jsonb_build_object('origin','catalog_policy_release_2026_11_26','catalog_sku',p.sku,
  'catalog_name',p.rule->>'catalog_name','metal',p.rule->>'metal','catalog_weight',p.rule->'catalog_weight',
  'form',p.rule->>'form','treatment',a.treatment)
  || case when a.state in ('GA','MI','MO','NC','PA','WV','FL','NV') and p.rule->>'form'='coin' then jsonb_build_object(
@@ -107,8 +128,8 @@ with authorities(state,source) as (values
  ('VA','https://budget.lis.virginia.gov/item/2026/2/HB30/Chapter/3/3-5.22/'),
  ('WY','https://wyoleg.gov/statutes/compress/title09.pdf')
 )
-insert into private.tax_versions(state,kind,subject,data,source,valid_from,valid_until,verified_on,approval)
-select state,'policy','state',jsonb_build_object('origin','catalog_policy_release_2026_11_26',
+insert into private.tax_versions(report_only,state,kind,subject,data,source,valid_from,valid_until,verified_on,approval)
+select true,state,'policy','state',jsonb_build_object('origin','catalog_policy_release_2026_11_26',
  'collection_basis','reviewed_exempt_items','first_eligible_cent',0,'store_minimum',false),
  source,date '2026-11-26',date '2026-12-31',date '2026-11-26','approved' from authorities a
 where not exists(select from private.tax_versions v where v.state=a.state and v.kind='policy' and v.subject='state');
@@ -120,16 +141,182 @@ with authorities(state,first_cent,first_count,requires_both,minimum,source) as (
  ('CT',10000000,200,true,100000,'https://prdext3.cga.ct.gov/2026/sup/chap_219.htm'),
  ('MA',10000001,null,false,100000,'https://www.mass.gov/regulations/830-CMR-64h19-remote-retailers-and-marketplace-facilitators')
 )
-insert into private.tax_versions(state,kind,subject,data,source,valid_from,valid_until,verified_on,approval)
-select a.state,'policy','state',jsonb_build_object('origin','catalog_policy_release_2026_11_26',
+insert into private.tax_versions(report_only,state,kind,subject,data,source,valid_from,valid_until,verified_on,approval)
+select true,a.state,'policy','state',jsonb_build_object('origin','catalog_policy_release_2026_11_26',
  'remote_basis','below_remote_threshold','merchant_footprint_as_of','2026-11-26','first_eligible_cent',minimum,
  'store_minimum',minimum>0,'revenue_trigger_cents',first_cent,'transaction_trigger',first_count,'requires_both',requires_both),
  a.source,date '2026-11-26',date '2026-12-31',date '2026-11-26','approved'
 from authorities a where not exists(select from private.tax_versions v where v.state=a.state and v.kind='policy' and v.subject='state');
 
-create or replace function private.tax_remote_order_policy(s text,p jsonb,q jsonb,d date) returns jsonb
+-- A reviewed fact belongs to one order and SKU. Product identity, special terms
+-- and locked prices are fingerprinted. Editing any of them invalidates the fact.
+create table private.tax_item_facts(
+ id bigint generated always as identity primary key,
+ order_id bigint not null references public.orders on delete cascade, product_id bigint not null,
+ state text not null references private.tax_states, fingerprint text not null, basis text not null,
+ document_id uuid not null references private.tax_documents, actor uuid not null,
+ fmv_cents bigint check(fmv_cents>0), created_at timestamptz not null default now()
+);
+alter table private.tax_item_facts enable row level security;
+revoke all on private.tax_item_facts from public,anon,authenticated;
+create index tax_item_fact_lookup on private.tax_item_facts(order_id,product_id,id desc);
+create function private.tax_order_fact_hash(o public.orders) returns text stable language sql set search_path='' as $$
+ select md5(jsonb_build_array(o.created_at,o.shipping_address,o.customer_notes,o.subtotal,o.shipping_amount,o.payment_surcharge,
+    (select jsonb_agg(v order by v) from (select jsonb_build_array(i.product_id,i.sku,i.product_name,i.metal,
+      i.metal_weight_oz,i.quantity,i.unit_price,i.line_total,i.pricing_snapshot) v from public.order_items i where i.order_id=o.id) x))::text)
+$$;
+revoke all on function private.tax_order_fact_hash(public.orders) from public,anon,authenticated;
+
+create function public.tax_record_item_fact(p_actor uuid,p_state text,p_order bigint,p_product bigint,p_basis text,p_document uuid,p_fmv bigint)
+returns void security definer language plpgsql set search_path='' as $$
+declare o public.orders; rule jsonb; fact_id bigint; sale_day date; kind text;
+begin
+ if not exists(select from public.admin_users where user_id=p_actor) then raise exception 'Admin required' using errcode='42501';end if;
+ select x.* into strict o from public.orders x,private.tax_report_start start_at where x.id=p_order and x.created_at>=start_at.starts_at for update of x;
+ sale_day:=(o.created_at at time zone 'America/New_York')::date;
+ if private.tax_admin_state(coalesce(o.shipping_address#>>'{address,state}',o.shipping_address->>'state')) is distinct from p_state
+   or not exists(select from private.tax_documents where id=p_document and state=p_state)
+   or (select count(*) from public.order_items where order_id=p_order and product_id=p_product)<>1 then raise exception 'Order or evidence mismatch';end if;
+ rule:=private.tax_report_version(p_state,'product',p_product::text,sale_day);
+ kind:=rule->>'value_test';
+ if not coalesce(case kind
+  when 'id_monetized_sale' then p_basis in ('ordinary_coin_sale','jewelry_or_art_manufacture')
+  when 'al_metal_pricing' then p_basis in ('metal_pricing','numismatic_pricing')
+  when 'ct_proof_coin' then p_basis in ('metal_pricing','rare_or_antique','ordinary_collectible')
+  when 'ok_proof_coin' then p_basis in ('metal_pricing','investment_sale','noninvestment_collectible')
+  when 'nj_coin_alternatives' then p_basis in ('metal_pricing','numismatic_pricing')
+  when 'sovereign_commodity_bar' then p_basis in ('sovereign_use_metal_price','sovereign_use_collectible_price','no_qualifying_sovereign_use','form_pricing')
+ end,false) or ((kind='nj_coin_alternatives' and p_basis='numismatic_pricing')<>(p_fmv is not null))
+ or p_fmv is not null and p_fmv not between 1 and 9007199254740991 then raise exception 'Invalid sale evidence';end if;
+ insert into private.tax_item_facts(order_id,product_id,state,fingerprint,basis,document_id,actor,fmv_cents)
+ values(p_order,p_product,p_state,private.tax_order_fact_hash(o),p_basis,p_document,p_actor,p_fmv) returning id into fact_id;
+ insert into private.tax_audit(actor,action,state,details) values(p_actor,'order_product_evidence',p_state,jsonb_build_object('order_id',p_order,'product_id',p_product,'fact_id',fact_id));
+end $$;
+revoke all on function public.tax_record_item_fact(uuid,text,bigint,bigint,text,uuid,bigint) from public,anon,authenticated;
+grant execute on function public.tax_record_item_fact(uuid,text,bigint,bigint,text,uuid,bigint) to service_role;
+
+-- Only the actual seller can substantiate affiliate/related-party sales.
+-- Each observation covers both calendar periods and is dated through a sale day.
+create table private.tax_related_receipts(
+ id bigint generated always as identity primary key,state text not null check(state in ('AZ','CA')),
+ through_day date not null, prior_cents bigint not null check(prior_cents>=0),
+ current_cents bigint not null check(current_cents>=0),document_id uuid not null references private.tax_documents,
+ actor uuid not null, commodity_status text check(commodity_status in ('registered','registration_not_required','required_unregistered')),
+ created_at timestamptz not null default now()
+);
+create index tax_related_day on private.tax_related_receipts(state,through_day,id desc);
+alter table private.tax_related_receipts enable row level security;
+revoke all on private.tax_related_receipts from public,anon,authenticated;
+create function public.tax_record_related_receipts(p_actor uuid,p_state text,p_day date,p_prior bigint,p_current bigint,p_document uuid,p_commodity text)
+returns void security definer language plpgsql set search_path='' as $$
+declare fact_id bigint;
+begin
+ if not exists(select from public.admin_users where user_id=p_actor) then raise exception 'Admin required' using errcode='42501';end if;
+ if p_day is null or p_day>(now() at time zone 'America/New_York')::date or p_state not in ('AZ','CA')
+ or p_prior not between 0 and 9007199254740991 or p_current not between 0 and 9007199254740991
+ or (p_state='AZ' and p_commodity is not null) or not exists(select from private.tax_documents where id=p_document and state=p_state)
+ then raise exception 'Invalid related-party evidence';end if;
+ insert into private.tax_related_receipts(state,through_day,prior_cents,current_cents,document_id,actor,commodity_status)
+ values(p_state,p_day,p_prior,p_current,p_document,p_actor,p_commodity) returning id into fact_id;
+ insert into private.tax_audit(actor,action,state,details) values(p_actor,'related_receipts',p_state,jsonb_build_object('fact_id',fact_id,'day',p_day));
+ update private.tax_revision set revision=revision+1;
+end $$;
+revoke all on function public.tax_record_related_receipts(uuid,text,date,bigint,bigint,uuid,text) from public,anon,authenticated;
+grant execute on function public.tax_record_related_receipts(uuid,text,date,bigint,bigint,uuid,text) to service_role;
+
+alter table private.tax_versions drop constraint tax_version_origin;
+alter table private.tax_versions add constraint tax_version_origin check (
+ actor is not null or coalesce(data->>'origin' in ('catalog_policy_release_2026_11_26','wa_remote_sales_2026_11_26','catalog_sale_conditions_2026_11_27'),false)
+);
+create or replace function private.tax_report_input_hash(o public.orders) returns text stable language sql set search_path='' as $$
+ select md5(jsonb_build_array(private.tax_order_fact_hash(o),o.paid_at,o.insurance_amount,o.tax_amount,o.total,o.tax_assessment_id,
+    (select max(id) from private.tax_item_facts where order_id=o.id),
+    (select max(id) from private.tax_related_receipts where state=private.tax_admin_state(coalesce(o.shipping_address#>>'{address,state}',o.shipping_address->>'state'))
+     and through_day=(o.created_at at time zone 'America/New_York')::date))::text)
+$$;
+revoke all on function private.tax_report_input_hash(public.orders) from public,anon,authenticated;
+
+-- An approved classification can have transaction conditions. Keep the actual
+-- order in review whenever the required evidence cannot be established.
+with authorities(state,scope,condition,source) as (values
+ ('ID','coins','id_monetized_sale','https://tax.idaho.gov/taxes/sales-use/exemptions/types-of-exemptions/'),
+ ('AL','coins','al_metal_pricing','https://alison.legislature.state.al.us/code-of-alabama?section=40-23-4'),
+ ('CT','proof','ct_proof_coin','https://prdext3.cga.ct.gov/2026/sup/chap_219.htm'),
+ ('OK','proof','ok_proof_coin','https://oklahoma.gov/content/dam/ok/en/omes/documents/iec-schedule-2026-2029.pdf'),
+ ('NJ','coins','nj_coin_alternatives','https://www.nj.gov/treasury/taxation/businesses/salestax/investbullion-coins.shtml'),
+ ('AR','bars','sovereign_commodity_bar','https://webftp.blr.arkansas.gov/Home/FTPDocument?path=ACTS%2F2021R%2FPublic%2FACT1109.pdf'),
+ ('KY','bars','sovereign_commodity_bar','https://osbd.ky.gov/Publications/Documents/Special%20Reports/Tax%20Expenditure%20Analysis%20Fiscal%20Years%202026-2028.pdf'),
+ ('MS','bars','sovereign_commodity_bar','https://billstatus.ls.state.ms.us/documents/2023/html/SB/2800-2899/SB2862SG.htm')
+), listings as (
+ select p.*,private.tax_report_version('NY','product',p.id::text,'2026-11-27') spec from public.products p where p.is_active
+)
+insert into private.tax_versions(report_only,state,kind,subject,data,source,valid_from,valid_until,verified_on,approval)
+select true,a.state,'product',p.id::text,jsonb_build_object('origin','catalog_sale_conditions_2026_11_27',
+ 'catalog_sku',p.sku,'catalog_name',p.name,'metal',p.metal::text,'catalog_weight',p.metal_weight_oz,
+ 'form',p.spec->>'form','treatment','eligible','value_test',a.condition),a.source,
+ date '2026-11-27',date '2026-12-31',date '2026-11-27','approved'
+from listings p cross join authorities a where p.spec->>'origin'='catalog_policy_release_2026_11_26'
+ and p.spec->>'approval'='approved' and (p.sku,p.name,p.metal::text,p.metal_weight_oz)=
+ (p.spec->>'catalog_sku',p.spec->>'catalog_name',p.spec->>'metal',(p.spec->>'catalog_weight')::numeric)
+ and ((a.scope='coins' and p.spec->>'form'='coin') or (a.scope='bars' and p.spec->>'form'='bar')
+   or (a.scope='proof' and p.sku='GOTS-GBP-1OZ-RY-001'));
+
+with authorities(state,trigger,minimum,source) as (values
+ ('ID',10000001,0,'https://legislature.idaho.gov/statutesrules/idstat/Title63/T63CH36/SECT63-3611/'),
+ ('CA',50000001,200000,'https://cdtfa.ca.gov/lawguides/vol1/sutl/6203.html'),
+ ('AZ',10000001,0,'https://www.azleg.gov/ars/42/05044.htm')
+)
+insert into private.tax_versions(report_only,state,kind,subject,data,source,valid_from,valid_until,verified_on,approval)
+select true,state,'policy','state',jsonb_build_object('origin','catalog_policy_release_2026_11_26',
+ 'remote_basis','below_remote_threshold','first_eligible_cent',minimum,'store_minimum',minimum>0,
+ 'revenue_trigger_cents',trigger,'merchant_footprint_as_of','2026-11-26'),source,
+ date '2026-11-27',date '2026-12-31',date '2026-11-27','approved' from authorities;
+
+-- Preserve verified state-law scope independently of municipal coverage. Such
+-- records do not satisfy the nationwide product or collection release gate.
+with states(state,scope,source) as (values
+ ('AK','no_state_general_sales_tax','https://www.commerce.alaska.gov/web/dcra/OfficeoftheStateAssessor/AlaskaSalesTaxInformation.aspx'),
+ ('MT','no_state_general_sales_tax','https://revenue.mt.gov/taxes/miscellaneous/local-resort-tax'),
+ ('CO','state_administered_bullion_exemption','https://tax.colorado.gov/sales-use-tax-topics-coins-and-precious-metal-bullion'),
+ ('AZ','consumer_bullion_exemption','https://www.azleg.gov/ars/42/05061.htm')
+), listings as (
+ select p.*,private.tax_report_version('NY','product',p.id::text,date '2026-11-27') spec from public.products p where p.is_active
+)
+insert into private.tax_versions(report_only,state,kind,subject,data,source,valid_from,valid_until,verified_on,approval)
+select true,s.state,'product',p.id::text,jsonb_build_object('origin','catalog_sale_conditions_2026_11_27',
+ 'catalog_sku',p.sku,'catalog_name',p.name,'metal',p.metal::text,'catalog_weight',p.metal_weight_oz,
+ 'form',p.spec->>'form','coverage_scope','state_only','state_treatment',s.scope),
+ s.source,date '2026-11-27',date '2026-12-31',date '2026-11-27','requires_review'
+from listings p cross join states s where p.spec->>'origin'='catalog_policy_release_2026_11_26'
+ and p.spec->>'approval'='approved' and (p.sku,p.name,p.metal::text,p.metal_weight_oz)=
+ (p.spec->>'catalog_sku',p.spec->>'catalog_name',p.spec->>'metal',(p.spec->>'catalog_weight')::numeric);
+
+create function private.tax_state_scope(s text,product bigint,d date) returns jsonb stable language sql set search_path='' as $$
+ select data || jsonb_build_object('version',v.id,'source',v.source,'verified_on',v.verified_on,'valid_from',v.valid_from,'valid_until',v.valid_until)
+ from private.tax_versions v left join private.tax_sources src on src.url=v.source
+ where v.id=(private.tax_report_version(s,'product',product::text,d)->>'version')::bigint
+ and v.data->>'origin'='catalog_sale_conditions_2026_11_27' and v.data->>'coverage_scope'='state_only'
+ and d between v.valid_from and v.valid_until and v.verified_on<=d and (src.changed_at is null or src.changed_at<=v.created_at)
+$$;
+revoke all on function private.tax_state_scope(text,bigint,date) from public,anon,authenticated;
+
+create function private.tax_order_state_scope(o public.orders,s text,d date) returns jsonb stable language sql set search_path='' as $$
+ with lines as (
+   select i.product_id,i.sku,i.product_name,i.metal::text as metal,i.metal_weight_oz,
+     private.tax_state_scope(s,i.product_id,d) as v from public.order_items i where i.order_id=o.id
+ )
+ select case when count(*)>0 and bool_and(v is not null and (sku,product_name,metal,metal_weight_oz)
+    is not distinct from (v->>'catalog_sku',v->>'catalog_name',v->>'metal',(v->>'catalog_weight')::numeric)) then
+   jsonb_build_object('scope',min(v->>'state_treatment'),'source',min(v->>'source'),'verified_on',min(v->>'verified_on'),
+     'versions',jsonb_agg(jsonb_build_object('product_id',product_id,'version',v->'version') order by product_id)) end
+ from lines
+$$;
+revoke all on function private.tax_order_state_scope(public.orders,text,date) from public,anon,authenticated;
+
+create function private.tax_remote_order_bound(s text,p jsonb,q jsonb,d date,placed_order bigint) returns jsonb
 stable language plpgsql set search_path='' as $$
-declare profile private.tax_states; proposed numeric; receipts numeric; transactions bigint; unknown_amount boolean;
+declare profile private.tax_states; proposed numeric; receipts numeric; transactions bigint; unknown_amount boolean; related private.tax_related_receipts;
+ prior_year numeric; current_year numeric; uncertain_year numeric;
 begin
  if p->>'collection_basis'='reviewed_exempt_items' then
    if s in ('VA','WY') and p->>'state'=s and p->>'origin'='catalog_policy_release_2026_11_26'
@@ -145,39 +332,67 @@ begin
  -- requires the state's separately reviewed collection, sourcing and fee rules.
  p:=p||jsonb_build_object('collection','review');
  select * into strict profile from private.tax_states where state=s;
- if s not in ('DC','HI','ME','VT','SD','IA','KS','NE','IN','WI','SC','NC','GA','LA','MD','MN','MO','MS','ND','NJ','NV','OH','PA','TN','UT','WV','IL','KY','OK','TX','AR','CT','MA') or p->>'state' is distinct from s
+ if s not in ('DC','HI','ME','VT','SD','IA','KS','NE','IN','WI','SC','NC','GA','LA','MD','MN','MO','MS','ND','NJ','NV','OH','PA','TN','UT','WV','IL','KY','OK','TX','AR','CT','MA','ID','AZ','CA') or p->>'state' is distinct from s
    or p->>'origin' is distinct from 'catalog_policy_release_2026_11_26' or p->>'approval' is distinct from 'approved'
    or not coalesce(d between (p->>'valid_from')::date and (p->>'valid_until')::date,false)
    or not coalesce((p->>'revenue_trigger_cents')::bigint>0,false)
    or not coalesce(d between date '2026-11-26' and date '2026-12-31',false)
+   or not coalesce((p->>'verified_on')::date<=d,false)
    or profile.disabled or profile.physical or profile.registration not in ('Not Registered','No Current Obligation')
    or profile.collect_from is not null or profile.effective is not null or profile.active_confirmed_on is not null
    or profile.registration_due is not null then return p; end if;
- if not coalesce((q->>'subtotal')::numeric>0 and (q->>'shipping_amount')::numeric>=0 and (q->>'card_surcharge')::numeric>=0,false)
-   then return p; end if;
- proposed:=ceil(100*((q->>'subtotal')::numeric+(q->>'shipping_amount')::numeric
-   +greatest((q->>'card_surcharge')::numeric,round((q->>'subtotal')::numeric*0.02,2))));
+ if s in ('CA','AZ') then
+   select * into related from private.tax_related_receipts where state=s and through_day=d order by id desc limit 1;
+   if not found then return p||jsonb_build_object('review_reason','Related-party receipts are unverified for this date.'); end if;
+   p:=p||jsonb_build_object('related_receipts_version',related.id,'related_receipts_document',related.document_id,
+     'ca_commodity_registration',related.commodity_status);
+ end if;
+ if placed_order is not null then
+   if not exists(select from public.orders o where o.id=placed_order and
+     private.tax_admin_state(coalesce(o.shipping_address#>>'{address,state}',o.shipping_address->>'state'))=s and
+     coalesce(o.shipping_address->>'fulfillment','delivery')<>'pickup' and
+     (o.created_at at time zone 'America/New_York')::date=d) then return p; end if;
+   -- The placed order is already in the ledger of website receipts below.
+   proposed:=0;
+ elsif not coalesce((q->>'subtotal')::numeric>0 and (q->>'shipping_amount')::numeric>=0 and (q->>'card_surcharge')::numeric>=0,false)
+   then return p;
+ else proposed:=ceil(100*((q->>'subtotal')::numeric+(q->>'shipping_amount')::numeric
+   +greatest((q->>'card_surcharge')::numeric,round((q->>'subtotal')::numeric*0.02,2)))); end if;
  if exists(select from private.tax_ledger where state=s and kind='sale' and order_id is null) then return p; end if;
  -- Pending wires and refunded orders count toward this upper bound. Ambiguous
  -- destinations also count. A threshold hit prompts review of actual period receipts.
  with website as (
-   select upper(btrim(coalesce(nullif(o.shipping_address->>'state',''),o.shipping_address#>>'{address,state}',''))) as destination,
-     o.total as amount from public.orders o
+   select case when o.shipping_address ? 'address' and nullif(o.shipping_address->>'state','') is not null
+     and upper(trim(o.shipping_address->>'state')) is distinct from upper(trim(o.shipping_address#>>'{address,state}'))
+     then '' else upper(trim(coalesce(o.shipping_address#>>'{address,state}',o.shipping_address->>'state',''))) end as destination,
+     case when o.total>=0 then greatest(o.total,o.subtotal+coalesce(o.payment_surcharge,0)+coalesce(o.shipping_amount,0)+coalesce(o.insurance_amount,0)) end as amount,(o.created_at at time zone 'America/New_York')::date opened,
+     (o.paid_at at time zone 'America/New_York')::date settled from public.orders o
    where coalesce(o.shipping_address->>'fulfillment','delivery')<>'pickup'
  )
- select coalesce(sum(ceil(100*amount)),0),count(*),coalesce(bool_or(amount is null or amount<0),false)
- into receipts,transactions,unknown_amount from website w
+ select coalesce(sum(ceil(100*amount)),0),count(*),coalesce(bool_or(amount is null or amount<0),false),
+   coalesce(sum(ceil(100*amount)) filter(where extract(year from opened)=extract(year from d)-1 or extract(year from settled)=extract(year from d)-1),0),
+   coalesce(sum(ceil(100*amount)) filter(where extract(year from opened)=extract(year from d) or extract(year from settled)=extract(year from d)),0),
+   coalesce(sum(ceil(100*amount)) filter(where opened is null),0)
+ into receipts,transactions,unknown_amount,prior_year,current_year,uncertain_year from website w
  where w.destination=s or not exists(select from private.tax_states t where t.state=w.destination);
- p:=p||jsonb_build_object('receipts_upper_bound_cents',receipts+proposed,'transactions_upper_bound',transactions+1);
+ -- Across a year boundary, opening and payment dates can differ. Including the
+ -- receipt in both years is conservative. Compare separate annual totals.
+ if s in ('ID','AZ','CA') then
+   prior_year:=prior_year+uncertain_year+coalesce(related.prior_cents,0);
+   current_year:=current_year+uncertain_year+coalesce(related.current_cents,0)+proposed;
+   receipts:=greatest(prior_year,current_year); proposed:=0;
+   p:=p||jsonb_build_object('prior_year_upper_bound_cents',prior_year,'current_year_upper_bound_cents',current_year);
+ end if;
+ if placed_order is null then transactions:=transactions+1; end if;
+ p:=p||jsonb_build_object('receipts_upper_bound_cents',receipts+proposed,'transactions_upper_bound',transactions);
  if unknown_amount then return p; end if;
  if s='CT' then
-   if receipts+proposed>=(p->>'revenue_trigger_cents')::bigint and transactions+1>=(p->>'transaction_trigger')::integer then return p; end if;
+   if receipts+proposed>=(p->>'revenue_trigger_cents')::bigint and transactions>=(p->>'transaction_trigger')::integer then return p; end if;
  elsif receipts+proposed>=(p->>'revenue_trigger_cents')::bigint or
-     transactions+1>=(p->>'transaction_trigger')::integer then return p; end if;
+     transactions>=(p->>'transaction_trigger')::integer then return p; end if;
  return p||jsonb_build_object('collection','no_obligation');
 end $$;
-revoke all on function private.tax_remote_order_policy(text,jsonb,jsonb,date) from public,anon,authenticated;
-
+revoke all on function private.tax_remote_order_bound(text,jsonb,jsonb,date,bigint) from public,anon,authenticated;
 update private.tax_revision set revision=revision+1;
 
 -- A read-only screen for direct website activity. It never authorizes collection.
@@ -264,12 +479,8 @@ grant execute on function public.tax_admin_overview(date,date) to service_role;
 
 -- Effective-dated Washington policy for this store's confirmed direct-sales footprint.
 -- Explicitly reviewed registration settings and later administrator changes take precedence.
-alter table private.tax_versions drop constraint tax_version_origin;
-alter table private.tax_versions add constraint tax_version_origin check (
- actor is not null or coalesce(data->>'origin' in ('catalog_policy_release_2026_11_26','wa_remote_sales_2026_11_26'),false)
-);
-insert into private.tax_versions(state,kind,subject,data,source,valid_from,valid_until,verified_on,approval)
-select 'WA','policy','state',jsonb_build_object(
+insert into private.tax_versions(report_only,state,kind,subject,data,source,valid_from,valid_until,verified_on,approval)
+select true,'WA','policy','state',jsonb_build_object(
  'origin','wa_remote_sales_2026_11_26','website_only_confirmed','2026-11-26',
  'first_eligible_cent',0,'store_minimum',false,'shipping_base','full_if_taxable','fee_base','proportional',
  'rounding','combined','uniform_jurisdiction_base',true,
@@ -369,7 +580,7 @@ language sql stable set search_path='' as $$
  from private.tax_website_activity_before_wa(asof_day,period_from,period_to) a
  join private.tax_states s on s.state=a.state
  cross join private.tax_wa_remote_dates(asof_day) w
- cross join lateral (select private.tax_version('WA','policy','state',asof_day) as p) policy
+ cross join lateral (select private.tax_report_version('WA','policy','state',asof_day) as p) policy
 $$;
 revoke all on function private.tax_website_activity(date,date,date) from public,anon,authenticated;
 update private.tax_revision set revision=revision+1;
@@ -380,7 +591,7 @@ language sql stable set search_path='' as $$
  with required as (
    select s.state,'policy'::text kind,'state'::text subject,null::text sku,null::text title,null::text metal,null::numeric weight from private.tax_states s
    union all select s.state,'product',p.id::text,p.sku,p.name,p.metal::text,p.metal_weight_oz from private.tax_states s cross join public.products p where p.is_active
- ), reviewed as materialized (select q.*,private.tax_version(q.state,q.kind,q.subject,sale_day) v from required q)
+ ), reviewed as materialized (select q.*,private.tax_report_version(q.state,q.kind,q.subject,sale_day) v from required q)
  select state,kind,sku,not (v->>'approval' is distinct from 'approved'
     or not coalesce(sale_day between (v->>'valid_from')::date and (v->>'valid_until')::date,false)
     or not coalesce((v->>'verified_on')::date<=sale_day,false)
@@ -401,6 +612,9 @@ begin
    from private.tax_report_rule_checks(p_day) group by state_code
  ) select jsonb_build_object('day',p_day,'destinations',count(*),'policies',count(*) filter(where policy),
      'product_reviews',sum(approved),'product_total',sum(products),
+     'state_only_reviews',(select count(*) from private.tax_states t cross join public.products p cross join lateral
+       (select private.tax_state_scope(t.state,p.id,p_day) r) item where t.state in ('AK','MT','AZ','CO') and p.is_active and r is not null
+       and (p.sku,p.name,p.metal::text,p.metal_weight_oz)=(r->>'catalog_sku',r->>'catalog_name',r->>'metal',(r->>'catalog_weight')::numeric)),
      'remaining',coalesce(jsonb_agg(to_jsonb(s) order by state_code) filter(where not policy or approved<products),'[]'))
    into result from states s;
  return result;
@@ -412,7 +626,7 @@ create or replace function private.tax_report_calculation_inputs(p_order bigint)
 returns jsonb language plpgsql stable security definer set search_path='' as $$
 declare
  o public.orders; profile private.tax_states; policy jsonb; destination jsonb; district jsonb;
- products jsonb; lines jsonb; sale_day date; state_code text; collection text; saved jsonb; missing integer;
+ products jsonb; lines jsonb; sale_day date; state_code text; collection text; saved jsonb; missing integer; regional jsonb:='{}';
 begin
  select * into strict o from public.orders where id=p_order;
  sale_day:=(o.created_at at time zone 'America/New_York')::date;
@@ -434,16 +648,20 @@ begin
    return jsonb_build_object('review','The original pickup location needs verification.');end if;
  select * into profile from private.tax_states where state=state_code;
  if not found then return jsonb_build_object('review','The order destination needs verification.');end if;
- policy:=private.tax_version(state_code,'policy','state',sale_day);
+ if state_code in ('AK','AZ','CO','MT') and exists(select from private.tax_report_start where o.created_at>=starts_at) then
+   regional:=jsonb_strip_nulls(jsonb_build_object('state_scope',private.tax_order_state_scope(o,state_code,sale_day)));
+   if state_code in ('AK','MT') then regional:=regional||jsonb_build_object('regional_destination',private.tax_normalize_address(destination));end if;
+ end if;
+ policy:=private.tax_report_version(state_code,'policy','state',sale_day);
  if policy is null or policy->>'approval'<>'approved' or (policy->>'valid_until')::date<sale_day then
-   return jsonb_build_object('review','No verified policy covers this destination on the original order date.', 'day',sale_day);end if;
+   return jsonb_build_object('review','No verified policy covers this destination on the original order date.', 'day',sale_day)||regional;end if;
  -- Enable fresh amounts together across all 51 destinations. Also check each
  -- order's actual SKU identity in the server engine, including delisted items.
  select count(*) into missing from private.tax_report_rule_checks(sale_day) where not verified;
  if missing>0 or (select count(*) from private.tax_states)<>51 or not exists(select from public.products where is_active) then
-   return jsonb_build_object('review','Nationwide rules and product reviews are incomplete for this order date.','day',sale_day);end if;
+   return jsonb_build_object('review','Nationwide rules and product reviews are incomplete for this order date.','day',sale_day)||regional;end if;
  if policy->>'collection_basis'='reviewed_exempt_items' then
-   policy:=private.tax_remote_order_policy(state_code,policy||jsonb_build_object('shipping_disabled',profile.disabled),'{}',sale_day);
+   policy:=private.tax_remote_order_bound(state_code,policy||jsonb_build_object('shipping_disabled',profile.disabled),'{}',sale_day,null);
    collection:=policy->>'collection';
    if collection is distinct from 'exempt_merchandise' then return jsonb_build_object('review','Merchandise exemption needs review.','day',sale_day);end if;
  elsif profile.registration='Registered' and coalesce(profile.effective,profile.active_confirmed_on)<=sale_day
@@ -455,21 +673,28 @@ begin
  elsif sale_day=(now() at time zone 'America/New_York')::date and policy->>'remote_basis' in ('zero_prior_calendar_year','below_remote_threshold') then
    policy:=policy||jsonb_build_object('shipping_disabled',profile.disabled,'registration',profile.registration);
    if policy->>'remote_basis'='below_remote_threshold' then
-     -- The existing helper includes the proposed order. Counting this placed order twice
-     -- is a safe upper bound only for proving the business is below both thresholds.
-     -- A potential crossing remains open for period-specific reconciliation.
-     policy:=private.tax_remote_order_policy(state_code,policy,jsonb_build_object('subtotal',o.subtotal,
-        'shipping_amount',o.shipping_amount,'card_surcharge',o.payment_surcharge),sale_day);
+     policy:=private.tax_remote_order_bound(state_code,policy,'{}',sale_day,o.id);
      collection:=policy->>'collection';
    else collection:=private.tax_collection_gate(state_code,policy,sale_day);end if;
-   if collection is distinct from 'no_obligation' then return jsonb_build_object('review','The seller collection threshold needs review for this order.','day',sale_day);end if;
+   if collection is distinct from 'no_obligation' then return jsonb_build_object('review',coalesce(policy->>'review_reason','The seller collection threshold needs review for this order.'),'day',sale_day);end if;
  else return jsonb_build_object('review','Collection status on the order date needs verification.','day',sale_day);end if;
  policy:=policy||jsonb_build_object('collection',collection,'registration',profile.registration);
  if state_code='NY' and profile.ny_dealer_confirmed_on<=sale_day then policy:=policy||jsonb_build_object('ny_dealer_status',profile.ny_dealer_status);end if;
- district:=private.tax_version(state_code,'address',private.tax_normalize_address(destination)::text,sale_day);
- select jsonb_agg(jsonb_build_object('id',i.product_id,'sku',i.sku,'name',i.product_name,'metal',i.metal,'weight',i.metal_weight_oz,'quantity',i.quantity,'gross',i.line_total)),
-   jsonb_object_agg(i.product_id::text,private.tax_version(state_code,'product',i.product_id::text,sale_day)) into lines,products
-   from public.order_items i where i.order_id=o.id and i.product_id is not null;
+ district:=private.tax_report_version(state_code,'address',private.tax_normalize_address(destination)::text,sale_day);
+ select jsonb_agg(jsonb_build_object('id',i.product_id,'sku',i.sku,'name',i.product_name,'metal',i.metal,'weight',i.metal_weight_oz,'quantity',i.quantity,'gross',i.line_total,
+     'special_terms',coalesce(trim(o.customer_notes),'')<>'',
+     'metal_priced',case when i.pricing_snapshot->>'price_mode'='dynamic'
+        and jsonb_typeof(i.pricing_snapshot->'spot')='number' and jsonb_typeof(i.pricing_snapshot->'premium_fixed')='number'
+        and jsonb_typeof(i.pricing_snapshot->'premium_percent')='number' then (i.pricing_snapshot->>'spot')::numeric>0
+        and round((i.pricing_snapshot->>'spot')::numeric*i.metal_weight_oz*(1+(i.pricing_snapshot->>'premium_percent')::numeric/100)
+         +(i.pricing_snapshot->>'premium_fixed')::numeric,2)=i.unit_price and i.unit_price*i.quantity=i.line_total
+        else false end,'sale_evidence',f.fact)),
+   jsonb_object_agg(i.product_id::text,private.tax_report_version(state_code,'product',i.product_id::text,sale_day)) into lines,products
+   from public.order_items i left join lateral (
+     select jsonb_strip_nulls(jsonb_build_object('id',e.id,'basis',e.basis,'document',e.document_id,
+       'fmv_cents',e.fmv_cents,'valuation_day',sale_day)) fact from private.tax_item_facts e where e.order_id=o.id
+       and e.state=state_code and e.product_id=i.product_id and e.fingerprint=private.tax_order_fact_hash(o) order by e.id desc limit 1
+   ) f on true where i.order_id=o.id and i.product_id is not null;
  if lines is null or exists(select from public.order_items where order_id=o.id and product_id is null) then
    return jsonb_build_object('review','A historical order item needs verification.','day',sale_day);end if;
  return jsonb_build_object('day',sale_day,'state',state_code,'policy',policy,'district',district,'destination',private.tax_normalize_address(destination),

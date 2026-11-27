@@ -1,3 +1,4 @@
+import {saleFacts} from '../../../shared/bullionSaleFacts.js';
 import OrderTaxReport from './OrderTaxReport';
 import AddressPreview from '../checkout/AddressPreview';
 import {useEffect,useState} from 'react';
@@ -22,6 +23,11 @@ const labels={order:'Order ID',components:'Confirmed refund tax components (JSON
 function StateControls({row,save,profile,filings}){
   const [action,setAction]=useState('settings'),[pending,setPending]=useState(false),[error,setError]=useState('');
   const [versionType,setType]=useState('policy');
+  const [saleBasis,setSaleBasis]=useState('');
+  const saleTypes=saleFacts[row.code];
+  const relatedState=['AZ','CA'].includes(row.code);
+  const documentField=<label>Supporting tax document<select name="document" required defaultValue="">
+    <option value="">Select uploaded evidence</option>{profile?.documents?.map(d=><option value={d.id} key={d.id}>{d.name}</option>)}</select></label>;
   const typeOptions={policy:'State treatment',address:'Full address and rates',product:'Product classification',nexus:'Economic nexus'};
   const submit=async e=>{
     e.preventDefault();const form=e.currentTarget;const values=Object.fromEntries(new FormData(form));setPending(true);setError('');
@@ -37,11 +43,23 @@ function StateControls({row,save,profile,filings}){
       await save(action,values);setError('Saved.');
     }catch(err){setError(err.message);}finally{setPending(false);}
   };
-  return <><h3>Administration</h3><label>Action<select value={action} onChange={e=>{setAction(e.target.value);setError('');}}>{Object.entries({settings:'Registration and shipping',schedule:'Schedule a filing',file:'Record a filed return',remit:'Record an actual payment',external:'Import an external sale',refund:'Record a confirmed refund',evidence:'Upload a permit or confirmation',version:'Record a reviewed rule'}).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
+  return <><h3>Administration</h3><label>Action<select value={action} onChange={e=>{setAction(e.target.value);setError('');}}>{Object.entries({settings:'Registration and shipping',schedule:'Schedule a filing',file:'Record a filed return',remit:'Record an actual payment',external:'Import an external sale',refund:'Record a confirmed refund',evidence:'Upload a permit or confirmation',version:'Record a reviewed rule',...(saleTypes?{item_fact:'Verify an order item'}:{}),...(relatedState?{related_receipts:'Verify related-party sales'}:{})}).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
     <form className="tax-fields" onSubmit={submit} key={row.code+action}>
       {action==='settings'&&<><label>Registration<select name="registration" defaultValue={row.registration}>{['Requires Legal Review','Not Registered','No Current Obligation','Registration Required','Registration Pending','Registered'].map(v=><option key={v}>{v}</option>)}</select></label>
       {Object.entries({effective:'Registration effective',registration_due:'Registration deadline',collect_from:'Collect beginning'}).map(([k,v])=><label key={k}>{v}<input type="date" name={k} defaultValue={row[k]||''}/></label>)}
       <label>Assigned filing frequency<input name="frequency" defaultValue={row.frequency||''}/></label><label>Admin notes<textarea name="note" defaultValue={row.note||''}/></label><label><input type="checkbox" name="disabled" defaultChecked={row.disabled}/> Disable orders to this state</label></>}
+      {action==='item_fact'&&saleTypes&&<><label>Order ID<input required type="number" name="order" min="1"/></label>
+        <label>Product ID on the order<input required type="number" name="product" min="1"/></label>
+        <label>Documented sale facts<select required name="basis" defaultValue="" onChange={e=>setSaleBasis(e.target.value)}><option value="">Select facts</option>
+        {Object.entries(saleTypes).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
+        {row.code==='NJ'&&saleBasis==='numismatic_pricing'&&<label>Fair market value of one coin on the sale date (USD cents)<input required type="number" name="fmv" min="1"/></label>}
+        {documentField}</>}
+      {action==='related_receipts'&&relatedState&&<><label>Sale date covered<input required type="date" name="day" max={today()}/></label>
+        <p>Use documented sales delivered to {row.name} by {row.code==='CA'?'related persons under IRC §267(b)':'affiliates under A.R.S. §42-5044'}. Enter zero only when the evidence establishes zero.</p>
+        <label>Previous calendar year (USD cents)<input required type="number" name="prior" min="0"/></label>
+        <label>Current year through the sale date (USD cents)<input required type="number" name="current" min="0"/></label>
+        {row.code==='CA'&&<label>Bullion seller registration on sale date<select name="commodity"><option value="">Unconfirmed</option><option value="registered">Registered under the Commodity Exchange Act</option><option value="registration_not_required">Registration not required</option><option value="required_unregistered">Required and unregistered</option></select></label>}
+        {documentField}</>}
       {action==='evidence'&&<><label>Document type<select name="kind">{['permit','filing','payment','exemption'].map(k=><option key={k}>{k}</option>)}</select></label><label>PDF or image up to 2 MB<input type="file" name="upload" required accept="application/pdf,image/png,image/jpeg"/></label></>}
       {fields[action]?.map(k=><label key={k}>{labels[k]}{k==='channel'?<select name={k}><option value="external_direct">External direct</option><option value="marketplace">Marketplace</option></select>:<input required name={k} type={['starts','ends','due','filed','paid_on','date'].includes(k)?'date':['id','reported','paid','merchandise','taxable','exempt','tax'].includes(k)?'number':'text'} min="0"/>}</label>)}
       {action==='version'&&<><label>Rule category<select name="kind" value={versionType} onChange={e=>setType(e.target.value)}>{Object.entries(typeOptions).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>

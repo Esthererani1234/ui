@@ -1,11 +1,4 @@
 -- Preview migration. Install on an isolated database. New orders require a server assessment.
-create schema if not exists private;
-create table private.tax_states (
- state text primary key check(state ~ '^[A-Z]{2}$'), physical boolean not null default false,
- disabled boolean not null default false, registration text not null default 'Requires Legal Review',
- effective date, frequency text, registration_due date, collect_from date, note text not null default ''
-);
-insert into private.tax_states(state,physical) select s,s='NY' from unnest(string_to_array('AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY',' ')) s;
 create table private.tax_revision(id boolean primary key default true check(id), revision bigint not null default 1);
 insert into private.tax_revision default values;
 create table private.tax_versions (
@@ -53,7 +46,7 @@ $$;
 create function public.tax_quote_inputs(p_user uuid,p_quote uuid,p_address jsonb) returns jsonb language sql stable security definer set search_path='' as $$
  select jsonb_build_object('revision',r.revision,'day',d.asof_date,'quote',jsonb_build_object('subtotal',q.subtotal,'shipping_amount',q.shipping_amount,'card_surcharge',q.card_surcharge,'line_items',q.line_items),
  'policy',private.tax_version(s.state,'policy','state',d.asof_date) || jsonb_build_object('shipping_disabled',s.disabled,'registration',s.registration,'collection',
- case when s.registration='Registered' and s.effective<=d.asof_date and s.collect_from<=d.asof_date then 'collect' when s.registration='No Current Obligation' and not s.physical then 'no_obligation' else 'review' end),
+ case when s.registration='Registered' and coalesce(s.effective,s.active_confirmed_on)<=d.asof_date and coalesce(s.collect_from,s.active_confirmed_on)<=d.asof_date then 'collect' when s.registration='No Current Obligation' and not s.physical then 'no_obligation' else 'review' end),
  'address',private.tax_version(s.state,'address',private.tax_normalize_address(p_address)::text,d.asof_date),
  'products',(select jsonb_object_agg(i->>'product_id',private.tax_version(s.state,'product',i->>'product_id',d.asof_date)) from jsonb_array_elements(q.line_items) i))
  from public.checkout_quotes q join private.tax_states s on s.state=p_address->>'state' cross join private.tax_revision r
@@ -236,7 +229,10 @@ declare f private.tax_filings; begin
  if p_action='settings' then
  if p_data->>'registration' not in ('Registered','Registration Pending','Registration Required','No Current Obligation','Requires Legal Review') or p_data->>'registration' is null then raise exception 'Invalid registration';end if;
  if (p_data->>'registration'='No Current Obligation' and (select physical from private.tax_states where state=p_state)) then raise exception 'Physical nexus requires review';end if;
- update private.tax_states set disabled=(p_data->>'disabled')::boolean,registration=p_data->>'registration',effective=nullif(p_data->>'effective','')::date,
+ update private.tax_states set active_confirmed_on=case
+ when p_data->>'registration'<>'Registered' then null
+ when state='NY' then coalesce(active_confirmed_on,(clock_timestamp() at time zone 'America/New_York')::date)
+ else active_confirmed_on end, disabled=(p_data->>'disabled')::boolean,registration=p_data->>'registration',effective=nullif(p_data->>'effective','')::date,
  collect_from=nullif(p_data->>'collect_from','')::date,frequency=nullif(p_data->>'frequency',''),registration_due=nullif(p_data->>'registration_due','')::date,note=left(coalesce(p_data->>'note',''),3000) where state=p_state;
  update private.tax_revision set revision=revision+1;
  elsif p_action='schedule' then

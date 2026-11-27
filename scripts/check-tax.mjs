@@ -68,7 +68,10 @@ test('preview migration, permissions, exact address, order and filing accounting
  create table products(id bigint primary key,is_active boolean,inventory_count int);
  create table order_items(order_id bigint,product_id bigint,sku text,product_name text,metal text,metal_weight_oz numeric,quantity int,unit_price numeric,line_total numeric,pricing_snapshot jsonb);
  create function private.next_customer_order_number() returns text language sql as $$select 'DEMO-1'::text$$;`);
- await db.exec(await readFile(new URL('../supabase/migrations/20261127000000_nationwide_tax_compliance.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261127005544_tax_registration_profiles.sql',import.meta.url),'utf8'));
+ assert.equal((await db.query("select to_regprocedure('public.create_order_from_quote(uuid,uuid,jsonb,jsonb,text,text)') is null as untouched")).rows[0].untouched,true);
+ assert.equal((await db.query("select has_table_privilege('anon','private.tax_states','select') as exposed")).rows[0].exposed,false);
+ await db.exec(await readFile(new URL('../supabase/migrations/20261127005545_nationwide_tax_compliance.sql',import.meta.url),'utf8'));
  const val=async(sql,args=[])=>Object.values((await db.query(sql,args)).rows[0])[0];
  assert.equal(await val('select count(*)::int from private.tax_states'),51);
  assert.equal(await val("select has_function_privilege('authenticated','public.tax_admin_overview(date,date)','execute')"),false);
@@ -91,8 +94,12 @@ test('preview migration, permissions, exact address, order and filing accounting
  const id=await val("select public.store_tax_assessment($1,$2,$3,'wire','pickup',$4,(select revision from private.tax_revision))",[actor,qid,address,{day:date,state:'NY',collection:'collect',subtotal:10000,taxable:10000,exempt:0,tax:888,total:10888,breakdown:[{level:'state',code:'NY',ppm:40000,cents:400},{level:'city',code:'NYC',ppm:45000,cents:450},{level:'district',code:'MCTD',ppm:3750,cents:38}]}]);
  await assert.rejects(place({...address,fulfillment:'pickup',tax_assessment_id:id,city:'Changed'}));
  await assert.rejects(place({...address,fulfillment:'pickup',tax_assessment_id:id}),/collection obligation/);
- await db.exec("update private.tax_states set registration='Registered',effective=current_date-1,collect_from=current_date-1 where state in ('NY','WA')");
- const order=await place({...address,fulfillment:'pickup',tax_assessment_id:id});assert.equal(order.total,108.88);
+ await db.query("select public.tax_admin_change($1,'NY','settings',$2)",[actor,{registration:'Registered',disabled:false}]);
+ const nyProfile=(await db.query("select effective,collect_from,active_confirmed_on::text as confirmed from private.tax_states where state='NY'")).rows[0];
+ assert.equal(nyProfile.effective,null);assert.equal(nyProfile.collect_from,null);assert.equal(nyProfile.confirmed,date);
+ await db.exec("update private.tax_states set registration='Registered',effective=current_date-1,collect_from=current_date-1 where state='WA'");
+ const refreshedId=await val("select public.store_tax_assessment($1,$2,$3,'wire','pickup',(select result from private.tax_assessments where id=$4),(select revision from private.tax_revision))",[actor,qid,address,id]);
+ const order=await place({...address,fulfillment:'pickup',tax_assessment_id:refreshedId});assert.equal(order.total,108.88);
  await db.exec("update orders set payment_status='paid'");await db.exec("update orders set payment_status='paid'");
  assert.equal(await val("select count(*)::int from private.tax_ledger where kind='sale' and state='NY'"),1);
  assert.equal(await val("select tax::int from private.tax_ledger where kind='sale' and state='NY'"),888);

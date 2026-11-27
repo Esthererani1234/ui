@@ -21,7 +21,14 @@ export async function calculateAdminOrder(input,{localEvidence=resolveRegionalEv
     if(input.state_scope)result.state_scope=input.state_scope;
     if(input.regional_destination && input.day===businessDay()){
       const evidence=await localEvidence(input.regional_destination,input.day).catch(()=>null);
-      if(evidence)result.local_evidence=evidence;
+      if(evidence){
+        result.local_evidence=evidence;
+        const member=input.member_policy;
+        if(evidence.day===input.day && input.regional_destination.state==='AK' && evidence.state==='AK' && evidence.scope==='member_general_rates' && member?.scope==='arsstc_member' &&
+          member.state==='AK' && member.collection==='no_obligation' && current(member,input.day)){
+          result.member_threshold={source:member.source,version:member.version,receipts_upper_bound_cents:member.receipts_upper_bound_cents};
+        }
+      }
     }
     return result;
   }

@@ -29,11 +29,30 @@ insert into private.tax_versions(report_only,state,kind,subject,data,source,vali
 select true,v.state,v.kind,v.subject,v.data||jsonb_build_object(
  'specification_source','https://www.usmint.gov/news/press-releases/2026-american-buffalo-one-ounce-gold-proof-coin-available-may-7'),
  v.source,v.valid_from,v.valid_until,v.verified_on,'approved'
-from private.tax_versions v join public.products p on p.id::text=v.subject
+from private.tax_versions v
 where v.state='NY' and v.kind='product' and v.approval='requires_review'
   and v.data->>'origin'='catalog_policy_release_2026_11_26' and v.data->>'catalog_sku'='GOTS-GBP-1OZ-RY-001'
-  and (p.sku,p.name,p.metal::text,p.metal_weight_oz)=(v.data->>'catalog_sku',v.data->>'catalog_name','gold',1)
+  and (v.data->>'catalog_name',v.data->>'form',v.data->>'metal',(v.data->>'catalog_weight')::numeric)=
+    ('1 oz American Gold Buffalo Proof Coin (Random Year) - .9999 Fine Gold','coin','gold',1)
   and not exists(select from private.tax_versions later where (later.state,later.kind,later.subject)=(v.state,v.kind,v.subject) and later.id>v.id);
+
+-- Keep the reviewed examples independent of stock, catalog edits and new
+-- listings. These dated specifications document the bullion classes actually
+-- reviewed. Each sold item is still verified from its own order evidence.
+create table private.tax_bullion_review_examples (
+ sku text primary key, subject text, title text, metal text check(metal in ('gold','silver')), weight numeric
+);
+revoke all on private.tax_bullion_review_examples from public,anon,authenticated;
+insert into private.tax_bullion_review_examples(sku,subject,title,metal,weight)
+select e.sku,v.subject,v.data->>'catalog_name',v.data->>'metal',(v.data->>'catalog_weight')::numeric
+from (values ('AGE-1OZ-BU-RY'),('GOTS-GBP-1OZ-RY-001'),('MAPLE-1OZ-BU-RY'),('SML-1OZ-BU-RY'),
+ ('APMEX-1OZ-TEP'),('GOTS-834790'),('PAMP-1OZ-FORTUNA-ASSAY'),('RAND-0033')) e(sku)
+left join lateral (
+ select r.subject,r.data from private.tax_versions r
+ where r.state='NY' and r.kind='product' and r.data->>'origin'='catalog_policy_release_2026_11_26'
+ and r.data->>'catalog_sku'=e.sku and r.approval='approved' and r.verified_on<=date '2026-11-27'
+ order by r.id limit 1
+) v on true;
 
 -- Resolve only the eight matched investment listings. Each row describes product
 -- eligibility. Its price, the seller's collection duty and destination-specific
@@ -86,13 +105,10 @@ with authorities(state,scope,treatment,source) as (values
  ('WV','bars','eligible','https://tax.wv.gov/Documents/AdministrativeNotices/2019/AdministrativeNotice.2019-20.pdf'),
  ('WY','bars','eligible','https://wyoleg.gov/statutes/compress/title09.pdf')
 ), listings as (
- select p.id,p.sku,v.rule
- from public.products p cross join lateral
-   (select private.tax_report_version('NY','product',p.id::text,'2026-11-26') as rule) v
- where p.is_active and v.rule->>'approval'='approved' and v.rule->>'origin'='catalog_policy_release_2026_11_26'
- and (p.sku,p.name,p.metal::text,p.metal_weight_oz)=(v.rule->>'catalog_sku',v.rule->>'catalog_name',v.rule->>'metal',(v.rule->>'catalog_weight')::numeric)
- and p.sku in ('AGE-1OZ-BU-RY','GOTS-GBP-1OZ-RY-001','MAPLE-1OZ-BU-RY','SML-1OZ-BU-RY',
- 'APMEX-1OZ-TEP','GOTS-834790','PAMP-1OZ-FORTUNA-ASSAY','RAND-0033')
+ select e.subject as id,e.sku,v.rule from private.tax_bullion_review_examples e
+ cross join lateral (select private.tax_report_version('NY','product',e.subject,'2026-11-26') as rule) v
+ where v.rule->>'approval'='approved' and v.rule->>'origin'='catalog_policy_release_2026_11_26'
+ and (e.sku,e.title,e.metal,e.weight)=(v.rule->>'catalog_sku',v.rule->>'catalog_name',v.rule->>'metal',(v.rule->>'catalog_weight')::numeric)
 )
 insert into private.tax_versions(report_only,state,kind,subject,data,source,valid_from,valid_until,verified_on,approval)
 select true,a.state,'product',p.id::text,jsonb_build_object('origin','catalog_policy_release_2026_11_26','catalog_sku',p.sku,
@@ -254,7 +270,8 @@ with authorities(state,scope,condition,source) as (values
  ('KY','bars','sovereign_commodity_bar','https://osbd.ky.gov/Publications/Documents/Special%20Reports/Tax%20Expenditure%20Analysis%20Fiscal%20Years%202026-2028.pdf'),
  ('MS','bars','sovereign_commodity_bar','https://billstatus.ls.state.ms.us/documents/2023/html/SB/2800-2899/SB2862SG.htm')
 ), listings as (
- select p.*,private.tax_report_version('NY','product',p.id::text,'2026-11-27') spec from public.products p where p.is_active
+ select e.subject as id,e.sku,e.title as name,e.metal,e.weight as metal_weight_oz,
+   private.tax_report_version('NY','product',e.subject,date '2026-11-27') spec from private.tax_bullion_review_examples e
 )
 insert into private.tax_versions(report_only,state,kind,subject,data,source,valid_from,valid_until,verified_on,approval)
 select true,a.state,'product',p.id::text,jsonb_build_object('origin','catalog_sale_conditions_2026_11_27',
@@ -281,6 +298,13 @@ select true,state,'policy','state',jsonb_build_object('origin','catalog_policy_r
  'revenue_trigger_cents',trigger,'merchant_footprint_as_of','2026-11-26'),source,
  date '2026-11-27',date '2026-12-31',date '2026-11-27','approved' from authorities;
 
+-- The Commission's obligation only covers its member jurisdictions. Never
+-- select this policy as Alaska's statewide collection policy.
+insert into private.tax_versions(report_only,state,kind,subject,data,source,valid_from,valid_until,verified_on,approval)
+values (true,'AK','policy','arsstc_member',jsonb_build_object('origin','catalog_policy_release_2026_11_26',
+ 'scope','arsstc_member','remote_basis','below_remote_threshold','revenue_trigger_cents',10000000),
+ 'https://arsstc.org/about/code/',date '2026-11-27',date '2026-12-31',date '2026-11-27','approved');
+
 -- Preserve verified state-law scope independently of municipal coverage. Such
 -- records do not satisfy the nationwide product or collection release gate.
 with states(state,scope,source) as (values
@@ -288,7 +312,8 @@ with states(state,scope,source) as (values
  ('MT','no_state_general_sales_tax','https://revenue.mt.gov/taxes/miscellaneous/local-resort-tax'),
  ('CO','state_administered_bullion_exemption','https://tax.colorado.gov/sales-use-tax-topics-coins-and-precious-metal-bullion')
 ), listings as (
- select p.*,private.tax_report_version('NY','product',p.id::text,date '2026-11-27') spec from public.products p where p.is_active
+ select e.subject as id,e.sku,e.title as name,e.metal,e.weight as metal_weight_oz,
+   private.tax_report_version('NY','product',e.subject,date '2026-11-27') spec from private.tax_bullion_review_examples e
 )
 insert into private.tax_versions(report_only,state,kind,subject,data,source,valid_from,valid_until,verified_on,approval)
 select true,s.state,'product',p.id::text,jsonb_build_object('origin','catalog_sale_conditions_2026_11_27',
@@ -340,7 +365,8 @@ begin
  -- requires the state's separately reviewed collection, sourcing and fee rules.
  p:=p||jsonb_build_object('collection','review');
  select * into strict profile from private.tax_states where state=s;
- if s not in ('DC','HI','ME','VT','SD','IA','KS','NE','IN','WI','SC','NC','GA','LA','MD','MN','MO','MS','ND','NJ','NV','OH','PA','TN','UT','WV','IL','KY','OK','TX','AR','CT','MA','ID','AZ','CA') or p->>'state' is distinct from s
+ if (s='AK' and (p->>'scope' is distinct from 'arsstc_member' or placed_order is null))
+   or s not in ('AK','DC','HI','ME','VT','SD','IA','KS','NE','IN','WI','SC','NC','GA','LA','MD','MN','MO','MS','ND','NJ','NV','OH','PA','TN','UT','WV','IL','KY','OK','TX','AR','CT','MA','ID','AZ','CA') or p->>'state' is distinct from s
    or p->>'origin' is distinct from 'catalog_policy_release_2026_11_26' or p->>'approval' is distinct from 'approved'
    or not coalesce(d between (p->>'valid_from')::date and (p->>'valid_until')::date,false)
    or not coalesce((p->>'revenue_trigger_cents')::bigint>0,false)
@@ -593,24 +619,6 @@ $$;
 revoke all on function private.tax_website_activity(date,date,date) from public,anon,authenticated;
 update private.tax_revision set revision=revision+1;
 
--- Keep the reviewed examples independent of stock, catalog edits and new
--- listings. These dated specifications document the bullion classes actually
--- reviewed. Each sold item is still verified from its own order evidence.
-create table private.tax_bullion_review_examples (
- sku text primary key, subject text, title text, metal text check(metal in ('gold','silver')), weight numeric
-);
-revoke all on private.tax_bullion_review_examples from public,anon,authenticated;
-insert into private.tax_bullion_review_examples(sku,subject,title,metal,weight)
-select e.sku,v.subject,v.data->>'catalog_name',v.data->>'metal',(v.data->>'catalog_weight')::numeric
-from (values ('AGE-1OZ-BU-RY'),('GOTS-GBP-1OZ-RY-001'),('MAPLE-1OZ-BU-RY'),('SML-1OZ-BU-RY'),
- ('APMEX-1OZ-TEP'),('GOTS-834790'),('PAMP-1OZ-FORTUNA-ASSAY'),('RAND-0033')) e(sku)
-left join lateral (
- select r.subject,r.data from private.tax_versions r
- where r.state='NY' and r.kind='product' and r.data->>'origin'='catalog_policy_release_2026_11_26'
- and r.data->>'catalog_sku'=e.sku and r.approval='approved' and r.verified_on<=date '2026-11-27'
- order by r.id limit 1
-) v on true;
-
 create or replace function public.tax_monitor_sources() returns jsonb stable security definer language sql set search_path='' as $$
  with current_rules as (select state,source,report_only,data from private.tax_versions where valid_until>=current_date and approval='approved'),
  sources as (select state,source from current_rules union
@@ -710,9 +718,13 @@ begin
    return jsonb_build_object('review','The original pickup location needs verification.');end if;
  select * into profile from private.tax_states where state=state_code;
  if not found then return jsonb_build_object('review','The order destination needs verification.');end if;
- if state_code in ('AK','AZ','CO','MT') and exists(select from private.tax_report_start where o.created_at>=starts_at) then
+ if state_code in ('AK','CO','MT') and exists(select from private.tax_report_start where o.created_at>=starts_at) then
    regional:=jsonb_strip_nulls(jsonb_build_object('state_scope',private.tax_order_state_scope(o,state_code,sale_day)));
-   if state_code in ('AK','MT') then regional:=regional||jsonb_build_object('regional_destination',private.tax_normalize_address(destination));end if;
+   regional:=regional||jsonb_build_object('regional_destination',private.tax_normalize_address(destination));
+   if state_code='AK' and sale_day=(now() at time zone 'America/New_York')::date then
+     regional:=regional||jsonb_build_object('member_policy',private.tax_remote_order_bound('AK',
+        private.tax_report_version('AK','policy','arsstc_member',sale_day),'{}',sale_day,o.id));
+   end if;
  end if;
  policy:=private.tax_report_version(state_code,'policy','state',sale_day);
  if policy is null or policy->>'approval'<>'approved' or (policy->>'valid_until')::date<sale_day then

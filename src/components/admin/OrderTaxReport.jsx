@@ -11,12 +11,15 @@ function ReviewReason({result}){
     state_administered_bullion_exemption:'Colorado exempts qualifying coins and bullion from state and state-administered taxes. Self-collecting cities set their own treatment.',
     consumer_bullion_exemption:'Arizona exempts qualifying bullion sold to the ultimate consumer. Coins sold to manufacture jewelry or art have separate treatment.'};
   const notes={outside_resort_areas:'The verified county is outside the published resort areas.',
+    state_administered_municipality:'The state administers this municipality’s tax. Its bullion exemption covers qualifying gold and silver.',
+    aurora_bullion_rule:'Aurora exempts qualifying coins and precious metal bullion from its municipal sales and use tax.',
     structure_outside_resort_areas:'The verified building lies outside the published resort area and district boundaries.',
     no_general_retail_tax:'The municipality has no general retail sales tax on bullion.',
     member_general_rates:'Published general retail rates for the verified location'};
   return <details><summary>{result.reason}</summary>
     {state&&<p>{scopes[state.scope]} <a href={state.source} target="_blank" rel="noreferrer">State authority</a></p>}
-    {e&&<><p>{e.geography.county.name} · {notes[e.scope]}</p>
+    {e&&<><p>{[e.geography.municipality?.name,e.geography.county.name].filter(Boolean).join(' · ')} · {notes[e.scope]}</p>
+    {result.member_threshold&&<p>The verified delivery is in a commission member jurisdiction. Website receipts, including this order, are below its remote-seller threshold. <a href={result.member_threshold.source} target="_blank" rel="noreferrer">Commission rule</a></p>}
     {e.rates?.map(r=><p key={r.code}>{r.name} · {r.ppm/10000}% · Filing code {r.code}
       {Object.entries(r.caps).filter(([,v])=>v.limit_cents!=null).map(([k,v])=><span key={k}> · {money(v.limit_cents)} {k==='per_item'?'per item':'per transaction'} taxable-base limit</span>)}</p>)}
     <a href={e.source} target="_blank" rel="noreferrer">Jurisdiction source</a></>}</details>;

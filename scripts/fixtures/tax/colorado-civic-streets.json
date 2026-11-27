@@ -1,0 +1,100 @@
+[
+  {
+    "address": {
+      "address_line_1": "170 MacGregor Avenue",
+      "city": "Estes Park",
+      "postal_code": "80517",
+      "state": "CO",
+      "country": "US"
+    },
+    "authority": "https://dms.estes.org/WebLink/ElectronicFile.aspx?dbid=0&docid=123084",
+    "source": "https://geocoding.geo.census.gov/geocoder/geographies/address?street=170+MacGregor+Avenue&city=Estes+Park&state=CO&zip=80517&benchmark=Public_AR_Current&vintage=Current_Current&format=json",
+    "retrieved": "2026-11-27",
+    "matches": [
+      {
+        "matchedAddress": "170 MACGREGOR AVE, ESTES PARK, CO, 80517",
+        "addressComponents": {
+          "city": "ESTES PARK",
+          "state": "CO",
+          "zip": "80517"
+        },
+        "geographies": {
+          "States": [
+            {
+              "GEOID": "08",
+              "NAME": "Colorado",
+              "STUSAB": "CO"
+            }
+          ],
+          "Counties": [
+            {
+              "GEOID": "08069",
+              "NAME": "Larimer County"
+            }
+          ],
+          "Incorporated Places": [
+            {
+              "GEOID": "0825115",
+              "NAME": "Estes Park town"
+            }
+          ],
+          "County Subdivisions": [
+            {
+              "GEOID": "0806991235",
+              "NAME": "Estes Park CCD"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "address": {
+      "address_line_1": "15151 E Alameda Parkway",
+      "city": "Aurora",
+      "postal_code": "80012",
+      "state": "CO",
+      "country": "US"
+    },
+    "authority": "https://www.auroragov.org/city_hall/contact_us",
+    "source": "https://geocoding.geo.census.gov/geocoder/geographies/address?street=15151+E+Alameda+Parkway&city=Aurora&state=CO&zip=80012&benchmark=Public_AR_Current&vintage=Current_Current&format=json",
+    "retrieved": "2026-11-27",
+    "matches": [
+      {
+        "matchedAddress": "15151 E ALAMEDA PKWY, AURORA, CO, 80012",
+        "addressComponents": {
+          "city": "AURORA",
+          "state": "CO",
+          "zip": "80012"
+        },
+        "geographies": {
+          "States": [
+            {
+              "GEOID": "08",
+              "NAME": "Colorado",
+              "STUSAB": "CO"
+            }
+          ],
+          "Counties": [
+            {
+              "GEOID": "08005",
+              "NAME": "Arapahoe County"
+            }
+          ],
+          "Incorporated Places": [
+            {
+              "GEOID": "0804000",
+              "NAME": "Aurora city"
+            }
+          ],
+          "County Subdivisions": [
+            {
+              "GEOID": "0800593382",
+              "NAME": "South Aurora CCD"
+            }
+          ]
+        }
+      }
+    ]
+  }
+]

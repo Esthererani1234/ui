@@ -1,3 +1,4 @@
+import colorado from './coloradoMunicipalities.json' with {type:'json'};
 import alaska from './alaskaNovember.json' with {type:'json'};
 import montana from './montanaCounties.json' with {type:'json'};
 import {montanaStructureEvidence} from './montanaStructures.js';
@@ -13,6 +14,14 @@ const covered=(dataset,day)=>day>=dataset.reviewed_on && day<=dataset.through;
 export function regionalEvidence(state,day,location) {
   const county=location?.county?.geoid,place=location?.municipality?.geoid;
   if(!county)return null;
+  if(state==='CO' && covered(colorado,day) && location.state?.geoid==='08' && county.startsWith('08')){
+    const city=colorado.places[place];
+    if(city && city.name===location.municipality?.name && city.counties.includes(location.county.name)){
+      return {state,day,scope:city.source?'aurora_bullion_rule':'state_administered_municipality',
+        geography:location,source:city.source||colorado.source,classification_sources:colorado.authorities,
+        verified_on:colorado.reviewed_on,valid_until:colorado.through};
+    }
+  }
   if(state==='MT' && covered(montana,day) && Object.hasOwn(montana.outside,county)){
     return {state,day,scope:'outside_resort_areas',geography:location,source:montanaDesignations,
       boundary_sources:montana.sources,verified_on:montana.reviewed_on,valid_until:montana.through};
@@ -30,7 +39,7 @@ export function regionalEvidence(state,day,location) {
 }
 
 export async function resolveRegionalEvidence(address,day,verify=confirmDestination,structure=montanaStructureEvidence){
-  if(!address || !['AK','MT'].includes(address.state))return null;
+  if(!address || !['AK','CO','MT'].includes(address.state))return null;
   const match=await verify(address,day);
   const evidence=regionalEvidence(address.state,day,match.geography);
   if(evidence || address.state!=='MT')return evidence;

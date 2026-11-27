@@ -11,7 +11,7 @@ const publications = {
   HI: ['15',hawaiiSource],
   VT: ['50',vermont.source],
 };
-const streetTerms = {STREET:'ST',AVENUE:'AVE',ROAD:'RD',DRIVE:'DR',BOULEVARD:'BLVD',LANE:'LN',
+const streetTerms = {STREET:'ST',AVENUE:'AVE',ROAD:'RD',DRIVE:'DR',BOULEVARD:'BLVD',LANE:'LN',PARKWAY:'PKWY',
   PLACE:'PL',COURT:'CT',NORTH:'N',SOUTH:'S',EAST:'E',WEST:'W'};
 function normalStreet(value) {
   return value.toUpperCase().trim().replaceAll('.','').split(/\s+/).map(word=>streetTerms[word] || word).join(' ');

@@ -139,6 +139,12 @@ test('November Alaska street jurisdictions retain borough and city caps and Mont
  for(const county of ['30031','30009','30029','ZZZZZ'])assert.equal(regionalEvidence('MT',when,geo(county,null)),null);
  const review=await calculateAdminOrder({review:'Nationwide rules pending.',day:businessDay(),regional_destination:{state:'AK'}},{localEvidence:async()=>city});
  assert.equal(review.status,'review');assert.equal(review.tax,undefined);assert.deepEqual(review.local_evidence,city);
+ const day=businessDay(),member={...fixture,state:'AK',verified_on:day,valid_from:day,valid_until:day,scope:'arsstc_member',collection:'no_obligation',receipts_upper_bound_cents:300000};
+ const input={review:'Local review',day,regional_destination:{state:'AK'},member_policy:member};
+ const inside=await calculateAdminOrder(input,{localEvidence:async()=>({...city,day})});
+ assert.equal(inside.member_threshold.version,member.version);assert.equal(inside.tax,undefined);
+ const outside=await calculateAdminOrder(input,{localEvidence:async()=>regionalEvidence('AK',when,geo('02020','0203000'))});
+ assert.equal(outside.member_threshold,undefined);
 });
 test('sale evidence changes the classification of the same item without leaking it across states or orders',()=>{
  const item=(test,terms={},extra={})=>[200000,coin({value_test:test,catalog_sku:'AGE-1OZ-BU-RY',...extra}),1,terms];
@@ -217,7 +223,10 @@ test('dated product pack applies over the live eight-listing baseline and preser
  await db.exec(reporting);
  const forward=await migration('20261127051001_prospective_admin_tax.sql');
  await db.exec(forward.split('-- Scheduler authentication')[0]);
+ // Delisting or editing a listing between releases cannot erase archived legal evidence.
+ await db.exec("update products set is_active=false, name='Retitled silver coin' where id=909; update products set is_active=false where id=905");
  const pack=await migration('20261127051002_reviewed_catalog_tax_conditions.sql');await db.exec(pack);
+ await db.exec("update products set is_active=true, name='1 oz Canadian Silver Maple Leaf Coin BU (Random Year)' where id=909; update products set is_active=true where id=905");
  const policyCount=await db.query("select count(*)::int n from private.tax_states s where private.tax_report_version(s.state,'policy','state',$1)->>'approval'='approved'",[day]);
  assert.equal(policyCount.rows[0].n,45);
  const actor='00000000-0000-4000-8000-000000000009';await db.query('insert into admin_users(user_id) values($1)',[actor]);
@@ -280,6 +289,12 @@ test('dated product pack applies over the live eight-listing baseline and preser
  assert.equal(quote.collection,'review');
  await db.exec("update orders set total=100000 where id=40");assert.equal((await placed('ID')).collection,'no_obligation');
  await db.exec("update orders set total=100000.01 where id=40");assert.equal((await placed('ID')).collection,'review');
+ await db.exec("update private.tax_states set registration='Not Registered',physical=false,disabled=false,effective=null,collect_from=null,registration_due=null,active_confirmed_on=null where state='AK'");
+ await db.exec(`update orders set shipping_address='{"state":"AK"}',total=99999.99 where id=40`);
+ const alaskaBound=async()=>(await db.query("select private.tax_remote_order_bound('AK',private.tax_report_version('AK','policy','arsstc_member',$1),'{}',$1,40) p",[next])).rows[0].p;
+ assert.equal((await alaskaBound()).collection,'no_obligation');
+ await db.exec("update orders set total=100000 where id=40");assert.equal((await alaskaBound()).collection,'review');
+ await db.exec(`update orders set shipping_address='{"state":"ID"}' where id=40`);
  const fingerprint=async()=>(await db.query('select private.tax_order_fact_hash(o) h,private.tax_report_input_hash(o) r from orders o where id=40')).rows[0];
  const before=await fingerprint();
  const localScope=async state=>(await db.query('select private.tax_order_state_scope(o,$1,$2) s from orders o where id=40',[state,next])).rows[0].s;
@@ -331,4 +346,25 @@ test('state structure points distinguish two Flathead County city halls and reje
  assert.equal(await montanaStructureEvidence(kalispell.address,day,{county:{geoid:'30031'}},noRequest),null);
  assert.equal(await montanaStructureEvidence({...kalispell.address,address_line_2:'Unit 3'},day,outside.geography,noRequest),null);
  assert.equal(await montanaStructureEvidence(kalispell.address,'2027-01-01',outside.geography,noRequest),null);
+});
+
+test('Colorado identifies affirmative municipal rules from street geography and preserves home-rule exceptions',async()=>{
+ const {regionalEvidence,resolveRegionalEvidence}=await import('../server/tax/regionalEvidence.js');
+ const {confirmDestination}=await import('../server/tax/destinationRates.js');
+ const inventory=JSON.parse(await readFile(new URL('../server/tax/coloradoMunicipalities.json',import.meta.url),'utf8'));
+ const fixtures=JSON.parse(await readFile(new URL('./fixtures/tax/colorado-civic-streets.json',import.meta.url),'utf8'));
+ const d='2026-11-27';
+ assert.equal(Object.keys(inventory.places).length,157);
+ assert.ok(!Object.values(inventory.places).some(p=>p.name.startsWith('Cripple Creek')));
+ const expected={'Estes Park':'state_administered_municipality',Aurora:'aurora_bullion_rule'};
+ for(const civic of fixtures){
+   const verify=(a,day)=>confirmDestination(a,day,async()=>({ok:true,json:()=>({result:{addressMatches:civic.matches}})}));
+   const result=await resolveRegionalEvidence(civic.address,d,verify);
+   assert.equal(result.scope,expected[civic.address.city]);
+   assert.equal(result.geography.state.geoid,'08');
+   await assert.rejects(resolveRegionalEvidence({...civic.address,address_line_1:'999 Unrelated St'},d,verify));
+   assert.equal(regionalEvidence('CO',d,{...result.geography,county:{geoid:'08031',name:'Denver County'}}),null);
+   assert.equal(regionalEvidence('CO',d,{...result.geography,municipality:null}),null);
+   assert.equal(regionalEvidence('CO','2027-01-01',result.geography),null);
+ }
 });

@@ -71,7 +71,8 @@ test('preview migration, permissions, exact address, order and filing accounting
  await db.exec(await readFile(new URL('../supabase/migrations/20261127005544_tax_registration_profiles.sql',import.meta.url),'utf8'));
  assert.equal((await db.query("select to_regprocedure('public.create_order_from_quote(uuid,uuid,jsonb,jsonb,text,text)') is null as untouched")).rows[0].untouched,true);
  assert.equal((await db.query("select has_table_privilege('anon','private.tax_states','select') as exposed")).rows[0].exposed,false);
- await db.exec(await readFile(new URL('../supabase/migrations/20261127005545_nationwide_tax_compliance.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261127010440_tax_dealer_confirmation.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261128000000_nationwide_tax_compliance.sql',import.meta.url),'utf8'));
  const val=async(sql,args=[])=>Object.values((await db.query(sql,args)).rows[0])[0];
  assert.equal(await val('select count(*)::int from private.tax_states'),51);
  assert.equal(await val("select has_function_privilege('authenticated','public.tax_admin_overview(date,date)','execute')"),false);
@@ -91,6 +92,13 @@ test('preview migration, permissions, exact address, order and filing accounting
  await assert.rejects(place(address),/tax and total/);
  const date=await val("select (now() at time zone 'America/New_York')::date::text");
  await db.query("insert into private.tax_versions(state,kind,subject,valid_from,valid_until,verified_on,source,approval,data,actor) values('NY','policy','state',current_date-1,current_date+1,current_date,'https://www.tax.ny.gov/','approved','{}',$1)",[actor]);
+ const quoteDealer=()=>val("select public.tax_quote_inputs($1,$2,$3)->'policy'->>'ny_dealer_status'",[actor,qid,address]);
+ assert.equal(await quoteDealer(),null);
+ await db.query("update private.tax_states set ny_dealer_status='registration_not_required',ny_dealer_confirmed_on=$1 where state='NY'",[date]);
+ assert.equal(await quoteDealer(),'registration_not_required');
+ await db.exec("update private.tax_versions set data=jsonb_build_object('ny_dealer_status','required_unregistered') where state='NY' and kind='policy'");
+ assert.equal(await quoteDealer(),'required_unregistered');
+ await db.exec("update private.tax_versions set data='{}' where state='NY' and kind='policy'");
  const id=await val("select public.store_tax_assessment($1,$2,$3,'wire','pickup',$4,(select revision from private.tax_revision))",[actor,qid,address,{day:date,state:'NY',collection:'collect',subtotal:10000,taxable:10000,exempt:0,tax:888,total:10888,breakdown:[{level:'state',code:'NY',ppm:40000,cents:400},{level:'city',code:'NYC',ppm:45000,cents:450},{level:'district',code:'MCTD',ppm:3750,cents:38}]}]);
  await assert.rejects(place({...address,fulfillment:'pickup',tax_assessment_id:id,city:'Changed'}));
  await assert.rejects(place({...address,fulfillment:'pickup',tax_assessment_id:id}),/collection obligation/);

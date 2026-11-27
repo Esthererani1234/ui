@@ -45,7 +45,9 @@ create function private.tax_version(s text,k text,sub text,d date) returns jsonb
 $$;
 create function public.tax_quote_inputs(p_user uuid,p_quote uuid,p_address jsonb) returns jsonb language sql stable security definer set search_path='' as $$
  select jsonb_build_object('revision',r.revision,'day',d.asof_date,'quote',jsonb_build_object('subtotal',q.subtotal,'shipping_amount',q.shipping_amount,'card_surcharge',q.card_surcharge,'line_items',q.line_items),
- 'policy',private.tax_version(s.state,'policy','state',d.asof_date) || jsonb_build_object('shipping_disabled',s.disabled,'registration',s.registration,'collection',
+ 'policy',(case when s.state='NY' and s.ny_dealer_confirmed_on<=d.asof_date then
+   jsonb_build_object('ny_dealer_status',s.ny_dealer_status,'ny_dealer_confirmed_on',s.ny_dealer_confirmed_on)
+   else '{}'::jsonb end) || private.tax_version(s.state,'policy','state',d.asof_date) || jsonb_build_object('shipping_disabled',s.disabled,'registration',s.registration,'collection',
  case when s.registration='Registered' and coalesce(s.effective,s.active_confirmed_on)<=d.asof_date and coalesce(s.collect_from,s.active_confirmed_on)<=d.asof_date then 'collect' when s.registration='No Current Obligation' and not s.physical then 'no_obligation' else 'review' end),
  'address',private.tax_version(s.state,'address',private.tax_normalize_address(p_address)::text,d.asof_date),
  'products',(select jsonb_object_agg(i->>'product_id',private.tax_version(s.state,'product',i->>'product_id',d.asof_date)) from jsonb_array_elements(q.line_items) i))

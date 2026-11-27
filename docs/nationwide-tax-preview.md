@@ -6,6 +6,12 @@ Open `/tax-preview` on the preview deployment to search all 50 states and Washin
 
 Checkout keeps all 50 states available for shipping. It displays a minimum notice only when the eligible order is short. The store floors are $1,000.01 for New York and Maryland, $2,000 for California, and $1,000 for Massachusetts and Connecticut. Connecticut's current floor ends on June 30, 2027. New Jersey has a product-specific coin test. A positive customer charge appears as one **Tax** line. Zero, exempt, pending and noncollection statuses have no customer tax row. Failed verification is handled before payment; it never produces an assumed zero. New York investment purchasers confirm their purchase purpose in the existing agreement.
 
+## Washington remote sales in the checkout preview
+
+For this store's confirmed NYC-only operations and direct website sales, a Washington delivery can be taxable merchandise with no sales tax collected. The preview checks the Washington registration profile, earlier receipts, open orders and known off-site activity. Exceeding $100,000 of Washington receipts in a calendar year starts a registration and B&O review. The first collection date is the first of the month at least 30 days after the threshold crossing. For example, a first $500,000 sale on November 26, 2026 points to January 1, 2027. The November sale does not carry a customer tax charge on those facts. A registered seller whose collection date has arrived uses the Washington street-rate lookup. The rule is reviewed through December 31, 2026. [Washington Department of Revenue](https://dor.wa.gov/taxes-rates/retail-sales-tax/marketplace-fairness-leveling-playing-field/remote-sellers)
+
+Alabama, Florida, Michigan, New Mexico and Rhode Island use prior-calendar-year tests. The preview dashboard flags current-year direct website activity for next year's registration review separately from prior-year activity. The amount displayed is a screening measure, since each state's threshold may include different sales.
+
 ## Delivery address correction
 
 The cart, checkout and account address editor use a nationwide street lookup. A street plus ZIP can fill missing city and state. Equivalent street abbreviations are standardized and unit information is preserved. Customers confirm changes to existing names or ZIP codes. Competing matches or different house numbers require an edit. Payments, the order, a saved default address and the tax assessment use the same confirmed destination. Pickup uses the fixed office address.

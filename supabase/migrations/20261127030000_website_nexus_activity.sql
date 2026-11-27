@@ -9,6 +9,7 @@ language sql stable set search_path='' as $$
  ('IA','years',10000000,null,'https://revenue.iowa.gov/taxes/tax-guidance/sales-use-excise-tax/remote-sellers-marketplace-facilitators'),
  ('KS','years',10000001,null,'https://www.ksrevenue.gov/pub1510.html'),
  ('MI','prior_year',10000001,200,'https://www.michigan.gov/taxes/business-taxes/sales-use-tax/information/remote-seller-faq'),
+ ('RI','prior_year',10000000,200,'https://webserver.rilegislature.gov/statutes/title44/44-18.2/44-18.2-3.HTM'),
  ('MO','prior_quarters',10000001,null,'https://dor.mo.gov/faq/taxation/business/remote-seller-and-marketplace-facilitator.html'),
  ('NC','years',10000001,null,'https://www.ncdor.gov/taxes-forms/sales-and-use-tax/other-sales-and-use-tax-resources/remote-sales'),
  ('NE','years',10000001,200,'https://revenue.nebraska.gov/about/frequently-asked-questions/remote-seller-and-marketplace-facilitator-faqs'),
@@ -37,17 +38,19 @@ language sql stable set search_path='' as $$
    ((o.total-coalesce(o.tax_amount,0))*100)::bigint as receipts
   from public.orders o where o.payment_status in ('paid','refunded')
  ), windows as (
-  select s,first_cent,first_count,url,daterange(yr,asof_day+1) as span from rules,bounds where window_type='years'
-  union all select s,first_cent,first_count,url,daterange((yr-interval '1 year')::date,yr) from rules,bounds where window_type in ('years','prior_year')
-  union all select s,first_cent,first_count,url,daterange((mo-interval '12 months')::date,mo) from rules,bounds where window_type='prior_months'
-  union all select s,first_cent,first_count,url,daterange((date_trunc('quarter',asof_day)-interval '12 months')::date,date_trunc('quarter',asof_day)::date) from rules where window_type='prior_quarters'
+  select s,first_cent,first_count,url,daterange(yr,asof_day+1) as span,window_type='prior_year' as next_year from rules,bounds where window_type in ('years','prior_year')
+  union all select s,first_cent,first_count,url,daterange((yr-interval '1 year')::date,yr),false from rules,bounds where window_type in ('years','prior_year')
+  union all select s,first_cent,first_count,url,daterange((mo-interval '12 months')::date,mo),false from rules,bounds where window_type='prior_months'
+  union all select s,first_cent,first_count,url,daterange((date_trunc('quarter',asof_day)-interval '12 months')::date,date_trunc('quarter',asof_day)::date),false from rules where window_type='prior_quarters'
  ), screen as (
-  select w.s,w.url,w.span, count(sales.day) as n,coalesce(sum(receipts),0) as gross,w.first_cent,w.first_count
+  select w.s,w.url,w.span,w.next_year, count(sales.day) as n,coalesce(sum(receipts),0) as gross,w.first_cent,w.first_count
   from windows w left join sales on sales.destination=w.s and sales.day <@ w.span
-  group by w.s,w.url,w.span,w.first_cent,w.first_count
+  group by w.s,w.url,w.span,w.next_year,w.first_cent,w.first_count
  ), hits as (
-  select s,max(url) as url,bool_or(gross>=first_cent or n>=coalesce(first_count,2147483647)) as hit,
-   bool_or(gross*10>=first_cent*8::bigint or (first_count is not null and n*10>=first_count*8)) as near_limit
+  select s,max(url) as url,bool_or(gross>=first_cent or n>=coalesce(first_count,2147483647)) filter(where not next_year) as hit,
+   bool_or(gross*10>=first_cent*8::bigint or (first_count is not null and n*10>=first_count*8)) filter(where not next_year) as near_limit,
+   bool_or(gross>=first_cent or n>=first_count) filter(where next_year) as next_year_hit,
+   bool_or(gross*10>=first_cent*8::bigint or n*10>=first_count*8) filter(where next_year) as next_year_near
   from screen group by s
  ), totals as (
   select destination,count(*) as n,sum(receipts)::bigint as gross from sales
@@ -56,6 +59,8 @@ language sql stable set search_path='' as $$
  select t.state,coalesce(totals.n,0),coalesce(totals.gross,0),
  case when asof_day not between date '2026-11-26' and date '2026-12-31' then case when totals.n>0 and t.registration<>'Registered' then 'Review current remote-seller guidance for website sales.' end
  when hits.hit then 'Website receipts or order count reached a registration review threshold. Verify taxable receipts, returns, other sales, and the collection start date.'
+ when hits.next_year_hit then format('Current-year website activity reached the review threshold for %s. Check qualifying receipts and registration for next year.',extract(year from asof_day)::int+1)
+ when hits.next_year_near then format('Current-year website activity reached 80%% of the review threshold for %s.',extract(year from asof_day)::int+1)
  when hits.near_limit then 'Website activity reached 80% of a registration review threshold.'
  when totals.n>0 and hits.s is null and t.registration<>'Registered' and t.state not in ('NH','OR','DE') then 'Website sales reached this destination. Review its registration rules and collection timing.'
  end, hits.url

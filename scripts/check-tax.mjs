@@ -126,10 +126,19 @@ test('preview migration, permissions, exact address, order and filing accounting
    assert.match((await activity()).review_message,/80%/);
    await db.exec(`insert into orders(payment_status,paid_at,shipping_address,total,tax_amount) values ('paid','2026-06-01T16:00Z','{"state":"WA"}',80000.01,0)`);
    assert.match((await activity()).review_message,/reached a registration/);
+   for(const state of ['AL','FL','MI','NM','RI']) {
+     await db.query("insert into orders(payment_status,paid_at,shipping_address,total,tax_amount) values('paid','2026-11-26T16:00Z',$1,500000,0)",[{state}]);
+     const {review_message}= (await db.query("select review_message from private.tax_website_activity('2026-11-26','2026-11-01','2026-11-26') where state=$1",[state])).rows[0];
+     assert.match(review_message,/review threshold for 2027/);
+   }
+   await db.exec("insert into orders(payment_status,paid_at,shipping_address,total,tax_amount) select 'paid','2025-11-26T12:00Z','{\"state\":\"RI\"}',1,0 from generate_series(1,200)");
+   const priorRI=(await db.query("select review_message from private.tax_website_activity('2026-11-26','2026-11-01','2026-11-26') where state='RI'")).rows[0];
+   assert.match(priorRI.review_message,/reached a registration/);
+
  } finally { await db.exec("rollback"); }
  await db.exec("alter table orders alter column id restart with 1");
  // The following order tests create their own dated policies and version histories.
- await db.exec("delete from private.tax_versions where data->>'origin'='catalog_policy_release_2026_11_26'");
+ await db.exec("delete from private.tax_versions where data->>'origin'='catalog_policy_release_2026_11_26' and not (state='WA' and kind='product')");
  assert.equal(await orderDefinition(),beforeInstall);
  assert.equal((await db.query("select count(*)::int as count from pg_trigger where tgrelid='public.orders'::regclass and not tgisinternal")).rows[0].count,0);
  assert.ok((await db.query("select to_regprocedure('public.tax_quote_inputs(uuid,uuid,jsonb)') is not null as installed")).rows[0].installed);
@@ -158,11 +167,76 @@ test('preview migration, permissions, exact address, order and filing accounting
  await db.exec(await migration('20261116180336_order_email_milestones.sql'));
  await db.exec('create trigger order_email_queue after insert or update of status,payment_status,tracking_number on orders for each row execute function private.queue_order_email()');
  await db.exec(await migration('20261128000200_checkout_tax_receipts.sql'));
+ await db.exec(await migration('20261127040000_washington_remote_sales.sql'));
+ await db.exec('begin');
+ try {
+   const one=async(sql,args=[])=>Object.values((await db.query(sql,args)).rows[0])[0];
+   const gate=(d)=>one("select private.tax_collection_gate('WA',private.tax_version('WA','policy','state',$1),$1)",[d]);
+   const timeline=async(d)=>(await db.query('select crossed_on::text,collect_from::text,earliest_possible_start::text,unresolved from private.tax_wa_remote_dates($1)',[d])).rows[0];
+   const sale=(amount,day,state='WA',status='paid',fulfillment='delivery')=>db.query(
+     "insert into orders(payment_status,created_at,paid_at,total,tax_amount,shipping_address) values($1,$2::date+time '12:00',$3::timestamptz,$4,0,$5)",
+     [status,day,status==='paid'?day+'T12:00:00Z':null,amount,{state,fulfillment}]);
+   assert.equal(await gate('2026-11-26'),'no_obligation');
+   assert.equal(await gate('2027-01-01'),'review');
+   await sale(500000,'2026-08-01','WA','paid','pickup');
+   await sale(500000,'2026-08-02','NY');
+   await sale(100000,'2026-09-30');
+   assert.equal((await timeline('2026-10-01')).crossed_on,null);
+   await sale(0.01,'2026-10-02');
+   assert.equal((await timeline('2026-11-26')).collect_from,'2026-11-01');
+   assert.equal(await gate('2026-11-26'),'review');
+   await db.exec('delete from orders');
+   await sale(500000,'2026-11-26');
+   const dates=await timeline('2026-11-26');
+   assert.equal(dates.crossed_on,'2026-11-26');
+   assert.equal(dates.collect_from,'2027-01-01');
+   assert.equal(await gate('2026-12-31'),'no_obligation');
+   const msg=await one("select review_message from private.tax_website_activity('2026-11-26','2026-11-01','2026-11-26') where state='WA'");
+   assert.match(msg,/2026-11-26.*B&O.*2027-01-01/);
+   await sale(500000,'2026-08-15','','pending');
+   assert.equal((await timeline('2026-11-26')).earliest_possible_start,'2026-10-01');
+   assert.equal(await gate('2026-11-26'),'review');
+   await db.exec("delete from orders; update private.tax_states set physical=true where state='WA'");
+   assert.equal(await gate('2026-11-26'),'review');
+   await db.exec("update private.tax_states set physical=false,registration='Registration Pending' where state='WA'");
+   assert.equal(await gate('2026-11-26'),'review');
+   await db.exec("update private.tax_states set registration='Not Registered' where state='WA'");
+   await db.exec("insert into private.tax_ledger(event_key,state,booked,kind,channel,merchandise) values('wa-remote-test','WA','2025-06-01','sale','marketplace',50000000)");
+   assert.equal(await gate('2026-11-26'),'review');
+   await db.exec("delete from private.tax_ledger where event_key='wa-remote-test'");
+   await sale(25000,'2025-12-15','WA','pending');
+   await sale(80000,'2026-01-01');
+   assert.equal((await timeline('2026-11-26')).earliest_possible_start,'2026-02-01');
+   assert.equal(await gate('2026-11-26'),'review');
+   assert.equal(await one("select has_function_privilege('anon','private.tax_wa_remote_dates(date)','execute')"),false);
+ } finally { await db.exec('rollback'); }
+ await db.exec('alter table orders alter column id restart with 1');
+
  const val=async(sql,args=[])=>Object.values((await db.query(sql,args)).rows[0])[0];
  assert.equal(await val('select count(*)::int from private.tax_states'),51);
  assert.equal(await val("select has_function_privilege('authenticated','public.tax_admin_overview(date,date)','execute')"),false);
  const actor='00000000-0000-4000-8000-000000000001',qid='00000000-0000-4000-8000-000000000002';
  await db.query('insert into auth.users values($1)',[actor]);await db.query('insert into admin_users values($1)',[actor]);
+ // Exercise the shipped WA catalog rule and business profile through the real quote RPC.
+ await db.exec('begin');
+ try {
+   const ship={address_line_1:'808 W SPOKANE FALLS BLVD',city:'SPOKANE',state:'WA',postal_code:'99201',country:'US'};
+   const gold={product_id:902,sku:'AGE-1OZ-BU-RY',product_name:'1 oz American Gold Eagle BU (Random Year)',metal:'gold',metal_weight_oz:1,
+     quantity:100,unit_price:5000,line_total:500000,pricing_snapshot:{}};
+   await db.query("insert into checkout_quotes values($1,$2,'active',now()+interval '10 minutes',now(),500000,0,0,$3,'{}')",[qid,actor,JSON.stringify([gold])]);
+   const raw=await val('select public.tax_quote_inputs($1,$2,$3)',[actor,qid,ship]);
+   // The real clock may be outside this release's reviewed tax period.
+   const dated=await val("select private.tax_version('WA','policy','state',$1)",[day]);
+   const productRule=await val("select private.tax_version('WA','product','902',$1)",[day]);
+   const collection=await val("select private.tax_collection_gate('WA',$1,$2)",[dated,day]);
+   if(raw.day===day) assert.equal(raw.policy.collection,collection);
+   const xml=await readFile(new URL('./fixtures/tax/spokane-q42026.xml',import.meta.url),'utf8');
+   const calc=assess({state:'WA',day,policy:{...dated,collection},address:washingtonResult(xml,day,ship,'3210'),
+     lines:[{id:902,quantity:100,gross:50000000,classification:productRule}],subtotal:50000000,shipping:0,fee:0});
+   assert.equal(calc.status,'not_collected');
+   assert.equal(calc.taxable,50000000);assert.equal(calc.tax,0);assert.equal(calc.total,50000000);
+   assert.equal(calc.jurisdictions.find(j=>j.code==='3210').county,'Spokane');
+ } finally { await db.exec('rollback'); }
  await db.query("select public.tax_admin_change($1,'NY','schedule',$2)",[actor,{starts:'2026-09-01',ends:'2026-11-30',due:'2026-12-21'}]);
  await db.query("select public.tax_publish_version($1,'WA','nexus','state',$2,'https://dor.wa.gov/', '2025-01-01','2027-12-31','2026-11-26','approved')",[actor,{period:'current_or_prior_calendar',base:'gross',operator:'or',revenue_trigger_cents:10000001,deduct_refunds:false,include_marketplace:true}]);
  await db.query("select public.tax_import_sale($1,'WA','reference-a','marketplace','2025-02-01',10000001,0,10000001,0)",[actor]);

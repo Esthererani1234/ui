@@ -30,6 +30,19 @@ function matchedGeography(address, matches) {
   return geography;
 }
 
+function locationEvidence(geography) {
+  const single = key => {
+    const places = geography[key] || [];
+    if (places.length > 1) throw unavailable();
+    if (!places.length) return null;
+    const {GEOID:geoid,NAME:name} = places[0];
+    if (!geoid) throw unavailable();
+    return {geoid,name};
+  };
+  return {state:single('States'),county:single('Counties'),
+    municipality:single('Incorporated Places'),subdivision:single('County Subdivisions')};
+}
+
 export function censusRates(address, day, matches) {
   // Stop at the quarter boundary until the publications have been reviewed again.
   if (day<'2026-11-26' || day>'2026-12-31' || !Object.hasOwn(publications,address.state)) throw unavailable();
@@ -62,7 +75,7 @@ export function censusRates(address, day, matches) {
     if (location[1]) rates.push({level:'city',code,name,county:counties[0].NAME,ppm:location[1]});
   }
   return {state,source,approval:'approved',verified_on:'2026-11-26',valid_from:day,valid_until:day,
-    version:['government',day,...rates.map(r=>r.code+'-'+r.ppm)].join('/'),rates,max_pass_on_ppm:maxPassOn};
+    geography:locationEvidence(geography),version:['government',day,...rates.map(r=>r.code+'-'+r.ppm)].join('/'),rates,max_pass_on_ppm:maxPassOn};
 }
 
 async function censusMatches(address, fetcher) {
@@ -82,7 +95,9 @@ export async function destinationRates(address,day,fetcher=fetch) {
 
 export async function confirmDestination(address,day,fetcher=fetch) {
   const geography=matchedGeography(address,await censusMatches(address,fetcher));
+  const location=locationEvidence(geography);
+  if (!location.county) throw unavailable();
   // No rate is inferred from a state match. A taxable base still requires rates.
   return {state:address.state,source:census,approval:'approved',verified_on:day,valid_from:day,valid_until:day,
-    version:'Census/'+day+'/'+geography.States[0].GEOID,rates:[]};
+    geography:location,version:['Census',day,...Object.values(location).map(place=>place?.geoid || '-')].join('/'),rates:[]};
 }

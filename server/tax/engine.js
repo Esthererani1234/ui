@@ -91,7 +91,13 @@ export function assess({day,state,policy,address,lines,subtotal,shipping,fee,inv
   const gross=lines.map(l=>{integer(l.quantity,1);return integer(l.gross,1);});
   if(subtotal>gross.reduce((a,b)=>a+b,0)) review('The quote discount could not be verified.');
   const net=allocate(subtotal,gross);
-  const qualified=lines.map((l,i)=>eligibility(l,net[i],state,day,investment));
+  const priorYearOnly=policy.remote_basis==='zero_prior_calendar_year';
+  if (priorYearOnly && (policy.collection!=='no_obligation' || !['AL','FL','MI','NM','RI'].includes(state)))
+    review('An active registration requires reviewed collection and fee rules.');
+  const qualified=lines.map((line,i)=>{
+    if (priorYearOnly && !current(line.classification,day)) return null;
+    return eligibility(line,net[i],state,day,investment);
+  });
   const qualifiedSum=net.reduce((sum,n,i)=>sum+(qualified[i]?n:0),0);
   // Store minimum and statutory eligibility are separate. Exclusive thresholds
   // are represented by the first qualifying cent (NY $1,000.01).
@@ -112,7 +118,8 @@ export function assess({day,state,policy,address,lines,subtotal,shipping,fee,inv
     else if(!['registered','registration_not_required'].includes(policy.ny_dealer_status))
       review('New York bullion dealer eligibility needs review.');
   }
-  const taxable=net.reduce((sum,n,i)=>sum+(!qualified[i]||!meetsExemption?n:0),0);
+  const unclassified=net.reduce((sum,n,i)=>sum+(qualified[i]===null?n:0),0);
+  const taxable=net.reduce((sum,n,i)=>sum+(qualified[i]!==null && (!qualified[i] || !meetsExemption)?n:0),0);
   const chargeBase=(amount,mode)=>{
     if(!amount || !taxable)return 0;
     if(mode==='full_if_taxable')return amount;
@@ -120,8 +127,11 @@ export function assess({day,state,policy,address,lines,subtotal,shipping,fee,inv
     if(mode==='excluded')return 0;
     return review('The treatment of a shipping or payment charge needs review.');
   };
-  const base=integer(taxable+chargeBase(shipping,policy.shipping_base)+chargeBase(fee,policy.fee_base));
   const collect=policy.collection==='collect';
+  // Product taxability remains recorded even if the seller owes no collection.
+  // Leave the potential tax base open when ancillary charges have not been classified.
+  const base=priorYearOnly && (unclassified || (taxable && (shipping || fee))) ? null
+    : integer(taxable+chargeBase(shipping,policy.shipping_base)+chargeBase(fee,policy.fee_base));
   const levyKind = {HI:'general_excise',NM:'gross_receipts'}[state];
   const passThrough = policy.seller_levy_treatment;
   if (levyKind && collect && !['absorb','pass_through'].includes(passThrough)) review('The seller tax treatment needs review.');
@@ -162,6 +172,7 @@ export function assess({day,state,policy,address,lines,subtotal,shipping,fee,inv
     Object.assign(breakdown[i],{name,county,districts,reporting_code,included_rates});
   }
   if (destinationLevy) sellerTaxes.push(destinationLevy);
-  return {rate_source:address.source,rate_verified_on:address.verified_on,rate_effective_from:address.valid_from,rate_valid_until:address.valid_until,policy_source:policy.source,seller_taxes:sellerTaxes,state,day,collection:policy.collection,status:collect?(base?'taxable':'exempt'):'not_collected',subtotal,shipping,fee,tax,total:integer(subtotal+shipping+fee+tax),taxable,exempt:subtotal-taxable,base,breakdown,policy_version:policy.version,address_version:address.version,registration:policy.registration,lines:lines.map((l,i)=>({id:l.id,net:net[i],exempt:qualified[i]&&meetsExemption,version:l.classification.version,...(state==='NY' && qualified[i] ? {market_day:l.classification.market_observed_on,market_basis:l.classification.market_basis,market_source:l.classification.market_source,market_unit_cents:l.classification.market_unit_cents} : {})}))};
+  const jurisdictions = (address.rates || []).map(({level,code,name,county,districts,reporting_code})=>({level,code,name,county,districts,reporting_code}));
+  return {jurisdictions,geography:address.geography,rate_source:address.source,rate_verified_on:address.verified_on,rate_effective_from:address.valid_from,rate_valid_until:address.valid_until,policy_source:policy.source,seller_taxes:sellerTaxes,state,day,collection:policy.collection,status:collect?(base?'taxable':'exempt'):'not_collected',subtotal,shipping,fee,tax,total:integer(subtotal+shipping+fee+tax),taxable,exempt:subtotal-taxable-unclassified,unclassified,base,breakdown,policy_version:policy.version,address_version:address.version,registration:policy.registration,lines:lines.map((l,i)=>({id:l.id,net:net[i],exempt:qualified[i]&&meetsExemption,version:l.classification?.version ?? null,...(state==='NY' && qualified[i] ? {market_day:l.classification.market_observed_on,market_basis:l.classification.market_basis,market_source:l.classification.market_source,market_unit_cents:l.classification.market_unit_cents} : {})}))};
 }
 export const usd=c=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(c/100);

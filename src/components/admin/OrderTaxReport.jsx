@@ -119,8 +119,10 @@ function NewOrderReports({from,to,request}){
   return <section aria-label="New order tax calculations"><h3>New order tax calculations</h3>
     {error&&<p role="alert">{error}</p>}{!page&&!error&&<p>Loading new orders…</p>}
     {page&&<><p>Orders placed from {new Date(page.starts_at).toLocaleString('en-US',{timeZone:'America/New_York',dateStyle:'medium',timeStyle:'short'})} New York time are checked automatically.</p>
-    {!page.orders.length?<p>No new orders in this period.</p>:<div className="tax-table"><table><thead><tr><th>Order</th><th>Destination</th><th>Calculated tax</th></tr></thead>
+    {!!page.store_exemptions?.length&&<p>Store-marked exempt for new gold and silver shipments to {page.store_exemptions.map(name).join(' and ')}.</p>}
+    {!page.orders.length?<p>No new orders in this period.</p>:<div className="tax-table"><table><thead><tr><th>Order</th><th>Destination</th><th>Tax report</th></tr></thead>
     <tbody>{page.orders.map(o=><tr key={o.id}><th>{o.order_number||o.id}</th><td>{name(o.state)}</td><td>
+      {o.store_treatment?.treatment==='exempt'&&<p><strong>Store-marked exempt · {money(o.store_treatment.amount_cents)}</strong></p>}
       {!o.result?'Queued':o.result.status==='review'?<ReviewReason result={o.result}/>:<details><summary>{money(o.result.tax)}</summary>
         <p>Taxable merchandise {money(o.result.taxable)} · Exempt merchandise {money(o.result.exempt)}{o.result.unclassified>0&&<> · Awaiting classification {money(o.result.unclassified)}</>}</p>
         <AlaskaSaleEvidence facts={o.result.ak_specie}/>

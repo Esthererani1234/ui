@@ -47,6 +47,9 @@ begin
   end if;
   v_surcharge := case when p_payment_method = 'card' then v_quote.card_surcharge when p_payment_method = 'ach' then round(v_quote.subtotal * 0.02, 2) else 0 end;
   v_total := round(v_quote.subtotal + v_quote.shipping_amount + v_surcharge, 2);
+  -- Quote preparation can run concurrently. Serialize final order placement per
+  -- destination so a second order sees the first order's receipts before payment.
+  perform 1 from private.tax_states where state=upper(trim(p_shipping->>'state')) for update;
   select a.* into assessment from private.tax_assessments a join private.tax_revision r on r.revision=a.revision
    where a.id=(p_shipping->>'tax_assessment_id')::uuid and a.quote_id=p_quote_id and a.user_id=p_user_id
    and a.address=private.tax_normalize_address(p_shipping) and a.method=p_payment_method

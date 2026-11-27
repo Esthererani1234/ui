@@ -128,6 +128,38 @@ test('preview migration, permissions, exact address, order and filing accounting
    await db.exec("insert into orders(created_at,shipping_address,total) values('2025-12-31','{}',5)");
    assert.equal(await gate('RI',day),'review');
  } finally { await db.exec('rollback'); }
+ await db.exec(await readFile(new URL('../supabase/migrations/20261127034914_remote_order_threshold.sql',import.meta.url),'utf8'));
+ await db.exec('begin');
+ try {
+   const decision=async(state,price)=>{
+     const q={subtotal:price,shipping_amount:0,card_surcharge:0};
+     return (await db.query("select private.tax_remote_order_policy($1,private.tax_version($1,'policy','state',$2),$3,$2) p",[state,day,q])).rows[0].p;
+   };
+   const states=['DC','HI','ME','VT','SD','IA','KS','NE','IN','WI','SC','NC','GA','LA','MD','MN','MO','MS','ND','NJ','NV','OH','PA','TN','UT','WV','IL','KY','OK','TX'];
+   for (const state of states){
+     await db.query("update private.tax_states set registration='Not Registered' where state=$1",[state]);
+     assert.equal((await decision(state,10000)).collection,'no_obligation');
+     assert.equal((await decision(state,500000)).collection,'review');
+   }
+   assert.equal((await decision('TX',480000)).collection,'no_obligation');
+   assert.equal((await decision('TX',500000)).collection,'review');
+   assert.equal((await decision('MS',240000)).collection,'no_obligation');
+   assert.equal((await decision('MS',250000)).collection,'review');
+   // 98,000 merchandise plus the upper bound on fees (1,960), then one open order of $40.
+   assert.equal((await decision('HI',98000)).receipts_upper_bound_cents,9996000);
+   await db.exec(`insert into orders(total,shipping_address) values(40,'{"state":"HI"}')`);
+   assert.equal((await decision('HI',98000)).collection,'review');
+   assert.equal((await decision('HI',97999.99)).collection,'no_obligation');
+   // A city or state missing from an order cannot be silently excluded.
+   await db.exec(`insert into orders(total,shipping_address) values(40.01,'{}')`);
+   assert.equal((await decision('ME',98000)).collection,'review');
+   await db.exec(`insert into orders(total,shipping_address) select 1,'{"state":"VT"}'::jsonb from generate_series(1,197)`);
+   assert.equal((await decision('VT',100)).collection,'no_obligation');
+   await db.exec(`insert into orders(total,shipping_address) values(1,'{"state":"VT"}')`);
+   assert.equal((await decision('VT',100)).collection,'review');
+   await db.exec("update private.tax_states set registration='Registered' where state='DC'");
+   assert.equal((await decision('DC',100)).collection,'review');
+ } finally { await db.exec('rollback'); }
  const closeFor=async(d)=>(await db.query("select private.tax_ny_market_inputs(private.tax_version('NY','product','902','2026-11-26'),$1) as value",[d])).rows[0].value;
  const actualClose=await closeFor('2026-11-26');
  assert.equal(actualClose.market_unit_cents,358845);
@@ -158,7 +190,7 @@ test('preview migration, permissions, exact address, order and filing accounting
  } finally { await db.exec("rollback"); }
  await db.exec("alter table orders alter column id restart with 1");
  // The following order tests create their own dated policies and version histories.
- await db.exec("delete from private.tax_versions where data->>'origin'='catalog_policy_release_2026_11_26' and not (state='WA' and kind='product')");
+ await db.exec("delete from private.tax_versions where data->>'origin'='catalog_policy_release_2026_11_26' and not (state='WA' and kind='product') and not (state='WI' and kind='policy')");
  assert.equal(await orderDefinition(),beforeInstall);
  assert.equal((await db.query("select count(*)::int as count from pg_trigger where tgrelid='public.orders'::regclass and not tgisinternal")).rows[0].count,0);
  assert.ok((await db.query("select to_regprocedure('public.tax_quote_inputs(uuid,uuid,jsonb)') is not null as installed")).rows[0].installed);
@@ -255,6 +287,33 @@ test('preview migration, permissions, exact address, order and filing accounting
    await db.query("select public.tax_publish_version($1,'NM','nexus','state',$2,'https://www.tax.newmexico.gov/', '2025-01-01','2027-12-31','2026-11-26','approved')",[actor,{period:'current_or_prior_calendar',base:'taxable',operator:'or',revenue_trigger_cents:10000000}]);
    assert.equal(await val("select private.tax_threshold_progress('NM','2026-11-26')"),null);
  } finally { await db.exec('rollback'); }
+ // Two open price locks both qualify when created. A $60,000 wire reserves
+ // inventory only while the collection decision still holds at order placement.
+ await db.exec('begin');
+ try {
+   for (const proc of ['public.tax_base_quote_inputs(uuid,uuid,jsonb)',orderRoutine]) {
+     const definition=await val('select pg_get_functiondef($1::regprocedure)',[proc]);
+     await db.exec(definition.replaceAll("(clock_timestamp() at time zone 'America/New_York')::date","date '2026-11-26'"));
+   }
+   await db.exec("update private.tax_states set registration='Not Registered' where state='WI'");
+   const street={address_line_1:'123 TEST ST',city:'MADISON',state:'WI',postal_code:'53703',country:'US'};
+   const buyer={first_name:'Test',last_name:'Buyer',email:'fixture@example.invalid',phone:'5550100'};
+   const item={product_id:902,sku:'AGE-1OZ-BU-RY',product_name:'1 oz American Gold Eagle BU (Random Year)',
+     quantity:1,metal:'gold',metal_weight_oz:1,unit_price:60000,line_total:60000,pricing_snapshot:{}};
+   const prepared=[];
+   for (let i=0;i<2;i++) {
+     const id=await val("insert into checkout_quotes values(gen_random_uuid(),$1,'active',now()+interval '10 minutes',now(),60000,0,0,$2,'{}') returning id",[actor,JSON.stringify([item])]);
+     const raw=await val('select public.tax_quote_inputs($1,$2,$3)',[actor,id,street]);
+     assert.equal(raw.policy.collection,'no_obligation');
+     const assessment=assess({day,state:'WI',policy:raw.policy,address:{...record,state:'WI',rates:[]},
+       subtotal:6000000,shipping:0,fee:0,lines:[{id:902,quantity:1,gross:6000000,classification:raw.products['902']}]});
+     const taxId=await val("select public.store_tax_assessment($1,$2,$3,'wire','delivery',$4,$5)",[actor,id,street,assessment,raw.revision]);
+     prepared.push(()=>val("select public.create_order_from_quote($1,$2,$3,$4,'wire',null)",[actor,id,buyer,{...street,tax_assessment_id:taxId}]));
+   }
+   assert.equal((await prepared[0]()).total,60000);
+   await assert.rejects(prepared[1](),/collection obligation/);
+ } finally { await db.exec('rollback'); }
+ await db.exec('alter table orders alter column id restart with 1');
  // Exercise the shipped WA catalog rule and business profile through the real quote RPC.
  await db.exec('begin');
  try {

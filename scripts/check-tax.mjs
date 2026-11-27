@@ -108,6 +108,26 @@ test('preview migration, permissions, exact address, order and filing accounting
  assert.ok(reviewedEagle.rows.every(r=>r.n===1));
  assert.equal((await db.query("select count(*)::int n from private.tax_versions where kind='policy' and state='KS'")).rows[0].n,0);
  await db.exec(await readFile(new URL('../supabase/migrations/20261127030000_website_nexus_activity.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261127033006_remote_collection_history.sql',import.meta.url),'utf8'));
+ await db.exec('begin');
+ try {
+   const gate=async(state,day)=>(await db.query("select private.tax_collection_gate($1,private.tax_version($1,'policy','state',$2),$2) decision",[state,day])).rows[0].decision;
+   for (const state of ['AL','FL','MI','NM','RI']) {
+     assert.equal(await gate(state,day),'review');
+     await db.query("update private.tax_states set registration='Not Registered' where state=$1",[state]);
+     assert.equal(await gate(state,day),'no_obligation');
+     await db.query("insert into orders(paid_at,total,shipping_address) values('2026-11-26T16:00Z',500000,$1)",[{state}]);
+     assert.equal(await gate(state,day),'no_obligation');
+     assert.equal(await gate(state,'2027-01-01'),'review');
+   }
+   await db.exec(`update private.tax_states set registration='Registered' where state='MI';
+     update private.tax_states set physical=true where state='NM';
+     insert into orders(created_at,shipping_address,total) values('2025-12-31','{"state":"FL"}',5)`);
+   for (const state of ['FL','MI','NM']) assert.equal(await gate(state,day),'review');
+   assert.equal(await gate('RI',day),'no_obligation');
+   await db.exec("insert into orders(created_at,shipping_address,total) values('2025-12-31','{}',5)");
+   assert.equal(await gate('RI',day),'review');
+ } finally { await db.exec('rollback'); }
  const closeFor=async(d)=>(await db.query("select private.tax_ny_market_inputs(private.tax_version('NY','product','902','2026-11-26'),$1) as value",[d])).rows[0].value;
  const actualClose=await closeFor('2026-11-26');
  assert.equal(actualClose.market_unit_cents,358845);
@@ -217,6 +237,24 @@ test('preview migration, permissions, exact address, order and filing accounting
  assert.equal(await val("select has_function_privilege('authenticated','public.tax_admin_overview(date,date)','execute')"),false);
  const actor='00000000-0000-4000-8000-000000000001',qid='00000000-0000-4000-8000-000000000002';
  await db.query('insert into auth.users values($1)',[actor]);await db.query('insert into admin_users values($1)',[actor]);
+ await db.exec('begin');
+ try {
+   await db.exec(`insert into orders(id,total) overriding system value values(91888,1);
+     insert into private.tax_ledger(event_key,state,order_id,booked,kind,merchandise,taxable,exempt,tax)
+     values('prior-year-order','NM',91888,'2026-11-26','sale',100,30,10,0)`);
+   const refund=(ref,total,taxable,exempt)=>db.query(
+     "select public.tax_refund_entry($1,'NM',91888,$2,'2026-11-26',$3,$4,$5,'[]')",[actor,ref,total,taxable,exempt]);
+   await refund('first',60,0,0);
+   await db.exec('savepoint bad_refund');
+   await assert.rejects(refund('second',1,0,0),/exceeds/);
+   await db.exec('rollback to bad_refund');
+   await refund('balance',40,30,10);
+   await db.exec('savepoint excess_refund');
+   await assert.rejects(refund('excess',1,1,0),/exceeds/);
+   await db.exec('rollback to excess_refund');
+   await db.query("select public.tax_publish_version($1,'NM','nexus','state',$2,'https://www.tax.newmexico.gov/', '2025-01-01','2027-12-31','2026-11-26','approved')",[actor,{period:'current_or_prior_calendar',base:'taxable',operator:'or',revenue_trigger_cents:10000000}]);
+   assert.equal(await val("select private.tax_threshold_progress('NM','2026-11-26')"),null);
+ } finally { await db.exec('rollback'); }
  // Exercise the shipped WA catalog rule and business profile through the real quote RPC.
  await db.exec('begin');
  try {
@@ -349,7 +387,7 @@ test('preview migration, permissions, exact address, order and filing accounting
 
 import {belowOrderMinimum,storeFloor} from '../shared/bullionMinimums.js';
 import {previewExample} from '../server/tax/preview.js';
-import {censusRates} from '../server/tax/destinationRates.js';
+import {censusRates,confirmDestination} from '../server/tax/destinationRates.js';
 import {newMexicoAddress} from '../server/tax/newMexico.js';
 
 for (const [state,floor] of Object.entries({NY:100001,CA:200000,MD:100001,MA:100000,CT:100000})) {
@@ -561,3 +599,25 @@ test('NY Westchester city boundaries determine the rate and reporting code indep
  assert.deepEqual(resolve('Yonkers city'),[]);
 });
 import {newYorkComponents} from '../server/tax/newYork.js';
+
+test('verified absence of collection preserves unclassified merchandise and known taxability',()=>{
+  const q=input(120000);q.state='NM';q.policy={...record,state:'NM',collection:'no_obligation',first_eligible_cent:0,remote_basis:'zero_prior_calendar_year'};
+  q.address={...address,state:'NM',rates:[],geography:{county:{geoid:'35001',name:'Bernalillo County'}}};
+  q.shipping=100;q.lines=[{id:1,quantity:1,gross:60000},{id:2,quantity:1,gross:60000,classification:{...product,treatment:'taxable'}}];
+  const result=assess(q);
+  assert.equal(result.tax,0);assert.equal(result.total,120100);assert.equal(result.taxable,60000);assert.equal(result.exempt,0);
+  assert.equal(result.unclassified,60000);assert.equal(result.base,null);assert.equal(result.lines[0].exempt,null);
+  assert.equal(result.lines[0].version,null);assert.deepEqual(result.geography,q.address.geography);
+  q.policy.collection='collect';assert.throws(()=>assess(q),/reviewed collection/);
+});
+test('street evidence retains official boundaries and rejects conflicting counties',async()=>{
+  const street={...delivered,state:'FL'};
+  const geography={Counties:[{GEOID:'12086',NAME:'Miami-Dade County'}],
+    'Incorporated Places':[{GEOID:'1245000',NAME:'Miami city'}]};
+  const fetcher=async()=>({ok:true,json:async()=>({result:{addressMatches:sampleGeography('FL','12',geography)}})});
+  const result=await confirmDestination(street,day,fetcher);
+  assert.equal(result.geography.county.geoid,'12086');assert.equal(result.geography.municipality.name,'Miami city');
+  assert.equal(result.geography.subdivision,null);assert.deepEqual(result.rates,[]);
+  geography.Counties.push({GEOID:'12011',NAME:'Broward County'});
+  await assert.rejects(confirmDestination(street,day,fetcher),/verification/);
+});

@@ -42,7 +42,7 @@ export function validateVersion(state,v){
   }else check(false,'Invalid review category.');
 }
 export function ledgerCsv(rows){
-  const columns=['event_key','order_id','state','booked','kind','channel','merchandise','taxable','exempt','tax','breakdown','seller_taxes','confirmation'];
+  const columns=['event_key','order_id','state','booked','kind','channel','merchandise','taxable','exempt','unclassified','tax','breakdown','seller_taxes','confirmation'];
   const cell=v=>{let t=v==null?'':typeof v==='object'?JSON.stringify(v):String(v);if(typeof v==='string'&&/^[\s]*[=+@-]/.test(t))t="'"+t;return '"'+t.replaceAll('"','""')+'"';};
-  return [columns.join(','),...rows.map(r=>columns.map(c=>cell(r[c])).join(','))].join('\r\n');
+  return [columns.join(','),...rows.map(r=>columns.map(c=>cell(c==='unclassified' && r.taxable!=null && r.exempt!=null ? r.merchandise-r.taxable-r.exempt : r[c])).join(','))].join('\r\n');
 }

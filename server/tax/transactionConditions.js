@@ -9,6 +9,16 @@ export function transactionEligibility(rule,line,net,state,day,review,needs) {
   const basis=recorded?.basis;
   const ordinary=line.special_terms===false && standardCoins.has(rule.catalog_sku) && line.metal_priced===true && net===line.gross;
   switch(test) {
+    case 'az_bullion_content':
+      if(state!=='AZ' || rule.form!=='bar')return review('The Arizona bar classification needs verification.');
+      if(basis==='form_pricing')return false;
+      if(basis==='metal_pricing' || (!basis && line.special_terms===false && line.metal_priced===true))return true;
+      return needs('Verify whether the Arizona bar derives its value from the refined metal.');
+    case 'az_monetized_sale':
+      if(state!=='AZ' || rule.form!=='coin')return review('The Arizona coin classification needs verification.');
+      if(basis==='jewelry_or_art_manufacture')return false;
+      if(basis==='ordinary_coin_sale' || (!basis && line.special_terms===false))return true;
+      return needs('Verify whether the Arizona coin was sold for manufacture into jewelry or art.');
     case 'id_monetized_sale':
       if(state!=='ID')return review('The Idaho coin rule is assigned to another jurisdiction.');
       if(basis==='jewelry_or_art_manufacture')return false;

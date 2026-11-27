@@ -1,0 +1,174 @@
+[
+  {
+    "address": {
+      "address_line_1": "201 1st Avenue E",
+      "city": "Kalispell",
+      "state": "MT",
+      "postal_code": "59901",
+      "country": "US"
+    },
+    "authority": "https://www.kalispell.com/facilities/facility/details/City-Hall-9",
+    "retrieved": "2026-11-27",
+    "census": {
+      "matchedAddress": "201 1ST AVE E, KALISPELL, MT, 59901",
+      "addressComponents": {
+        "city": "KALISPELL",
+        "state": "MT",
+        "zip": "59901"
+      },
+      "geographies": {
+        "States": [
+          {
+            "GEOID": "30",
+            "NAME": "Montana",
+            "STUSAB": "MT"
+          }
+        ],
+        "Counties": [
+          {
+            "GEOID": "30029",
+            "NAME": "Flathead County"
+          }
+        ],
+        "Incorporated Places": [
+          {
+            "GEOID": "3040075",
+            "NAME": "Kalispell city"
+          }
+        ],
+        "County Subdivisions": [
+          {
+            "GEOID": "3002991890",
+            "NAME": "Kalispell CCD"
+          }
+        ]
+      }
+    },
+    "structures": {
+      "geometryType": "esriGeometryPoint",
+      "spatialReference": {
+        "wkid": 4326,
+        "latestWkid": 4326
+      },
+      "features": [
+        {
+          "attributes": {
+            "OBJECTID": 58668,
+            "DateUpdate": 1786712336000,
+            "Effective": null,
+            "Expire": null,
+            "State": "MT",
+            "County": "Flathead County",
+            "Add_Number": 201,
+            "AddNum_Pre": null,
+            "AddNum_Suf": null,
+            "St_PreMod": null,
+            "St_PreDir": null,
+            "St_PreTyp": null,
+            "St_Name": "1st",
+            "St_PosTyp": "Avenue",
+            "St_PosDir": "East",
+            "St_PosMod": null,
+            "Post_Comm": "Kalispell",
+            "Inc_Muni": "Kalispell",
+            "Post_Code": "59901",
+            "Unit": null,
+            "Placement": "Structure",
+            "NGUID": "99029000.33325",
+            "Building": null
+          },
+          "geometry": {
+            "x": -114.31119595311208,
+            "y": 48.19686163503457
+          }
+        }
+      ]
+    }
+  },
+  {
+    "address": {
+      "address_line_1": "418 E 2nd Street",
+      "city": "Whitefish",
+      "state": "MT",
+      "postal_code": "59937",
+      "country": "US"
+    },
+    "authority": "https://www.cityofwhitefish.gov/158/Administration-City-Clerk",
+    "retrieved": "2026-11-27",
+    "census": {
+      "matchedAddress": "418 E 2ND ST, WHITEFISH, MT, 59937",
+      "addressComponents": {
+        "city": "WHITEFISH",
+        "state": "MT",
+        "zip": "59937"
+      },
+      "geographies": {
+        "States": [
+          {
+            "GEOID": "30",
+            "NAME": "Montana",
+            "STUSAB": "MT"
+          }
+        ],
+        "Counties": [
+          {
+            "GEOID": "30029",
+            "NAME": "Flathead County"
+          }
+        ],
+        "Incorporated Places": [
+          {
+            "GEOID": "3079825",
+            "NAME": "Whitefish city"
+          }
+        ],
+        "County Subdivisions": [
+          {
+            "GEOID": "3002993801",
+            "NAME": "Whitefish CCD"
+          }
+        ]
+      }
+    },
+    "structures": {
+      "geometryType": "esriGeometryPoint",
+      "spatialReference": {
+        "wkid": 4326,
+        "latestWkid": 4326
+      },
+      "features": [
+        {
+          "attributes": {
+            "OBJECTID": 81885,
+            "DateUpdate": 1786712337000,
+            "Effective": null,
+            "Expire": null,
+            "State": "MT",
+            "County": "Flathead County",
+            "Add_Number": 418,
+            "AddNum_Pre": null,
+            "AddNum_Suf": null,
+            "St_PreMod": null,
+            "St_PreDir": "East",
+            "St_PreTyp": null,
+            "St_Name": "2nd",
+            "St_PosTyp": "Street",
+            "St_PosDir": null,
+            "St_PosMod": null,
+            "Post_Comm": "Whitefish",
+            "Inc_Muni": "Whitefish",
+            "Post_Code": "59937",
+            "Unit": null,
+            "Placement": "Structure",
+            "NGUID": "99029000.60578",
+            "Building": null
+          },
+          "geometry": {
+            "x": -114.33781599680613,
+            "y": 48.410777002092296
+          }
+        }
+      ]
+    }
+  }
+]

@@ -11,6 +11,7 @@ function ReviewReason({result}){
     state_administered_bullion_exemption:'Colorado exempts qualifying coins and bullion from state and state-administered taxes. Self-collecting cities set their own treatment.',
     consumer_bullion_exemption:'Arizona exempts qualifying bullion sold to the ultimate consumer. Coins sold to manufacture jewelry or art have separate treatment.'};
   const notes={outside_resort_areas:'The verified county is outside the published resort areas.',
+    structure_outside_resort_areas:'The verified building lies outside the published resort area and district boundaries.',
     no_general_retail_tax:'The municipality has no general retail sales tax on bullion.',
     member_general_rates:'Published general retail rates for the verified location'};
   return <details><summary>{result.reason}</summary>
@@ -120,10 +121,11 @@ function RuleCoverage({request}){
   },[request]);
   if(error)return <p role="alert">{error}</p>;
   if(!data)return <p>Loading rule coverage…</p>;
-  return <details><summary>Rule coverage as of {data.day} · {data.product_reviews} of {data.product_total} product reviews</summary>
-    <p>{data.policies} of {data.destinations} destination policies reviewed. {data.state_only_reviews>0&&<>{data.state_only_reviews} additional product reviews cover state law and still need local verification. </>}Each order also needs a verified address and collection decision.</p>
-    {data.remaining.length>0&&<div className="tax-table"><table><thead><tr><th>Destination</th><th>Collection policy</th><th>Products awaiting review</th></tr></thead>
-      <tbody>{data.remaining.map(r=><tr key={r.state_code}><th>{name(r.state_code)}</th><td>{r.policy?'Reviewed':'Pending'}</td><td>{r.pending.join(', ')||'—'}</td></tr>)}</tbody></table></div>}
+  const localReview={AK:'City and borough taxes',CO:'Self-collecting city taxes',MT:'Resort district taxes'};
+  return <details><summary>Gold and silver tax rules · {data.reviewed_destinations} of {data.destinations} destinations reviewed</summary>
+    <p>Reviewed for {data.day}. Each new order also needs a verified address and a collection decision.</p>
+    {data.open_destinations.length>0&&<div className="tax-table"><table><thead><tr><th>Destination</th><th>Pending review</th></tr></thead>
+      <tbody>{data.open_destinations.map(code=><tr key={code}><th>{name(code)}</th><td>{localReview[code]||'Dated bullion or collection rules'}</td></tr>)}</tbody></table></div>}
   </details>;
 }
 export default function OrderTaxReport({from,to,request}){

@@ -1,6 +1,7 @@
 """Build county-level exclusions from complete official resort boundary inventories."""
 import argparse
 import json
+import math
 from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -50,10 +51,20 @@ def main():
             outside[code] = county["BASENAME"]
     if not outside or not resorts:
         raise ValueError("Empty inventory")
+    # Round every bounding box outward. A point outside every box is also
+    # outside each complete published polygon. Points inside remain unresolved.
+    envelopes = []
+    for _, area in resorts:
+        west, east, south, north = area.GetEnvelope()
+        envelopes.append([math.floor(west * 100000) / 100000, math.floor(south * 100000) / 100000,
+                          math.ceil(east * 100000) / 100000, math.ceil(north * 100000) / 100000])
+    point_counties = {c["GEOID"]: c["NAME"] for c, _ in layers["counties"]
+                      if c["GEOID"] not in outside and c["GEOID"] != "30031"}
     payload = {"reviewed_on": args.reviewed_on, "through": args.through,
                "sources": list(LAYERS.values()) + [HEBGEN],
                "feature_counts": {key: len(value) for key, value in layers.items()},
-               "outside": dict(sorted(outside.items()))}
+               "outside": dict(sorted(outside.items())), "point_counties": dict(sorted(point_counties.items())),
+               "resort_envelopes": sorted(envelopes)}
     args.output.write_text(json.dumps(payload, indent=2) + "\n")
 
 

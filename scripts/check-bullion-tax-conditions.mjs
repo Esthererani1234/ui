@@ -173,6 +173,16 @@ test('sale evidence changes the classification of the same item without leaking 
  assert.throws(()=>run('NJ',[item('nj_coin_alternatives',basis('numismatic_pricing',{fmv_cents:100000,valuation_day:'2026-11-25'}))]),/individual coin value/);
  assert.throws(()=>run('NJ',[item('id_monetized_sale',{special_terms:false})]),/another jurisdiction/);
 });
+test('Arizona uses the statutory retail base across municipalities and separates coin purpose and bar value',()=>{
+ const charge=(form,test,facts)=>run('AZ',[[500000,coin({form,value_test:test}),1,facts]]).taxable;
+ for(const item of ['az_bullion_content','az_monetized_sale']){
+   const bar=item==='az_bullion_content',form=bar?'bar':'coin';
+   assert.equal(charge(form,item,{special_terms:false,metal_priced:true}),0);
+   assert.throws(()=>charge(form,item,{special_terms:true}),/Verify whether/);
+   assert.equal(charge(form,item,{sale_evidence:{basis:bar?'form_pricing':'jewelry_or_art_manufacture'}}),500000);
+   assert.equal(charge(form,item,{sale_evidence:{basis:bar?'metal_pricing':'ordinary_coin_sale'}}),0);
+ }
+});
 test('dated product pack applies over the live eight-listing baseline and preserves unresolved local decisions',async()=>{
  const db=new PGlite();
  try {
@@ -217,7 +227,7 @@ test('dated product pack applies over the live eight-listing baseline and preser
  assert.equal(readiness.remaining.find(s=>s.state_code==='CO').pending.length,8);
  await assert.rejects(db.query('select public.tax_admin_rule_coverage(null,$1)',[day]),/Admin required/);
  await db.exec("update products set name='Changed specification' where id=902");
- assert.ok((await coverage()).product_reviews<351);
+ assert.deepEqual(await coverage(),readiness);
  await db.exec("update products set name='1 oz American Gold Eagle BU (Random Year)' where id=902");
  const result=await counts();const byState=Object.fromEntries(result.map(r=>[r.state,r.n]));
  for(const state of ['MI','MO','NC','PA','WV','FL','NY','OH','UT','RI','IN','ND','VA'])assert.equal(byState[state],8,state);
@@ -231,8 +241,23 @@ test('dated product pack applies over the live eight-listing baseline and preser
  assert.equal((await counts(next,false)).reduce((sum,r)=>sum+r.n,0),137);
  assert.equal((await db.query("select private.tax_version('ID','policy','state',$1) v",[next])).rows[0].v,null);
  const todayCoverage=(await db.query('select public.tax_admin_rule_coverage($1,$2) c',[actor,next])).rows[0].c;
- assert.deepEqual([todayCoverage.policies,todayCoverage.product_reviews,todayCoverage.product_total],[48,376,408]);
- assert.equal(todayCoverage.state_only_reviews,32);
+ assert.deepEqual([todayCoverage.policies,todayCoverage.product_reviews,todayCoverage.product_total],[48,384,408]);
+ assert.equal(todayCoverage.state_only_reviews,24);
+ const azRows=(await db.query("select private.tax_report_version('AZ','product',id::text,$1) r from products order by id",[next])).rows;
+ assert.equal(azRows.length,8);assert.ok(azRows.every(({r})=>r.approval==='approved' && r.authority_sources.includes('https://www.azleg.gov/ars/42/06017.htm') && r.authority_sources.includes('https://www.azleg.gov/ars/42/06102.htm')));
+ const today=async()=>(await db.query('select public.tax_admin_rule_coverage($1,$2) c',[actor,next])).rows[0].c;
+ assert.equal(todayCoverage.reviewed_destinations,48);
+ assert.deepEqual(todayCoverage.open_destinations,['AK','CO','MT']);
+ await db.exec("insert into products values(910,true,3,'NEW-SILVER','New silver bar','silver',10),(911,true,1,'OTHER','Other metal','platinum',1);update products set is_active=false where id=902");
+ assert.deepEqual(await today(),todayCoverage);
+ assert.equal((await db.query("select private.tax_report_version('AZ','product','910',$1) r",[next])).rows[0].r,null);
+ await db.exec("delete from products where id in (910,911);update products set is_active=true where id=902");
+ const cityLaw='https://www.azleg.gov/ars/42/06017.htm';
+ assert.ok((await db.query('select public.tax_monitor_sources() v')).rows[0].v.some(v=>v.state==='AZ' && v.source===cityLaw));
+ await db.query("insert into private.tax_sources(url,state,changed_at) values($1,'AZ',now()+interval '1 hour')",[cityLaw]);
+ assert.deepEqual((await today()).open_destinations,['AK','AZ','CO','MT']);
+ await db.query("delete from private.tax_sources where url=$1",[cityLaw]);
+ assert.deepEqual(await today(),todayCoverage);
  const virginia=(await db.query("select private.tax_remote_order_bound('VA',private.tax_report_version('VA','policy','state',$1)||jsonb_build_object('shipping_disabled',false),'{}',$1,null) p",[next])).rows[0].p;
  assert.equal(virginia.collection,'exempt_merchandise');
  console.log('November 27 product classifications:',todayCoverage.product_reviews,'of',todayCoverage.product_total,'and',todayCoverage.policies,'destination policies');
@@ -242,6 +267,13 @@ test('dated product pack applies over the live eight-listing baseline and preser
  await db.exec(`insert into orders(id,created_at,shipping_address,subtotal,shipping_amount,payment_surcharge,total) overriding system value values(40,'2026-11-27T09:00:00Z','{"state":"ID"}',60000,0,0,60000);
  insert into order_items(order_id,product_id,sku,product_name,metal,metal_weight_oz,quantity,unit_price,line_total,pricing_snapshot)
  values(40,902,'AGE-1OZ-BU-RY','1 oz American Gold Eagle BU (Random Year)','gold',1,1,60000,60000,'{"spot":60000,"premium_percent":0,"premium_fixed":0,"price_mode":"dynamic"}')`);
+ await db.exec("insert into order_items(order_id,product_id,sku,product_name,metal,metal_weight_oz) values(40,910,'NEW-SILVER','New silver bar','silver',10)");
+ const family=async(state,ordinary=true)=>(await db.query("select private.tax_report_item_rule($1,i,$2,$3) r from order_items i where i.product_id=910",[state,next,ordinary])).rows[0].r;
+ assert.equal((await family('WA')).treatment,'taxable');assert.equal((await family('WA')).catalog_weight,10);
+ for(const state of ['NH','OR','DE'])assert.equal((await family(state)).treatment,'eligible');
+ assert.equal(await family('AZ'),null);assert.equal(await family('WA',false),null);
+ await db.exec("update order_items set metal='platinum' where product_id=910");assert.equal(await family('WA'),null);
+ await db.exec('delete from order_items where product_id=910');
  const placed=async state=>(await db.query("select private.tax_remote_order_bound($1,private.tax_report_version($1,'policy','state',$2),'{}',$2,40) v",[state,next])).rows[0].v;
  const single=await placed('ID');assert.equal(single.collection,'no_obligation');assert.equal(single.receipts_upper_bound_cents,6000000);assert.equal(single.transactions_upper_bound,1);
  const quote=(await db.query("select private.tax_remote_order_bound('ID',private.tax_report_version('ID','policy','state',$1),$2,$1,null) v",[next,{subtotal:60000,shipping_amount:0,card_surcharge:0}])).rows[0].v;
@@ -252,7 +284,7 @@ test('dated product pack applies over the live eight-listing baseline and preser
  const before=await fingerprint();
  const localScope=async state=>(await db.query('select private.tax_order_state_scope(o,$1,$2) s from orders o where id=40',[state,next])).rows[0].s;
  assert.equal((await localScope('CO')).scope,'state_administered_bullion_exemption');
- assert.equal((await localScope('AZ')).scope,'consumer_bullion_exemption');
+ assert.equal(await localScope('AZ'),null);
  await db.exec("update order_items set metal_weight_oz=2 where order_id=40");assert.equal(await localScope('CO'),null);
  await db.exec("update order_items set metal_weight_oz=1 where order_id=40");
  const save=(user,state,product,basis,document)=>db.query('select public.tax_record_item_fact($1,$2,40,$3,$4,$5,null)',[user,state,product,basis,document]);
@@ -270,4 +302,33 @@ test('dated product pack applies over the live eight-listing baseline and preser
  await related(0,45000001);assert.equal((await placed('CA')).collection,'review');
  await related(50000001,0);assert.equal((await placed('CA')).collection,'review');
  }finally{await db.close();}
+});
+
+test('state structure points distinguish two Flathead County city halls and reject uncertain positions',async()=>{
+ const {montanaStructureEvidence}=await import('../server/tax/montanaStructures.js');
+ const {confirmDestination}=await import('../server/tax/destinationRates.js');
+ const {resolveRegionalEvidence}=await import('../server/tax/regionalEvidence.js');
+ const [kalispell,whitefish]=JSON.parse(await readFile(new URL('./fixtures/tax/montana-structure-streets.json',import.meta.url),'utf8'));
+ const day='2026-11-27';
+ async function resolve(civic,edit=x=>x){
+   const verify=(a,d)=>confirmDestination(a,d,async()=>({ok:true,json:async()=>({result:{addressMatches:[civic.census]}})}));
+   const structure=(a,d,g)=>montanaStructureEvidence(a,d,g,async url=>{
+     assert.equal(url.hostname,'gisservice.mt.gov');
+     assert.equal(url.searchParams.get('where'),"Add_Number="+parseInt(a.address_line_1,10)+" AND Post_Code='"+a.postal_code+"'");
+     return {ok:true,json:()=>edit(structuredClone(civic.structures))};
+   });
+   return resolveRegionalEvidence(civic.address,day,verify,structure);
+ }
+ const outside=await resolve(kalispell);
+ assert.equal(outside.scope,'structure_outside_resort_areas');assert.equal(outside.geography.county.geoid,'30029');
+ assert.equal(outside.point_id,kalispell.structures.features[0].attributes.NGUID);
+ assert.equal(await resolve(whitefish),null);
+ for(const edit of [d=>({...d,exceededTransferLimit:true}),d=>({...d,features:[...d.features,...d.features]}),
+   d=>({...d,spatialReference:{wkid:3857}}),d=>{d.features[0].attributes.Placement='Geocoding';return d;},
+   d=>{d.features[0].attributes.Expire=Date.parse(day);return d;},
+   d=>{d.features[0].attributes.St_PosDir='West';return d;}])assert.equal(await resolve(kalispell,edit),null);
+ const noRequest=()=>assert.fail('unverified scope should stop before an address request');
+ assert.equal(await montanaStructureEvidence(kalispell.address,day,{county:{geoid:'30031'}},noRequest),null);
+ assert.equal(await montanaStructureEvidence({...kalispell.address,address_line_2:'Unit 3'},day,outside.geography,noRequest),null);
+ assert.equal(await montanaStructureEvidence(kalispell.address,'2027-01-01',outside.geography,noRequest),null);
 });

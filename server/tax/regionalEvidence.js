@@ -1,5 +1,6 @@
 import alaska from './alaskaNovember.json' with {type:'json'};
 import montana from './montanaCounties.json' with {type:'json'};
+import {montanaStructureEvidence} from './montanaStructures.js';
 import {confirmDestination} from './destinationRates.js';
 
 const alaskaMembers='https://arsstc.org/business-sellers/member-jurisdictions/';
@@ -28,10 +29,12 @@ export function regionalEvidence(state,day,location) {
     verified_on:alaska.reviewed_on,valid_until:alaska.through,source_sha256:alaska.sha256,rates};
 }
 
-export async function resolveRegionalEvidence(address,day,verify=confirmDestination){
+export async function resolveRegionalEvidence(address,day,verify=confirmDestination,structure=montanaStructureEvidence){
   if(!address || !['AK','MT'].includes(address.state))return null;
   const match=await verify(address,day);
-  return regionalEvidence(address.state,day,match.geography);
+  const evidence=regionalEvidence(address.state,day,match.geography);
+  if(evidence || address.state!=='MT')return evidence;
+  return structure(address,day,match.geography);
 }
 
 export async function alaskaReportAddress(address,day){

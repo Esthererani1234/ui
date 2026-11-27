@@ -4,7 +4,9 @@ alter table private.tax_versions add column report_only boolean not null default
 create function private.tax_rule_at_day(s text,k text,sub text,d date,include_reports boolean)
 returns jsonb stable language sql set search_path='' as $$
  select v.data||jsonb_build_object('version',v.id,'state',v.state,'approval',
-   case when src.changed_at>v.created_at then 'requires_review' else v.approval end,
+   case when src.changed_at>v.created_at or (v.report_only and exists(
+     select from private.tax_sources dep where v.data->'authority_sources' ? dep.url and dep.changed_at>v.created_at
+   )) then 'requires_review' else v.approval end,
    'source',v.source,'verified_on',v.verified_on,'valid_from',v.valid_from,'valid_until',v.valid_until)
  from private.tax_versions v left join private.tax_sources src on src.url=v.source
  where v.state=s and v.kind=k and v.subject=sub and v.valid_from<=d and (include_reports or not v.report_only)
@@ -180,6 +182,8 @@ begin
  rule:=private.tax_report_version(p_state,'product',p_product::text,sale_day);
  kind:=rule->>'value_test';
  if not coalesce(case kind
+  when 'az_monetized_sale' then p_basis in ('ordinary_coin_sale','jewelry_or_art_manufacture')
+  when 'az_bullion_content' then p_basis in ('metal_pricing','form_pricing')
   when 'id_monetized_sale' then p_basis in ('ordinary_coin_sale','jewelry_or_art_manufacture')
   when 'al_metal_pricing' then p_basis in ('metal_pricing','numismatic_pricing')
   when 'ct_proof_coin' then p_basis in ('metal_pricing','rare_or_antique','ordinary_collectible')
@@ -239,6 +243,8 @@ revoke all on function private.tax_report_input_hash(public.orders) from public,
 -- An approved classification can have transaction conditions. Keep the actual
 -- order in review whenever the required evidence cannot be established.
 with authorities(state,scope,condition,source) as (values
+ ('AZ','coins','az_monetized_sale','https://www.azleg.gov/ars/42/05061.htm'),
+ ('AZ','bars','az_bullion_content','https://www.azleg.gov/ars/42/05061.htm'),
  ('ID','coins','id_monetized_sale','https://tax.idaho.gov/taxes/sales-use/exemptions/types-of-exemptions/'),
  ('AL','coins','al_metal_pricing','https://alison.legislature.state.al.us/code-of-alabama?section=40-23-4'),
  ('CT','proof','ct_proof_coin','https://prdext3.cga.ct.gov/2026/sup/chap_219.htm'),
@@ -253,7 +259,10 @@ with authorities(state,scope,condition,source) as (values
 insert into private.tax_versions(report_only,state,kind,subject,data,source,valid_from,valid_until,verified_on,approval)
 select true,a.state,'product',p.id::text,jsonb_build_object('origin','catalog_sale_conditions_2026_11_27',
  'catalog_sku',p.sku,'catalog_name',p.name,'metal',p.metal::text,'catalog_weight',p.metal_weight_oz,
- 'form',p.spec->>'form','treatment','eligible','value_test',a.condition),a.source,
+ 'form',p.spec->>'form','treatment','eligible','value_test',a.condition) ||
+ case when a.state='AZ' then jsonb_build_object('authority_sources',jsonb_build_array('https://www.azleg.gov/ars/42/06017.htm',
+   'https://www.azleg.gov/ars/42/06102.htm','https://www.azleg.gov/ars/42/06103.htm','https://www.azleg.gov/ars/42/05159.htm'))
+ else '{}'::jsonb end,a.source,
  date '2026-11-27',date '2026-12-31',date '2026-11-27','approved'
 from listings p cross join authorities a where p.spec->>'origin'='catalog_policy_release_2026_11_26'
  and p.spec->>'approval'='approved' and (p.sku,p.name,p.metal::text,p.metal_weight_oz)=
@@ -277,8 +286,7 @@ select true,state,'policy','state',jsonb_build_object('origin','catalog_policy_r
 with states(state,scope,source) as (values
  ('AK','no_state_general_sales_tax','https://www.commerce.alaska.gov/web/dcra/OfficeoftheStateAssessor/AlaskaSalesTaxInformation.aspx'),
  ('MT','no_state_general_sales_tax','https://revenue.mt.gov/taxes/miscellaneous/local-resort-tax'),
- ('CO','state_administered_bullion_exemption','https://tax.colorado.gov/sales-use-tax-topics-coins-and-precious-metal-bullion'),
- ('AZ','consumer_bullion_exemption','https://www.azleg.gov/ars/42/05061.htm')
+ ('CO','state_administered_bullion_exemption','https://tax.colorado.gov/sales-use-tax-topics-coins-and-precious-metal-bullion')
 ), listings as (
  select p.*,private.tax_report_version('NY','product',p.id::text,date '2026-11-27') spec from public.products p where p.is_active
 )
@@ -585,12 +593,64 @@ $$;
 revoke all on function private.tax_website_activity(date,date,date) from public,anon,authenticated;
 update private.tax_revision set revision=revision+1;
 
+-- Keep the reviewed examples independent of stock, catalog edits and new
+-- listings. These dated specifications document the bullion classes actually
+-- reviewed. Each sold item is still verified from its own order evidence.
+create table private.tax_bullion_review_examples (
+ sku text primary key, subject text, title text, metal text check(metal in ('gold','silver')), weight numeric
+);
+revoke all on private.tax_bullion_review_examples from public,anon,authenticated;
+insert into private.tax_bullion_review_examples(sku,subject,title,metal,weight)
+select e.sku,v.subject,v.data->>'catalog_name',v.data->>'metal',(v.data->>'catalog_weight')::numeric
+from (values ('AGE-1OZ-BU-RY'),('GOTS-GBP-1OZ-RY-001'),('MAPLE-1OZ-BU-RY'),('SML-1OZ-BU-RY'),
+ ('APMEX-1OZ-TEP'),('GOTS-834790'),('PAMP-1OZ-FORTUNA-ASSAY'),('RAND-0033')) e(sku)
+left join lateral (
+ select r.subject,r.data from private.tax_versions r
+ where r.state='NY' and r.kind='product' and r.data->>'origin'='catalog_policy_release_2026_11_26'
+ and r.data->>'catalog_sku'=e.sku and r.approval='approved' and r.verified_on<=date '2026-11-27'
+ order by r.id limit 1
+) v on true;
+
+create or replace function public.tax_monitor_sources() returns jsonb stable security definer language sql set search_path='' as $$
+ with current_rules as (select state,source,report_only,data from private.tax_versions where valid_until>=current_date and approval='approved'),
+ sources as (select state,source from current_rules union
+ select v.state,d.url from current_rules v cross join lateral jsonb_array_elements_text(v.data->'authority_sources') d(url)
+ where v.report_only and v.data->>'origin'='catalog_sale_conditions_2026_11_27')
+ select coalesce(jsonb_agg(to_jsonb(s) order by state,source),'[]') from sources s
+$$;
+
+-- Where everyday retail bullion has the same treatment across forms, a new
+-- listing can use the jurisdiction's rule directly from the sold line.
+insert into private.tax_versions(report_only,state,kind,subject,data,source,valid_from,valid_until,verified_on,approval)
+select true,r.state,'product','retail_gold_silver',jsonb_build_object('origin','catalog_sale_conditions_2026_11_27',
+ 'scope','retail_gold_silver','treatment',r.treatment),r.source,date '2026-11-27',date '2026-12-31',date '2026-11-27','approved'
+from (values
+ ('WA','taxable','https://dor.wa.gov/education/industry-guides/jewelry-stores/currency-coins-and-precious-metal-bullion'),
+ ('DE','eligible','https://revenue.delaware.gov/business-tax-forms/doing-business-in-delaware/step-4-gross-receipts-taxes/'),
+ ('NH','eligible','https://www.revenue.nh.gov/faq/does-new-hampshire-have-sales-tax'),
+ ('OR','eligible','https://www.oregon.gov/dor/programs/businesses/Pages/Sales-Tax.aspx')
+) r(state,treatment,source);
+
+create function private.tax_report_item_rule(s text,i public.order_items,d date,ordinary_new_sale boolean) returns jsonb
+language plpgsql stable set search_path='' as $$
+declare specific jsonb; shared_rule jsonb;
+begin
+ specific:=private.tax_report_version(s,'product',i.product_id::text,d);
+ if specific is not null or ordinary_new_sale is not true or i.product_id is null
+    or coalesce(i.metal::text,'') not in ('gold','silver') or coalesce(i.metal_weight_oz,0)<=0
+    or nullif(trim(i.sku),'') is null or nullif(trim(i.product_name),'') is null then return specific;end if;
+ shared_rule:=private.tax_report_version(s,'product','retail_gold_silver',d);
+ if shared_rule->>'scope' is distinct from 'retail_gold_silver' then return null;end if;
+ return shared_rule||jsonb_build_object('catalog_sku',i.sku,'catalog_name',i.product_name,'metal',i.metal::text,'catalog_weight',i.metal_weight_oz);
+end $$;
+revoke all on function private.tax_report_item_rule(text,public.order_items,date,boolean) from public,anon,authenticated;
+
 create function private.tax_report_rule_checks(sale_day date)
 returns table(state_code text,kind_name text,catalog_sku text,verified boolean)
 language sql stable set search_path='' as $$
  with required as (
    select s.state,'policy'::text kind,'state'::text subject,null::text sku,null::text title,null::text metal,null::numeric weight from private.tax_states s
-   union all select s.state,'product',p.id::text,p.sku,p.name,p.metal::text,p.metal_weight_oz from private.tax_states s cross join public.products p where p.is_active
+   union all select s.state,'product',e.subject,e.sku,e.title,e.metal,e.weight from private.tax_states s cross join private.tax_bullion_review_examples e
  ), reviewed as materialized (select q.*,private.tax_report_version(q.state,q.kind,q.subject,sale_day) v from required q)
  select state,kind,sku,not (v->>'approval' is distinct from 'approved'
     or not coalesce(sale_day between (v->>'valid_from')::date and (v->>'valid_until')::date,false)
@@ -611,10 +671,12 @@ begin
      coalesce(array_agg(catalog_sku order by catalog_sku) filter(where kind_name='product' and not verified),'{}') pending
    from private.tax_report_rule_checks(p_day) group by state_code
  ) select jsonb_build_object('day',p_day,'destinations',count(*),'policies',count(*) filter(where policy),
+     'reviewed_destinations',count(*) filter(where policy and products>0 and approved=products),
+     'open_destinations',coalesce(jsonb_agg(state_code order by state_code) filter(where not policy or approved<>products or products=0),'[]'),
      'product_reviews',sum(approved),'product_total',sum(products),
-     'state_only_reviews',(select count(*) from private.tax_states t cross join public.products p cross join lateral
-       (select private.tax_state_scope(t.state,p.id,p_day) r) item where t.state in ('AK','MT','AZ','CO') and p.is_active and r is not null
-       and (p.sku,p.name,p.metal::text,p.metal_weight_oz)=(r->>'catalog_sku',r->>'catalog_name',r->>'metal',(r->>'catalog_weight')::numeric)),
+     'state_only_reviews',(select count(*) from private.tax_states t cross join private.tax_bullion_review_examples e cross join lateral
+       (select private.tax_state_scope(t.state,e.subject::bigint,p_day) r) item where t.state in ('AK','MT','CO') and r is not null
+       and (e.sku,e.title,e.metal,e.weight)=(r->>'catalog_sku',r->>'catalog_name',r->>'metal',(r->>'catalog_weight')::numeric)),
      'remaining',coalesce(jsonb_agg(to_jsonb(s) order by state_code) filter(where not policy or approved<products),'[]'))
    into result from states s;
  return result;
@@ -658,8 +720,8 @@ begin
  -- Enable fresh amounts together across all 51 destinations. Also check each
  -- order's actual SKU identity in the server engine, including delisted items.
  select count(*) into missing from private.tax_report_rule_checks(sale_day) where not verified;
- if missing>0 or (select count(*) from private.tax_states)<>51 or not exists(select from public.products where is_active) then
-   return jsonb_build_object('review','Nationwide rules and product reviews are incomplete for this order date.','day',sale_day)||regional;end if;
+ if missing>0 or (select count(*) from private.tax_states)<>51 or not exists(select from private.tax_bullion_review_examples) then
+   return jsonb_build_object('review','Gold and silver tax rules still need jurisdiction review for this order date.','day',sale_day)||regional;end if;
  if policy->>'collection_basis'='reviewed_exempt_items' then
    policy:=private.tax_remote_order_bound(state_code,policy||jsonb_build_object('shipping_disabled',profile.disabled),'{}',sale_day,null);
    collection:=policy->>'collection';
@@ -689,7 +751,8 @@ begin
         and round((i.pricing_snapshot->>'spot')::numeric*i.metal_weight_oz*(1+(i.pricing_snapshot->>'premium_percent')::numeric/100)
          +(i.pricing_snapshot->>'premium_fixed')::numeric,2)=i.unit_price and i.unit_price*i.quantity=i.line_total
         else false end,'sale_evidence',f.fact)),
-   jsonb_object_agg(i.product_id::text,private.tax_report_version(state_code,'product',i.product_id::text,sale_day)) into lines,products
+   jsonb_object_agg(i.product_id::text,private.tax_report_item_rule(state_code,i,sale_day,
+     coalesce(trim(o.customer_notes),'')='' and exists(select from private.tax_report_start where o.created_at>=starts_at))) into lines,products
    from public.order_items i left join lateral (
      select jsonb_strip_nulls(jsonb_build_object('id',e.id,'basis',e.basis,'document',e.document_id,
        'fmv_cents',e.fmv_cents,'valuation_day',sale_day)) fact from private.tax_item_facts e where e.order_id=o.id

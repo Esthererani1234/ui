@@ -1,3 +1,4 @@
+import OrderTaxReport from './OrderTaxReport';
 import AddressPreview from '../checkout/AddressPreview';
 import {useEffect,useState} from 'react';
 import states from '../../../shared/taxSources.json';
@@ -109,8 +110,9 @@ export default function TaxCompliance({researchOnly=false}){
     <header><h2>{researchOnly?'State tax research':'Sales Tax & Compliance'}</h2><p>{researchOnly?'Official sources and review status for all 50 states and Washington, DC.':'Review obligations, sales, filings and payment confirmations.'}</p></header>
     {researchOnly&&<><AddressPreview/><PreviewCalculator/></>}
     {!researchOnly&&<div className="tax-period"><label>Period start<input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></label><label>Period end<input type="date" value={to} onChange={e=>setTo(e.target.value)}/></label></div>}
+    {!researchOnly&&<OrderTaxReport from={from} to={to} request={adminRequest}/>}
     {error&&<p className="form-message error" role="alert">{error}</p>}
-    {data&&<><div className="metric-grid">{Object.entries({merchandise:'Recorded sales',taxable:'Taxable merchandise',exempt:'Exempt merchandise',tax:'Tax collected',remitted:'Remitted'}).map(([k,v])=><article key={k}><small>{v}</small><b>{currency(aggregate(k))}</b></article>)}{aggregate('merchandise')>aggregate('taxable')+aggregate('exempt') && <article><small>Awaiting product classification</small><b>{currency(aggregate('merchandise')-aggregate('taxable')-aggregate('exempt'))}</b></article>}</div>
+    {data&&<><div className="metric-grid">{Object.entries({merchandise:'Sales posted to tax ledger',taxable:'Taxable merchandise',exempt:'Exempt merchandise',tax:'Tax posted to ledger',remitted:'Remitted'}).map(([k,v])=><article key={k}><small>{v}</small><b>{currency(aggregate(k))}</b></article>)}{aggregate('merchandise')>aggregate('taxable')+aggregate('exempt') && <article><small>Awaiting product classification</small><b>{currency(aggregate('merchandise')-aggregate('taxable')-aggregate('exempt'))}</b></article>}</div>
     <p>Net tax movement this period: {currency(aggregate('tax')-aggregate('remitted'))}. Older paid orders awaiting tax reconciliation: {data.legacy_orders}.</p>
     {data.alerts?.length>0&&<details><summary>Compliance alerts ({data.alerts.length})</summary>{data.alerts.map(a=><p key={a.event_key}>{a.state} · {a.message}</p>)}</details>}</>}
     {row?<><button className="text-button" onClick={()=>select(null)}>← All jurisdictions</button><h3>{row.name}</h3>

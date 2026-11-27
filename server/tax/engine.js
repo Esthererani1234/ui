@@ -72,10 +72,10 @@ function eligibility(line, net, state, day, investment) {
   }
   return true;
 }
-export function assess({day,state,policy,address,lines,subtotal,shipping,fee,investment=false}) {
+export function assess({day,state,policy,address,lines,subtotal,shipping,fee,investment=false},{historicalReport=false}={}) {
   const floor = storeFloor(state, day);
   const requireMinimum = (amount, limit) => {
-    if (amount >= limit) return;
+    if (historicalReport || amount >= limit) return;
     const error = new TaxReview(minimumMessage(state, limit));
     error.code = 'ORDER_MINIMUM';
     error.remaining_cents = limit - amount;

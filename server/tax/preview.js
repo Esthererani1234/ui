@@ -43,7 +43,7 @@ export function previewExample(state, amount, place = 'olympia', verifiedAddress
         store_minimum:true,shipping_base:'excluded',fee_base:'excluded',rounding:'combined',seller_levy_treatment:'pass_through'},
       address:verifiedAddress || {...base,max_pass_on_ppm:sample?.max_pass_on_ppm,rates:(sample?.rates || []).map(([level,code,ppm])=>({level,code,ppm}))},
       lines:[{id:1,quantity:1,gross:amount,classification:{...base,treatment:sample?'taxable':'eligible',
-        form:'bar',metal:'gold',market_unit_cents:amount,market_source:base.source,market_day:day}}]});
+        form:'bar',metal:'gold',market_unit_cents:amount,market_source:base.source,market_day:day,prior_business_day:"2026-11-25",market_observed_on:"2026-11-25",market_calendar_source:base.source,market_basis:"cash_close"}}]});
     return {status:result.status,total:result.total,tax:result.tax};
   } catch(error) { return {status:'blocked',message:error.message,remaining:error.remaining_cents}; }
 }

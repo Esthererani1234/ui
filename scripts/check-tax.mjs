@@ -9,7 +9,7 @@ import {normalizeAddress} from '../server/tax/quote.js';
 import states from '../shared/taxSources.json' with {type:'json'};
 const day='2026-11-26';
 const record={source:'https://www.nysenate.gov/legislation/laws/TAX/1115',approval:'approved',version:1,valid_from:'2026-01-01',valid_until:'2026-12-31',verified_on:day};
-const product={...record,treatment:'eligible',form:'bar',metal:'gold',market_day:day,market_unit_cents:200000,market_source:record.source};
+const product={...record,treatment:'eligible',form:'bar',metal:'gold',market_day:day,prior_business_day:'2026-11-25',market_observed_on:'2026-11-25',market_calendar_source:record.source,market_basis:'cash_close',market_unit_cents:200000,market_source:record.source};
 const policy={...record,state:'NY',collection:'collect',registration:'Registered',ny_dealer_status:'registered',first_eligible_cent:100001,store_minimum:true,shipping_base:'full_if_taxable',fee_base:'full_if_taxable',rounding:'combined'};
 const address={...record,state:'NY',rates:[{code:'NY',level:'state',ppm:40000},{code:'NYC',level:'city',ppm:45000},{code:'MCTD',level:'district',ppm:3750}]};
 function input(n){return {day,state:'NY',address,policy,subtotal:n,shipping:0,fee:0,investment:true,lines:[{id:1,quantity:1,gross:n,classification:product}]};}
@@ -65,7 +65,7 @@ test('preview migration, permissions, exact address, order and filing accounting
  create table auth.users(id uuid primary key);create table admin_users(user_id uuid primary key);
  create table checkout_quotes(id uuid primary key,user_id uuid,status text,expires_at timestamptz,updated_at timestamptz,subtotal numeric,shipping_amount numeric,card_surcharge numeric,line_items jsonb,spot_snapshot jsonb);
  create table orders(id bigint generated always as identity primary key,order_number text,user_id uuid,first_name text,last_name text,email text,phone text,payment_method text,subtotal numeric,payment_surcharge numeric,shipping_amount numeric,total numeric,spot_snapshot jsonb,price_locked_until timestamptz,shipping_address jsonb,customer_notes text,payment_status text default 'unpaid');
- create table products(id bigint primary key,is_active boolean,inventory_count int);
+ create table products(id bigint primary key,is_active boolean,inventory_count int,sku text,name text,metal text,metal_weight_oz numeric);
  create table order_items(order_id bigint,product_id bigint,sku text,product_name text,metal text,metal_weight_oz numeric,quantity int,unit_price numeric,line_total numeric,pricing_snapshot jsonb);
  create function private.next_customer_order_number() returns text language sql as $$select 'DEMO-1'::text$$;`);
  await db.exec(await readFile(new URL('../supabase/migrations/20261127005544_tax_registration_profiles.sql',import.meta.url),'utf8'));
@@ -78,7 +78,16 @@ test('preview migration, permissions, exact address, order and filing accounting
  await db.exec(existingOrderFunction);
  const orderDefinition=async()=>(await db.query('select pg_get_functiondef($1::regprocedure) as definition',[orderRoutine])).rows[0].definition;
  const beforeInstall=await orderDefinition();
- await db.exec(await readFile(new URL('../supabase/migrations/20261128000000_nationwide_tax_compliance.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261127013002_nationwide_tax_compliance.sql',import.meta.url),'utf8'));
+ await db.exec("insert into products values(902,true,2,'AGE-1OZ-BU-RY','1 oz American Gold Eagle BU (Random Year)','gold',1)");
+ await db.exec(await readFile(new URL('../supabase/migrations/20261127015640_reviewed_bullion_catalog.sql',import.meta.url),'utf8'));
+ const shippedRule=(await db.query("select state,data->>'treatment' as treatment from private.tax_versions where subject='902' order by state")).rows;
+ assert.equal(shippedRule.find(r=>r.state==='WA').treatment,'taxable');
+ assert.equal(shippedRule.find(r=>r.state==='TX').treatment,'eligible');
+ assert.equal(shippedRule.some(r=>r.state==='FL'),false);
+ assert.equal((await db.query("select private.tax_collection_gate('NH',private.tax_version('NH','policy','state','2026-11-26'),'2026-11-26') as decision")).rows[0].decision,'no_obligation');
+ // The following order tests create their own dated policies and version histories.
+ await db.exec("delete from private.tax_versions where data->>'origin'='catalog_policy_release_2026_11_26'");
  assert.equal(await orderDefinition(),beforeInstall);
  assert.equal((await db.query("select count(*)::int as count from pg_trigger where tgrelid='public.orders'::regclass and not tgisinternal")).rows[0].count,0);
  assert.ok((await db.query("select to_regprocedure('public.tax_quote_inputs(uuid,uuid,jsonb)') is not null as installed")).rows[0].installed);
@@ -334,3 +343,32 @@ test('checkout rejects a combined rate layered on its own components',()=>{
   }
   q.address={...address,rates:[{code:'ALL',level:'combined',ppm:88750}]};assert.equal(assess(q).tax,12425);
 });
+
+test('NY uses the verified preceding business day, including a weekend or holiday gap',()=>{
+ const forFriday = input(150000);
+ forFriday.day='2026-11-27';
+ const classification={...product,market_day:forFriday.day};
+ forFriday.lines[0].classification=classification;
+ assert.equal(assess(forFriday).lines[0].market_day,'2026-11-25');
+ for (const observed of [forFriday.day,'2026-11-24',undefined]) {
+   forFriday.lines[0].classification={...classification,market_observed_on:observed};
+   assert.throws(()=>assess(forFriday),/bullion market value/);
+ }
+});
+test('NY Westchester city boundaries determine the rate and reporting code independently of postal city',()=>{
+ const geo={Counties:[{GEOID:'36119',NAME:'Westchester County'}]};
+ const resolve=(name,place)=>{
+   geo['County Subdivisions']=[{GEOID:'3611984000',NAME:name}];
+   geo['Incorporated Places']=place?[{NAME:place}]:[];
+   return newYorkComponents(geo,day);
+ };
+ const city=resolve('Yonkers city','Yonkers city');
+ assert.equal(city[1].reporting_code,'6511');
+ assert.equal(city.reduce((n,r)=>n+r.ppm,0),88750);
+ assert.equal(city[1].included_rates[0].ppm,3750);
+ assert.equal(resolve('Greenburgh town')[1].reporting_code,'5581');
+ assert.equal(resolve('Greenburgh town')[1].ppm,43750);
+ assert.deepEqual(resolve('Greenburgh town','Yonkers city'),[]);
+ assert.deepEqual(resolve('Yonkers city'),[]);
+});
+import {newYorkComponents} from '../server/tax/newYork.js';

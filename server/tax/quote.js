@@ -36,6 +36,13 @@ export async function reviewQuote(db,userId,body){
   }
   const q=inputs.quote;
   const subtotal=cents(q.subtotal);
+  for (const item of q.line_items) {
+    const rule = inputs.products?.[item.product_id];
+    if (rule?.catalog_sku && (rule.catalog_sku !== item.sku || rule.catalog_name !== item.product_name ||
+        rule.metal !== item.metal || Number(rule.catalog_weight) !== Number(item.metal_weight_oz))) {
+      throw new TaxReview('The product details changed and its tax classification needs review.');
+    }
+  }
   const calculation=assess({day:inputs.day,state:address.state,policy:inputs.policy,address:inputs.address,lines:q.line_items.map(i=>({id:i.product_id,quantity:i.quantity,gross:cents(i.line_total),classification:inputs.products?.[i.product_id]})),subtotal,shipping:body.fulfillment==='pickup'?0:cents(q.shipping_amount),fee:body.method==='card'?cents(q.card_surcharge):body.method==='ach'?Math.floor((subtotal+25)/50):0,investment:body.investment});
   calculation.address_check=addressCheck;
   if(estimate)return calculation;

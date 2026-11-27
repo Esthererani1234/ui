@@ -54,7 +54,10 @@ function eligibility(line, net, state, day, investment) {
   if(state==='NY') {
     if (!investment) return false;
     if (!['bar','ingot','coin'].includes(p.form) || !['gold','silver','platinum','palladium','rhodium','ruthenium','iridium'].includes(p.metal)) review('The New York product classification needs review.');
-    if (p.market_day!==day || !p.market_source || !p.market_unit_cents) review('The required bullion market value is awaiting verification.');
+    if (p.market_day!==day || !p.market_source?.startsWith('https://') || !p.market_unit_cents ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(p.prior_business_day) || p.prior_business_day>=day ||
+        p.market_observed_on!==p.prior_business_day || !p.market_calendar_source?.startsWith('https://') ||
+        !['cash_close','bid_ask_average'].includes(p.market_basis)) review('The required bullion market value is awaiting verification.');
     let basis=integer(p.market_unit_cents,1), cap=115;
     if(p.form==='coin') {
       basis=Math.max(basis,integer(p.face_usd_cents));
@@ -155,10 +158,10 @@ export function assess({day,state,policy,address,lines,subtotal,shipping,fee,inv
     return {kind:levy.kind,code:levy.code,base:measure,ppm:levy.ppm,cents:roundRatio(measure,levy.ppm,1000000)};
   });
   for (let i=0;i<breakdown.length;i++) {
-    const {name,county,districts}=address.rates[i];
-    Object.assign(breakdown[i],{name,county,districts});
+    const {name,county,districts,reporting_code,included_rates}=address.rates[i];
+    Object.assign(breakdown[i],{name,county,districts,reporting_code,included_rates});
   }
   if (destinationLevy) sellerTaxes.push(destinationLevy);
-  return {rate_source:address.source,rate_verified_on:address.verified_on,rate_effective_from:address.valid_from,rate_valid_until:address.valid_until,policy_source:policy.source,seller_taxes:sellerTaxes,state,day,collection:policy.collection,status:collect?(base?'taxable':'exempt'):'not_collected',subtotal,shipping,fee,tax,total:integer(subtotal+shipping+fee+tax),taxable,exempt:subtotal-taxable,base,breakdown,policy_version:policy.version,address_version:address.version,registration:policy.registration,lines:lines.map((l,i)=>({id:l.id,net:net[i],exempt:qualified[i]&&meetsExemption,version:l.classification.version}))};
+  return {rate_source:address.source,rate_verified_on:address.verified_on,rate_effective_from:address.valid_from,rate_valid_until:address.valid_until,policy_source:policy.source,seller_taxes:sellerTaxes,state,day,collection:policy.collection,status:collect?(base?'taxable':'exempt'):'not_collected',subtotal,shipping,fee,tax,total:integer(subtotal+shipping+fee+tax),taxable,exempt:subtotal-taxable,base,breakdown,policy_version:policy.version,address_version:address.version,registration:policy.registration,lines:lines.map((l,i)=>({id:l.id,net:net[i],exempt:qualified[i]&&meetsExemption,version:l.classification.version,...(state==='NY' && qualified[i] ? {market_day:l.classification.market_observed_on,market_basis:l.classification.market_basis,market_source:l.classification.market_source,market_unit_cents:l.classification.market_unit_cents} : {})}))};
 }
 export const usd=c=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(c/100);

@@ -1,0 +1,966 @@
+{
+  "reviewed_on": "2026-11-27",
+  "through": "2026-12-31",
+  "source": "https://tax.colorado.gov/sales-use-tax-topics-coins-and-precious-metal-bullion",
+  "authorities": [
+    "https://content.leg.colorado.gov/sites/default/files/2024a_025_signed.pdf",
+    "https://tax.colorado.gov/local-government-sales-tax",
+    "https://content.leg.colorado.gov/sites/default/files/local_gov_hb_web.pdf",
+    "https://www.cml.org/docs/default-source/municipal-directory/2026-municipal-directory.pdf",
+    "https://www.cml.org/home/publications-news/article-detail/fall-2026-municipal-election-results",
+    "https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2025_Gazetteer/2025_gaz_place_08.txt"
+  ],
+  "places": {
+    "0800925": {
+      "name": "Akron town",
+      "counties": [
+        "Washington County"
+      ]
+    },
+    "0801530": {
+      "name": "Alma town",
+      "counties": [
+        "Park County"
+      ]
+    },
+    "0802355": {
+      "name": "Antonito town",
+      "counties": [
+        "Conejos County"
+      ]
+    },
+    "0803235": {
+      "name": "Arriba town",
+      "counties": [
+        "Lincoln County"
+      ]
+    },
+    "0803950": {
+      "name": "Ault town",
+      "counties": [
+        "Weld County"
+      ]
+    },
+    "0804000": {
+      "name": "Aurora city",
+      "counties": [
+        "Adams County",
+        "Arapahoe County",
+        "Douglas County"
+      ],
+      "source": "https://www.auroragov.org/common/pages/GetFile.ashx?key=hOcqAVEZ"
+    },
+    "0805265": {
+      "name": "Bayfield town",
+      "counties": [
+        "La Plata County"
+      ]
+    },
+    "0806090": {
+      "name": "Bennett town",
+      "counties": [
+        "Adams County",
+        "Arapahoe County"
+      ]
+    },
+    "0806255": {
+      "name": "Berthoud town",
+      "counties": [
+        "Larimer County",
+        "Weld County"
+      ]
+    },
+    "0806530": {
+      "name": "Bethune town",
+      "counties": [
+        "Kit Carson County"
+      ]
+    },
+    "0807190": {
+      "name": "Blanca town",
+      "counties": [
+        "Costilla County"
+      ]
+    },
+    "0807410": {
+      "name": "Blue River town",
+      "counties": [
+        "Summit County"
+      ]
+    },
+    "0807795": {
+      "name": "Boone town",
+      "counties": [
+        "Pueblo County"
+      ]
+    },
+    "0808070": {
+      "name": "Bow Mar town",
+      "counties": [
+        "Arapahoe County",
+        "Jefferson County"
+      ]
+    },
+    "0808345": {
+      "name": "Branson town",
+      "counties": [
+        "Las Animas County"
+      ]
+    },
+    "0809115": {
+      "name": "Brookside town",
+      "counties": [
+        "Fremont County"
+      ]
+    },
+    "0809555": {
+      "name": "Brush city",
+      "counties": [
+        "Morgan County"
+      ]
+    },
+    "0810105": {
+      "name": "Buena Vista town",
+      "counties": [
+        "Chaffee County"
+      ]
+    },
+    "0811260": {
+      "name": "Calhan town",
+      "counties": [
+        "El Paso County"
+      ]
+    },
+    "0811645": {
+      "name": "Campo town",
+      "counties": [
+        "Baca County"
+      ]
+    },
+    "0812855": {
+      "name": "Center town",
+      "counties": [
+        "Rio Grande County",
+        "Saguache County"
+      ]
+    },
+    "0813460": {
+      "name": "Cheraw town",
+      "counties": [
+        "Otero County"
+      ]
+    },
+    "0814175": {
+      "name": "Cheyenne Wells town",
+      "counties": [
+        "Cheyenne County"
+      ]
+    },
+    "0815330": {
+      "name": "Coal Creek town",
+      "counties": [
+        "Fremont County"
+      ]
+    },
+    "0815550": {
+      "name": "Cokedale town",
+      "counties": [
+        "Las Animas County"
+      ]
+    },
+    "0815605": {
+      "name": "Collbran town",
+      "counties": [
+        "Mesa County"
+      ]
+    },
+    "0816385": {
+      "name": "Columbine Valley town",
+      "counties": [
+        "Arapahoe County"
+      ]
+    },
+    "0817925": {
+      "name": "Crawford town",
+      "counties": [
+        "Delta County"
+      ]
+    },
+    "0818420": {
+      "name": "Crestone town",
+      "counties": [
+        "Saguache County"
+      ]
+    },
+    "0818640": {
+      "name": "Crook town",
+      "counties": [
+        "Logan County"
+      ]
+    },
+    "0818750": {
+      "name": "Crowley town",
+      "counties": [
+        "Crowley County"
+      ]
+    },
+    "0819355": {
+      "name": "De Beque town",
+      "counties": [
+        "Mesa County"
+      ]
+    },
+    "0819630": {
+      "name": "Deer Trail town",
+      "counties": [
+        "Arapahoe County"
+      ]
+    },
+    "0819795": {
+      "name": "Del Norte town",
+      "counties": [
+        "Rio Grande County"
+      ]
+    },
+    "0820495": {
+      "name": "Dinosaur town",
+      "counties": [
+        "Moffat County"
+      ]
+    },
+    "0820770": {
+      "name": "Dolores town",
+      "counties": [
+        "Montezuma County"
+      ]
+    },
+    "0821265": {
+      "name": "Dove Creek town",
+      "counties": [
+        "Dolores County"
+      ]
+    },
+    "0822145": {
+      "name": "Eads town",
+      "counties": [
+        "Kiowa County"
+      ]
+    },
+    "0822860": {
+      "name": "Eaton town",
+      "counties": [
+        "Weld County"
+      ]
+    },
+    "0823025": {
+      "name": "Eckley town",
+      "counties": [
+        "Yuma County"
+      ]
+    },
+    "0823740": {
+      "name": "Elizabeth town",
+      "counties": [
+        "Elbert County"
+      ]
+    },
+    "0824620": {
+      "name": "Empire town",
+      "counties": [
+        "Clear Creek County"
+      ]
+    },
+    "0825115": {
+      "name": "Estes Park town",
+      "counties": [
+        "Larimer County"
+      ]
+    },
+    "0825610": {
+      "name": "Fairplay town",
+      "counties": [
+        "Park County"
+      ]
+    },
+    "0826600": {
+      "name": "Firestone town",
+      "counties": [
+        "Weld County"
+      ]
+    },
+    "0826765": {
+      "name": "Flagler town",
+      "counties": [
+        "Kit Carson County"
+      ]
+    },
+    "0826875": {
+      "name": "Fleming town",
+      "counties": [
+        "Logan County"
+      ]
+    },
+    "0827040": {
+      "name": "Florence city",
+      "counties": [
+        "Fremont County"
+      ]
+    },
+    "0827700": {
+      "name": "Fort Lupton city",
+      "counties": [
+        "Weld County"
+      ]
+    },
+    "0827975": {
+      "name": "Fowler town",
+      "counties": [
+        "Otero County"
+      ]
+    },
+    "0828105": {
+      "name": "Foxfield town",
+      "counties": [
+        "Arapahoe County"
+      ]
+    },
+    "0828305": {
+      "name": "Fraser town",
+      "counties": [
+        "Grand County"
+      ]
+    },
+    "0828360": {
+      "name": "Frederick town",
+      "counties": [
+        "Weld County"
+      ]
+    },
+    "0829185": {
+      "name": "Garden City town",
+      "counties": [
+        "Weld County"
+      ]
+    },
+    "0829680": {
+      "name": "Genoa town",
+      "counties": [
+        "Lincoln County"
+      ]
+    },
+    "0829955": {
+      "name": "Gilcrest town",
+      "counties": [
+        "Weld County"
+      ]
+    },
+    "0831550": {
+      "name": "Granada town",
+      "counties": [
+        "Prowers County"
+      ]
+    },
+    "0831605": {
+      "name": "Granby town",
+      "counties": [
+        "Grand County"
+      ]
+    },
+    "0831715": {
+      "name": "Grand Lake town",
+      "counties": [
+        "Grand County"
+      ]
+    },
+    "0832650": {
+      "name": "Green Mountain Falls town",
+      "counties": [
+        "El Paso County",
+        "Teller County"
+      ]
+    },
+    "0833310": {
+      "name": "Grover town",
+      "counties": [
+        "Weld County"
+      ]
+    },
+    "0834740": {
+      "name": "Haswell town",
+      "counties": [
+        "Kiowa County"
+      ]
+    },
+    "0834960": {
+      "name": "Haxtun town",
+      "counties": [
+        "Phillips County"
+      ]
+    },
+    "0836610": {
+      "name": "Hillrose town",
+      "counties": [
+        "Morgan County"
+      ]
+    },
+    "0837215": {
+      "name": "Holly town",
+      "counties": [
+        "Prowers County"
+      ]
+    },
+    "0837380": {
+      "name": "Hooper town",
+      "counties": [
+        "Alamosa County"
+      ]
+    },
+    "0837545": {
+      "name": "Hotchkiss town",
+      "counties": [
+        "Delta County"
+      ]
+    },
+    "0837600": {
+      "name": "Hot Sulphur Springs town",
+      "counties": [
+        "Grand County"
+      ]
+    },
+    "0837875": {
+      "name": "Hugo town",
+      "counties": [
+        "Lincoln County"
+      ]
+    },
+    "0838370": {
+      "name": "Idaho Springs city",
+      "counties": [
+        "Clear Creek County"
+      ]
+    },
+    "0838535": {
+      "name": "Ignacio town",
+      "counties": [
+        "La Plata County"
+      ]
+    },
+    "0838590": {
+      "name": "Iliff town",
+      "counties": [
+        "Logan County"
+      ]
+    },
+    "0839195": {
+      "name": "Jamestown town",
+      "counties": [
+        "Boulder County"
+      ]
+    },
+    "0839965": {
+      "name": "Julesburg town",
+      "counties": [
+        "Sedgwick County"
+      ]
+    },
+    "0840185": {
+      "name": "Keenesburg town",
+      "counties": [
+        "Weld County"
+      ]
+    },
+    "0840515": {
+      "name": "Kersey town",
+      "counties": [
+        "Weld County"
+      ]
+    },
+    "0840570": {
+      "name": "Kim town",
+      "counties": [
+        "Las Animas County"
+      ]
+    },
+    "0841010": {
+      "name": "Kit Carson town",
+      "counties": [
+        "Cheyenne County"
+      ]
+    },
+    "0841560": {
+      "name": "Kremmling town",
+      "counties": [
+        "Grand County"
+      ]
+    },
+    "0842055": {
+      "name": "La Jara town",
+      "counties": [
+        "Conejos County"
+      ]
+    },
+    "0842330": {
+      "name": "Lake City town",
+      "counties": [
+        "Hinsdale County"
+      ]
+    },
+    "0842495": {
+      "name": "Lakeside town",
+      "counties": [
+        "Jefferson County"
+      ]
+    },
+    "0843660": {
+      "name": "Las Animas city",
+      "counties": [
+        "Bent County"
+      ]
+    },
+    "0844100": {
+      "name": "La Veta town",
+      "counties": [
+        "Huerfano County"
+      ]
+    },
+    "0844320": {
+      "name": "Leadville city",
+      "counties": [
+        "Lake County"
+      ]
+    },
+    "0844980": {
+      "name": "Limon town",
+      "counties": [
+        "Lincoln County"
+      ]
+    },
+    "0845530": {
+      "name": "Lochbuie town",
+      "counties": [
+        "Adams County",
+        "Weld County"
+      ]
+    },
+    "0845695": {
+      "name": "Log Lane Village town",
+      "counties": [
+        "Morgan County"
+      ]
+    },
+    "0847070": {
+      "name": "Lyons town",
+      "counties": [
+        "Boulder County"
+      ]
+    },
+    "0848060": {
+      "name": "Manassa town",
+      "counties": [
+        "Conejos County"
+      ]
+    },
+    "0848115": {
+      "name": "Mancos town",
+      "counties": [
+        "Montezuma County"
+      ]
+    },
+    "0848500": {
+      "name": "Manzanola town",
+      "counties": [
+        "Otero County"
+      ]
+    },
+    "0848555": {
+      "name": "Marble town",
+      "counties": [
+        "Gunnison County"
+      ]
+    },
+    "0849600": {
+      "name": "Mead town",
+      "counties": [
+        "Weld County"
+      ]
+    },
+    "0849875": {
+      "name": "Meeker town",
+      "counties": [
+        "Rio Blanco County"
+      ]
+    },
+    "0850040": {
+      "name": "Merino town",
+      "counties": [
+        "Logan County"
+      ]
+    },
+    "0850480": {
+      "name": "Milliken town",
+      "counties": [
+        "Weld County"
+      ]
+    },
+    "0851250": {
+      "name": "Moffat town",
+      "counties": [
+        "Saguache County"
+      ]
+    },
+    "0851690": {
+      "name": "Montezuma town",
+      "counties": [
+        "Summit County"
+      ]
+    },
+    "0853120": {
+      "name": "Naturita town",
+      "counties": [
+        "Montrose County"
+      ]
+    },
+    "0853175": {
+      "name": "Nederland town",
+      "counties": [
+        "Boulder County"
+      ]
+    },
+    "0854880": {
+      "name": "Norwood town",
+      "counties": [
+        "San Miguel County"
+      ]
+    },
+    "0854935": {
+      "name": "Nucla town",
+      "counties": [
+        "Montrose County"
+      ]
+    },
+    "0855045": {
+      "name": "Nunn town",
+      "counties": [
+        "Weld County"
+      ]
+    },
+    "0855155": {
+      "name": "Oak Creek town",
+      "counties": [
+        "Routt County"
+      ]
+    },
+    "0855540": {
+      "name": "Olathe town",
+      "counties": [
+        "Montrose County"
+      ]
+    },
+    "0855705": {
+      "name": "Olney Springs town",
+      "counties": [
+        "Crowley County"
+      ]
+    },
+    "0855980": {
+      "name": "Orchard City town",
+      "counties": [
+        "Delta County"
+      ]
+    },
+    "0856145": {
+      "name": "Ordway town",
+      "counties": [
+        "Crowley County"
+      ]
+    },
+    "0856365": {
+      "name": "Otis town",
+      "counties": [
+        "Washington County"
+      ]
+    },
+    "0856475": {
+      "name": "Ovid town",
+      "counties": [
+        "Sedgwick County"
+      ]
+    },
+    "0856970": {
+      "name": "Palisade town",
+      "counties": [
+        "Mesa County"
+      ]
+    },
+    "0857025": {
+      "name": "Palmer Lake town",
+      "counties": [
+        "El Paso County"
+      ]
+    },
+    "0857245": {
+      "name": "Paoli town",
+      "counties": [
+        "Phillips County"
+      ]
+    },
+    "0857300": {
+      "name": "Paonia town",
+      "counties": [
+        "Delta County"
+      ]
+    },
+    "0858235": {
+      "name": "Peetz town",
+      "counties": [
+        "Logan County"
+      ]
+    },
+    "0859005": {
+      "name": "Pierce town",
+      "counties": [
+        "Weld County"
+      ]
+    },
+    "0859830": {
+      "name": "Pitkin town",
+      "counties": [
+        "Gunnison County"
+      ]
+    },
+    "0860160": {
+      "name": "Platteville town",
+      "counties": [
+        "Weld County"
+      ]
+    },
+    "0860600": {
+      "name": "Poncha Springs town",
+      "counties": [
+        "Chaffee County"
+      ]
+    },
+    "0861315": {
+      "name": "Pritchett town",
+      "counties": [
+        "Baca County"
+      ]
+    },
+    "0862660": {
+      "name": "Ramah town",
+      "counties": [
+        "El Paso County"
+      ]
+    },
+    "0862880": {
+      "name": "Rangely town",
+      "counties": [
+        "Rio Blanco County"
+      ]
+    },
+    "0863265": {
+      "name": "Red Cliff town",
+      "counties": [
+        "Eagle County"
+      ]
+    },
+    "0864970": {
+      "name": "Rockvale town",
+      "counties": [
+        "Fremont County"
+      ]
+    },
+    "0865190": {
+      "name": "Rocky Ford city",
+      "counties": [
+        "Otero County"
+      ]
+    },
+    "0865740": {
+      "name": "Romeo town",
+      "counties": [
+        "Conejos County"
+      ]
+    },
+    "0866895": {
+      "name": "Rye town",
+      "counties": [
+        "Pueblo County"
+      ]
+    },
+    "0867005": {
+      "name": "Saguache town",
+      "counties": [
+        "Saguache County"
+      ]
+    },
+    "0867280": {
+      "name": "Salida city",
+      "counties": [
+        "Chaffee County"
+      ]
+    },
+    "0868105": {
+      "name": "San Luis town",
+      "counties": [
+        "Costilla County"
+      ]
+    },
+    "0868655": {
+      "name": "Sawpit town",
+      "counties": [
+        "San Miguel County"
+      ]
+    },
+    "0868930": {
+      "name": "Sedgwick town",
+      "counties": [
+        "Sedgwick County"
+      ]
+    },
+    "0869040": {
+      "name": "Seibert town",
+      "counties": [
+        "Kit Carson County"
+      ]
+    },
+    "0869700": {
+      "name": "Sheridan Lake town",
+      "counties": [
+        "Kiowa County"
+      ]
+    },
+    "0870250": {
+      "name": "Silver Cliff town",
+      "counties": [
+        "Custer County"
+      ]
+    },
+    "0870580": {
+      "name": "Silverton town",
+      "counties": [
+        "San Juan County"
+      ]
+    },
+    "0870635": {
+      "name": "Simla town",
+      "counties": [
+        "Elbert County"
+      ]
+    },
+    "0872395": {
+      "name": "South Fork town",
+      "counties": [
+        "Rio Grande County"
+      ]
+    },
+    "0873330": {
+      "name": "Springfield town",
+      "counties": [
+        "Baca County"
+      ]
+    },
+    "0873715": {
+      "name": "Starkville town",
+      "counties": [
+        "Las Animas County"
+      ]
+    },
+    "0874485": {
+      "name": "Stratton town",
+      "counties": [
+        "Kit Carson County"
+      ]
+    },
+    "0874815": {
+      "name": "Sugar City town",
+      "counties": [
+        "Crowley County"
+      ]
+    },
+    "0875970": {
+      "name": "Swink town",
+      "counties": [
+        "Otero County"
+      ]
+    },
+    "0879270": {
+      "name": "Two Buttes town",
+      "counties": [
+        "Baca County"
+      ]
+    },
+    "0880865": {
+      "name": "Victor city",
+      "counties": [
+        "Teller County"
+      ]
+    },
+    "0881030": {
+      "name": "Vilas town",
+      "counties": [
+        "Baca County"
+      ]
+    },
+    "0881690": {
+      "name": "Vona town",
+      "counties": [
+        "Kit Carson County"
+      ]
+    },
+    "0882130": {
+      "name": "Walden town",
+      "counties": [
+        "Jackson County"
+      ]
+    },
+    "0882350": {
+      "name": "Walsenburg city",
+      "counties": [
+        "Huerfano County"
+      ]
+    },
+    "0882460": {
+      "name": "Walsh town",
+      "counties": [
+        "Baca County"
+      ]
+    },
+    "0883230": {
+      "name": "Wellington town",
+      "counties": [
+        "Larimer County"
+      ]
+    },
+    "0883450": {
+      "name": "Westcliffe town",
+      "counties": [
+        "Custer County"
+      ]
+    },
+    "0884770": {
+      "name": "Wiggins town",
+      "counties": [
+        "Morgan County"
+      ]
+    },
+    "0885045": {
+      "name": "Wiley town",
+      "counties": [
+        "Prowers County"
+      ]
+    },
+    "0885155": {
+      "name": "Williamsburg town",
+      "counties": [
+        "Fremont County"
+      ]
+    },
+    "0886475": {
+      "name": "Yampa town",
+      "counties": [
+        "Routt County"
+      ]
+    }
+  }
+}

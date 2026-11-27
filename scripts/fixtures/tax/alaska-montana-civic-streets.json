@@ -1,0 +1,149 @@
+[
+  {
+    "address": {
+      "address_line_1": "334 Front Street",
+      "city": "Ketchikan",
+      "postal_code": "99901",
+      "state": "AK",
+      "country": "US"
+    },
+    "authority": "https://www.ketchikan.gov/maps/location/CityHall",
+    "source": "https://geocoding.geo.census.gov/geocoder/geographies/address?street=334+Front+Street&city=Ketchikan&state=AK&zip=99901&benchmark=Public_AR_Current&vintage=Current_Current&format=json",
+    "retrieved": "2026-11-27",
+    "matches": [
+      {
+        "matchedAddress": "334 FRONT ST, KETCHIKAN, AK, 99901",
+        "addressComponents": {
+          "city": "KETCHIKAN",
+          "state": "AK",
+          "zip": "99901"
+        },
+        "geographies": {
+          "States": [
+            {
+              "GEOID": "02",
+              "NAME": "Alaska",
+              "STUSAB": "AK"
+            }
+          ],
+          "Counties": [
+            {
+              "GEOID": "02130",
+              "NAME": "Ketchikan Gateway Borough"
+            }
+          ],
+          "Incorporated Places": [
+            {
+              "GEOID": "0238970",
+              "NAME": "Ketchikan city"
+            }
+          ],
+          "County Subdivisions": [
+            {
+              "GEOID": "0213039010",
+              "NAME": "Ketchikan census subarea"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "address": {
+      "address_line_1": "316 N 26th Street",
+      "city": "Billings",
+      "postal_code": "59101",
+      "state": "MT",
+      "country": "US"
+    },
+    "authority": "https://www.billingsmt.gov/104/City-Clerk",
+    "source": "https://geocoding.geo.census.gov/geocoder/geographies/address?street=316+N+26th+Street&city=Billings&state=MT&zip=59101&benchmark=Public_AR_Current&vintage=Current_Current&format=json",
+    "retrieved": "2026-11-27",
+    "matches": [
+      {
+        "matchedAddress": "316 N 26TH ST, BILLINGS, MT, 59101",
+        "addressComponents": {
+          "city": "BILLINGS",
+          "state": "MT",
+          "zip": "59101"
+        },
+        "geographies": {
+          "States": [
+            {
+              "GEOID": "30",
+              "NAME": "Montana",
+              "STUSAB": "MT"
+            }
+          ],
+          "Counties": [
+            {
+              "GEOID": "30111",
+              "NAME": "Yellowstone County"
+            }
+          ],
+          "Incorporated Places": [
+            {
+              "GEOID": "3006550",
+              "NAME": "Billings city"
+            }
+          ],
+          "County Subdivisions": [
+            {
+              "GEOID": "3011190315",
+              "NAME": "Billings CCD"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "address": {
+      "address_line_1": "632 W 6th Avenue",
+      "city": "Anchorage",
+      "postal_code": "99501",
+      "state": "AK",
+      "country": "US"
+    },
+    "authority": "https://www.muni.org/departments/municipal_clerk/index.php",
+    "source": "https://geocoding.geo.census.gov/geocoder/geographies/address?street=632+W+6th+Avenue&city=Anchorage&state=AK&zip=99501&benchmark=Public_AR_Current&vintage=Current_Current&format=json",
+    "retrieved": "2026-11-27",
+    "matches": [
+      {
+        "matchedAddress": "632 W 6TH AVE, ANCHORAGE, AK, 99501",
+        "addressComponents": {
+          "city": "ANCHORAGE",
+          "state": "AK",
+          "zip": "99501"
+        },
+        "geographies": {
+          "States": [
+            {
+              "GEOID": "02",
+              "NAME": "Alaska",
+              "STUSAB": "AK"
+            }
+          ],
+          "Counties": [
+            {
+              "GEOID": "02020",
+              "NAME": "Anchorage Municipality"
+            }
+          ],
+          "Incorporated Places": [
+            {
+              "GEOID": "0203000",
+              "NAME": "Anchorage municipality"
+            }
+          ],
+          "County Subdivisions": [
+            {
+              "GEOID": "0202003050",
+              "NAME": "Anchorage census subarea"
+            }
+          ]
+        }
+      }
+    ]
+  }
+]

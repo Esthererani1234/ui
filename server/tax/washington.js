@@ -7,6 +7,18 @@ const source='https://dor.wa.gov/wa-sales-tax-rate-lookup-url-interface';
 const failure=()=>new TaxReview('We couldn’t verify the rate for this Washington address.');
 const terms={STREET:'ST',AVENUE:'AVE',ROAD:'RD',DRIVE:'DR',BOULEVARD:'BLVD',LANE:'LN',COURT:'CT',
   PLACE:'PL',PARKWAY:'PKWY',NORTH:'N',SOUTH:'S',EAST:'E',WEST:'W',NORTHEAST:'NE',NORTHWEST:'NW',SOUTHEAST:'SE',SOUTHWEST:'SW'};
+const ordinals=Object.fromEntries('first second third fourth fifth sixth seventh eighth ninth tenth eleventh twelfth thirteenth fourteenth fifteenth sixteenth seventeenth eighteenth nineteenth'.split(' ').map((word,i)=>[word.toUpperCase(),i+1]));
+const tens={TWENTY:20,THIRTY:30,FORTY:40,FIFTY:50,SIXTY:60,SEVENTY:70,EIGHTY:80,NINETY:90};
+const evenTens={TWENTIETH:20,THIRTIETH:30,FORTIETH:40,FIFTIETH:50,SIXTIETH:60,SEVENTIETH:70,EIGHTIETH:80,NINETIETH:90};
+function numberedStreet(street) {
+  const match=/^((?:(?:N|S|W|E|NW|NE|SW|SE) )?)([A-Z]+)(?:[ -]([A-Z]+))? (ST|AVE|RD|DR|BLVD|LN|CT|PL|PKWY)( (?:N|S|E|W|NW|NE|SW|SE))?$/.exec(street);
+  if(!match)return street;
+  const [,direction,first,second,type,end='']=match;
+  const number=second?(tens[first] && ordinals[second]<=9 ? tens[first]+ordinals[second] : null):ordinals[first]??evenTens[first];
+  if(!number)return street;
+  const suffix=number%100>=11 && number%100<=13?'TH':({1:'ST',2:'ND',3:'RD'}[number%10]??'TH');
+  return direction+number+suffix+' '+type+end;
+}
 const normalize=s=>s.trim().toUpperCase().replaceAll('.','').split(/\s+/).map(w=>terms[w]||w).join(' ');
 
 function destination(address) {
@@ -48,14 +60,16 @@ export async function loadWashingtonRanges() {
 // Require one jurisdiction across every matching row. Either side of a street may have a different code.
 export function washingtonStreetCode(data,address,{allowMissing=false}={}) {
   const {number,street,parity,zip,plus4}=destination(address);
-  const key=Buffer.from(','+street+',WA,'+zip+',');
   const codes=new Set();
-  for(let pos=data.indexOf(key);pos!==-1;pos=data.indexOf(key,pos+key.length)) {
-    const start=data.lastIndexOf(10,pos)+1;
-    const end=data.indexOf(10,pos);
-    const [low,high,side,,,,extension,period,code]=data.toString('utf8',start,end===-1?data.length:end).trimEnd().split(',');
-    if(period===quarter.period && side===parity && (!plus4 || extension===plus4) &&
-      /^\d+$/.test(low) && /^\d+$/.test(high) && number>=Number(low) && number<=Number(high)) codes.add(code);
+  for(const spelling of new Set([street,numberedStreet(street)])){
+    const key=Buffer.from(','+spelling+',WA,'+zip+',');
+    for(let pos=data.indexOf(key);pos!==-1;pos=data.indexOf(key,pos+key.length)) {
+      const start=data.lastIndexOf(10,pos)+1;
+      const end=data.indexOf(10,pos);
+      const [low,high,side,,,,extension,period,code]=data.toString('utf8',start,end===-1?data.length:end).trimEnd().split(',');
+      if(period===quarter.period && side===parity && (!plus4 || extension===plus4) &&
+        /^\d+$/.test(low) && /^\d+$/.test(high) && number>=Number(low) && number<=Number(high)) codes.add(code);
+    }
   }
   if(!codes.size && allowMissing) return null;
   if(codes.size!==1) throw failure();
@@ -74,7 +88,7 @@ export function washingtonResult(xml,day,address,streetCode) {
   if(!inQuarter(day) || !record || day<record[2] || day>record[3] ||
     !['0','2'].includes(main.code) || main.loccode!==code || street.code!==code || rate.code!==code ||
     street.period!==quarter.period || street.state!=='WA' || street.zip!==input.zip ||
-    (input.plus4 && input.plus4!==street.plus4) || normalize(street.street || '')!==input.street ||
+    (input.plus4 && input.plus4!==street.plus4) || numberedStreet(normalize(street.street || ''))!==numberedStreet(input.street) ||
     !/^\d+$/.test(street.houselow) || !/^\d+$/.test(street.househigh) ||
     input.number<Number(street.houselow) || input.number>Number(street.househigh) || street.evenodd!==input.parity) throw failure();
   const [state,local]=record;

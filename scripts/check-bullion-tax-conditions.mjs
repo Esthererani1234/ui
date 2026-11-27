@@ -227,6 +227,7 @@ test('dated product pack applies over the live eight-listing baseline and preser
  await db.exec("update products set is_active=false, name='Retitled silver coin' where id=909; update products set is_active=false where id=905");
  const pack=await migration('20261127051002_reviewed_catalog_tax_conditions.sql');await db.exec(pack);
  await db.exec("update products set is_active=true, name='1 oz Canadian Silver Maple Leaf Coin BU (Random Year)' where id=909; update products set is_active=true where id=905");
+ await db.exec(await migration('20261127060806_alaska_specie_order_evidence.sql'));
  const policyCount=await db.query("select count(*)::int n from private.tax_states s where private.tax_report_version(s.state,'policy','state',$1)->>'approval'='approved'",[day]);
  assert.equal(policyCount.rows[0].n,45);
  const actor='00000000-0000-4000-8000-000000000009';await db.query('insert into admin_users(user_id) values($1)',[actor]);
@@ -299,6 +300,36 @@ test('dated product pack applies over the live eight-listing baseline and preser
  await db.exec("update orders set total=100000.01 where id=40");assert.equal((await placed('ID')).collection,'review');
  await db.exec("update private.tax_states set registration='Not Registered',physical=false,disabled=false,effective=null,collect_from=null,registration_due=null,active_confirmed_on=null where state='AK'");
  await db.exec(`update orders set shipping_address='{"state":"AK"}',total=99999.99 where id=40`);
+ const akFacts=async()=>(await db.query("select private.tax_ak_specie_sale(o,$1) v from orders o where o.id=40",[next])).rows[0].v;
+ const akInput=async()=>(await db.query('select private.tax_report_calculation_inputs(40) v')).rows[0].v;
+ assert.equal((await akFacts()).metal_price_cents,6000000);assert.equal((await akFacts()).markup_cents,0);
+ assert.equal((await akInput()).ak_specie.metal_price_cents,6000000);
+ const mint=(await akFacts()).lines[0].specification_source;
+ assert.match(mint,/usmint[.]gov/);
+ await db.query("insert into private.tax_sources(url,state,changed_at) values($1,'AK',now()+interval '1 hour')",[mint]);
+ assert.equal(await akFacts(),null);
+ await db.query("delete from private.tax_sources where url=$1",[mint]);
+ assert.equal((await akInput()).anchorage_policy.county_geoid,'02020');
+ await db.exec(`update order_items set unit_price=61000,line_total=61000,pricing_snapshot=pricing_snapshot||'{"premium_fixed":1000}' where order_id=40;update orders set subtotal=61000 where id=40`);
+ assert.equal((await akInput()).ak_specie.markup_cents,100000);
+ await db.exec('select private.queue_new_order_reports()');
+ const lease=(await db.query('select lease from public.claim_new_order_tax_reports() where order_id=40')).rows[0].lease;
+ const leased=(await db.query('select public.new_order_tax_inputs(40,$1) v',[lease])).rows[0].v;
+ const report=await calculateAdminOrder(leased,{localEvidence:async()=>null});
+ assert.equal(report.status,'review');assert.equal(report.tax,undefined);
+ assert.equal((await db.query('select public.finish_new_order_tax_report(40,$1,$2,false) v',[lease,report])).rows[0].v,true);
+ const adminOrders=async user=>(await db.query('select public.tax_admin_new_orders($1,$2,$2,null) v',[user,next])).rows[0].v;
+ const stored=(await adminOrders(actor)).orders.find(row=>row.id===40).result;
+ assert.equal(stored.ak_specie.markup_cents,100000);assert.deepEqual(stored,report);
+ await assert.rejects(adminOrders('00000000-0000-4000-8000-000000000003'),/Admin required/);
+ const documented=(await akFacts());assert.equal(documented.lines[0].id,902);assert.equal(documented.lines[0].net,6100000);
+ await db.exec("update order_items set unit_price=61001 where order_id=40");assert.equal((await akFacts()).metal_price_cents,undefined);
+ await db.exec("update order_items set unit_price=61000,sku='unreviewed' where order_id=40");assert.equal((await akFacts()).metal_price_cents,undefined);
+ await db.exec(`update order_items set sku='AGE-1OZ-BU-RY',unit_price=60000,line_total=60000,pricing_snapshot=pricing_snapshot||'{"premium_fixed":0}' where order_id=40;update orders set subtotal=60000 where id=40`);
+ await db.exec("update orders set customer_notes='custom trade' where id=40");assert.equal(await akFacts(),null);
+ await db.exec("update orders set customer_notes=null where id=40");
+ await db.exec("update private.tax_report_start set starts_at='2026-11-28T05:00:00Z'");assert.equal(await akFacts(),null);
+ await db.exec("update private.tax_report_start set starts_at='2026-11-27T05:00:00Z'");
  const alaskaBound=async()=>(await db.query("select private.tax_remote_order_bound('AK',private.tax_report_version('AK','policy','arsstc_member',$1),'{}',$1,40) p",[next])).rows[0].p;
  assert.equal((await alaskaBound()).collection,'no_obligation');
  await db.exec("update orders set total=100000 where id=40");assert.equal((await alaskaBound()).collection,'review');
@@ -375,4 +406,22 @@ test('Colorado identifies affirmative municipal rules from street geography and 
    assert.equal(regionalEvidence('CO',d,{...result.geography,municipality:null}),null);
    assert.equal(regionalEvidence('CO','2027-01-01',result.geography),null);
  }
+});
+
+test('Alaska admin reports protect the metal value and never apply general retail rates to an unverified premium',async()=>{
+ const d='2026-11-27',record={...fixture,state:'AK',valid_from:d,valid_until:d,verified_on:d};
+ const input={day:d,state:'AK',subtotal:'3500.00',shipping:0,fee:0,insurance:0,
+   policy:{...record,collection:'collect'},anchorage_policy:{...record,scope:'no_general_retail_tax',county_geoid:'02020'},district:{...record,geography:{state:{geoid:'02'},county:{geoid:'02020',name:'Anchorage Municipality'}}},
+   lines:[{id:1,metal:'gold',gross:'3500.00'}],ak_specie:{scope:'intrinsic_metal_value',version:42,
+     law:'https://www.akleg.gov/PDF/34/Bills/HB0001Z.PDF',metal_price_cents:350000,markup_cents:0,lines:[{id:1,net:350000}]}};
+ const result=await calculateAdminOrder(input);assert.deepEqual([result.status,result.tax,result.exempt],['calculated',0,350000]);
+ const withMarkup={...input,ak_specie:{...input.ak_specie,metal_price_cents:345000,markup_cents:5000}};
+ assert.equal((await calculateAdminOrder(withMarkup)).tax,0);
+ for(const change of [{district:{...record,geography:{state:{geoid:'02'},county:{geoid:'02130'}}}},
+   {anchorage_policy:{...input.anchorage_policy,approval:'requires_review'}},{fee:10},{insurance:5},{district:{...record,geography:{county:{geoid:'53063'}}}},{ak_specie:undefined},
+   {ak_specie:{...input.ak_specie,metal_price_cents:345000,markup_cents:5001}}]){
+   const v=await calculateAdminOrder({...input,...change});assert.equal(v.status,'review');assert.equal(v.tax,undefined);
+ }
+ const held=await calculateAdminOrder({review:'Nationwide coverage pending.',day:d,ak_specie:input.ak_specie});
+ assert.equal(held.tax,undefined);assert.deepEqual(held.ak_specie,input.ak_specie);
 });

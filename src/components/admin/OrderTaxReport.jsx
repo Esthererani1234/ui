@@ -3,10 +3,17 @@ import states from '../../../shared/taxSources.json';
 const names=Object.fromEntries(states.map(s=>[s.code,s.name]));
 const money=c=>c==null?'—':(Number(c)/100).toLocaleString('en-US',{style:'currency',currency:'USD'});
 const name=code=>names[code]||'Unassigned destination';
+function AlaskaSaleEvidence({facts}){
+  if(!facts)return null;
+  return <p>Alaska protects the gold or silver value of qualifying specie from city and borough tax.
+    {facts.metal_price_cents!=null&&<> At the order’s locked spot price, the metal accounts for <strong>{money(facts.metal_price_cents)}</strong> and the remaining markup is <strong>{money(facts.markup_cents)}</strong>.</>}
+    {' '}<a href={facts.law} target="_blank" rel="noreferrer">Alaska session law</a></p>;
+}
 function ReviewReason({result}){
   const e=result.local_evidence;
   const state=result.state_scope;
-  if(!e && !state)return <span>{result.reason}</span>;
+  const specie=result.ak_specie;
+  if(!e && !state && !specie)return <span>{result.reason}</span>;
   const scopes={no_state_general_sales_tax:'The state has no general sales tax.',
     state_administered_bullion_exemption:'Colorado exempts qualifying coins and bullion from state and state-administered taxes. Self-collecting cities set their own treatment.',
     consumer_bullion_exemption:'Arizona exempts qualifying bullion sold to the ultimate consumer. Coins sold to manufacture jewelry or art have separate treatment.'};
@@ -17,6 +24,7 @@ function ReviewReason({result}){
     no_general_retail_tax:'The municipality has no general retail sales tax on bullion.',
     member_general_rates:'Published general retail rates for the verified location'};
   return <details><summary>{result.reason}</summary>
+    <AlaskaSaleEvidence facts={specie}/>
     {state&&<p>{scopes[state.scope]} <a href={state.source} target="_blank" rel="noreferrer">State authority</a></p>}
     {e&&<><p>{[e.geography.municipality?.name,e.geography.county.name].filter(Boolean).join(' · ')} · {notes[e.scope]}</p>
     {result.member_threshold&&<p>The verified delivery is in a commission member jurisdiction. Website receipts, including this order, are below its remote-seller threshold. <a href={result.member_threshold.source} target="_blank" rel="noreferrer">Commission rule</a></p>}
@@ -35,6 +43,7 @@ function OrderCalculation({orderId,request}){
   if(result.status==='review')return <ReviewReason result={result}/>;
   return <details><summary>{result.status==='recorded'?'Verified order tax':'Calculated tax'} {money(result.tax)}</summary>
     <p>{result.state} · {result.day} · Taxable merchandise {money(result.taxable)} · Exempt merchandise {money(result.exempt)}{result.unclassified>0&&<> · Awaiting classification {money(result.unclassified)}</>}</p>
+    <AlaskaSaleEvidence facts={result.ak_specie}/>
     {result.breakdown.map((b,i)=><p key={i}>{[b.name||b.code,b.county,...(b.districts||[])].filter(Boolean).join(' · ')} · {Number(b.ppm)/10000}% · {money(b.cents)}</p>)}
     {result.rate_source?.startsWith('https://')&&<a href={result.rate_source} target="_blank" rel="noreferrer">Rate source</a>}
   </details>;
@@ -108,6 +117,7 @@ function NewOrderReports({from,to,request}){
     <tbody>{page.orders.map(o=><tr key={o.id}><th>{o.order_number||o.id}</th><td>{name(o.state)}</td><td>
       {!o.result?'Queued':o.result.status==='review'?<ReviewReason result={o.result}/>:<details><summary>{money(o.result.tax)}</summary>
         <p>Taxable merchandise {money(o.result.taxable)} · Exempt merchandise {money(o.result.exempt)}{o.result.unclassified>0&&<> · Awaiting classification {money(o.result.unclassified)}</>}</p>
+        <AlaskaSaleEvidence facts={o.result.ak_specie}/>
         {o.result.breakdown.map((b,i)=><p key={i}>{[b.name||b.code,b.county,...(b.districts||[])].filter(Boolean).join(' · ')} · {Number(b.ppm)/10000}% · {money(b.cents)}</p>)}
         {o.result.rate_source?.startsWith('https://')&&<a href={o.result.rate_source} target="_blank" rel="noreferrer">Rate source</a>}
       </details>}</td></tr>)}</tbody></table></div>}

@@ -5,6 +5,11 @@
     "sources": [
       {
         "purpose": "authority",
+        "title": "Alabama Legislature",
+        "url": "https://alison.legislature.state.al.us/code-of-alabama?section=40-23-4"
+      },
+      {
+        "purpose": "authority",
         "title": "June 15, 2018",
         "url": "https://www.revenue.alabama.gov/wp-content/uploads/2018/06/Notice_Act_2018-164_Gold_Bullion.pdf"
       },
@@ -46,7 +51,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "The 2018 guidance has a sunset. Confirm extensions and the current metal, form and value tests before using the exemption.",
+    "finding": "Section 40-23-4(52) extends the qualifying bullion and money exemption through the ten-year period beginning June 1, 2018. For bullion, verify that mass and purity determine value. A collectible premium can change the result.",
     "effectiveFrom": null
   },
   {
@@ -54,14 +59,14 @@
     "name": "Alaska",
     "sources": [
       {
-        "purpose": "product",
-        "title": "Alaska Sales Tax Information, Office of the State Assessor, Division of Community and Regional Affairs",
-        "url": "https://www.commerce.alaska.gov/web/dcra/OfficeoftheStateAssessor/AlaskaSalesTaxInformation.aspx"
+        "purpose": "authority",
+        "title": "Sales Tax, Local Government Online, Division of Community and Regional Affairs",
+        "url": "https://www.commerce.alaska.gov/web/dcra/localgovernmentresourcedesk/taxationassessment/salestax.aspx"
       },
       {
         "purpose": "product",
-        "title": "Sales Tax, Local Government Online, Division of Community and Regional Affairs",
-        "url": "https://www.commerce.alaska.gov/web/dcra/localgovernmentresourcedesk/taxationassessment/salestax.aspx"
+        "title": "Alaska Sales Tax Information, Office of the State Assessor, Division of Community and Regional Affairs",
+        "url": "https://www.commerce.alaska.gov/web/dcra/OfficeoftheStateAssessor/AlaskaSalesTaxInformation.aspx"
       },
       {
         "purpose": "product",
@@ -81,13 +86,18 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Alaska local governments can impose sales taxes and exemptions. Check the delivery municipality before making a decision.",
+    "finding": "Alaska has no statewide sales tax. Municipalities can impose their own tax and exemptions. An Alaska mailing address alone cannot settle a quote.",
     "effectiveFrom": null
   },
   {
     "code": "AZ",
     "name": "Arizona",
     "sources": [
+      {
+        "purpose": "authority",
+        "title": "42-5061 - Retail classification; definitions",
+        "url": "https://www.azleg.gov/ars/42/05061.htm"
+      },
       {
         "purpose": "authority",
         "title": "42-5159 - Exemptions",
@@ -136,7 +146,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Review the retail transaction privilege tax and use-tax rules separately. Investment metal and monetized bullion provisions have a jewelry and art exclusion.",
+    "finding": "The state retail classification excludes qualifying precious metal and monetized bullion. The law addresses sales for manufacture into jewelry or art. Check city treatment independently.",
     "effectiveFrom": null
   },
   {
@@ -145,7 +155,7 @@
     "sources": [
       {
         "purpose": "authority",
-        "title": "SB336 as engrossed on 04-20-2021 13:40:40",
+        "title": "Arkansas Act 1109 of 2021",
         "url": "https://webftp.blr.arkansas.gov/Home/FTPDocument?path=ACTS%2F2021R%2FPublic%2FACT1109.pdf"
       },
       {
@@ -186,7 +196,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Act 1109 of 2021 created an exemption for specified coins, currency and bullion. Review the statutory issuer, use and valuation conditions for each SKU.",
+    "finding": "Act 1109 requires the specified metal, government issuance, purpose and intrinsic or collectible valuation. A privately minted bar needs an independent basis before claiming the exemption.",
     "effectiveFrom": null
   },
   {
@@ -194,14 +204,19 @@
     "name": "California",
     "sources": [
       {
-        "purpose": "product",
-        "title": "Sales and Use Tax Regulations - Article 7",
-        "url": "https://cdtfa.ca.gov/lawguides/vol1/sutr/sales-and-use-tax-regulations-art7-all.html"
+        "purpose": "authority",
+        "title": "Regulation 1599",
+        "url": "https://cdtfa.ca.gov/lawguides/vol1/sutr/1599.html"
+      },
+      {
+        "purpose": "authority",
+        "title": "California sales price",
+        "url": "https://cdtfa.ca.gov/lawguides/vol1/sutl/6011.html"
       },
       {
         "purpose": "product",
-        "title": "Regulation 1599",
-        "url": "https://cdtfa.ca.gov/lawguides/vol1/sutr/1599.html"
+        "title": "Sales and Use Tax Regulations - Article 7",
+        "url": "https://cdtfa.ca.gov/lawguides/vol1/sutr/sales-and-use-tax-regulations-art7-all.html"
       },
       {
         "purpose": "product",
@@ -236,7 +251,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Regulation 1599 uses a $2,000 bulk threshold subject to statutory adjustment. Covered items include monetized bullion, nonmonetized gold or silver bullion, and numismatic coins. Verify the applicable indexed amount and seller condition.",
+    "finding": "Regulation 1599 defines market value using the transaction sales price under §6011. The published bulk threshold is $2,000. Verify the seller qualifies under the Commodity Exchange Act condition before allowing an exemption.",
     "effectiveFrom": "2023-07-01"
   },
   {
@@ -244,7 +259,7 @@
     "name": "Colorado",
     "sources": [
       {
-        "purpose": "product",
+        "purpose": "authority",
         "title": "Sales & Use Tax Topics: Coins and Precious Metal Bullion | Department of Revenue - Taxation",
         "url": "https://tax.colorado.gov/sales-use-tax-topics-coins-and-precious-metal-bullion"
       },
@@ -286,13 +301,18 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "The state guidance covers state and state-administered local taxes for qualifying bullion and coins. Separately review self-collected home-rule municipalities.",
+    "finding": "Qualifying bullion and coins are exempt from state and state-administered local sales taxes. Self-collecting home-rule jurisdictions require a separate destination check.",
     "effectiveFrom": null
   },
   {
     "code": "CT",
     "name": "Connecticut",
     "sources": [
+      {
+        "purpose": "authority",
+        "title": "Chapter 219 - Sales and Use Taxes",
+        "url": "https://prdext3.cga.ct.gov/2026/sup/chap_219.htm"
+      },
       {
         "purpose": "authority",
         "title": "Chapter 219 - Sales and Use Taxes",
@@ -331,7 +351,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "The existing $1,000 minimum applies to specified coins, gold or silver bullion and certain legal tender. DRS dates the removal of the minimum and the revised metals and purity rules to July 1, 2027.",
+    "finding": "The current $1,000 test remains relevant to this catalog in November 2026. July 1, 2027 changes the exemption and product definitions. Retain effective dates for both versions.",
     "effectiveFrom": null
   },
   {
@@ -339,7 +359,7 @@
     "name": "Delaware",
     "sources": [
       {
-        "purpose": "product",
+        "purpose": "authority",
         "title": "Step 4: Learn About Gross Receipts Taxes - Division of Revenue - State of Delaware",
         "url": "https://revenue.delaware.gov/business-tax-forms/doing-business-in-delaware/step-4-gross-receipts-taxes/"
       },
@@ -376,13 +396,23 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Delaware describes a seller gross-receipts tax and no state or local general sales tax. Seller liability requires its own sourcing analysis.",
+    "finding": "Delaware imposes no state or local general sales tax. Its gross receipts tax is a separate business obligation.",
     "effectiveFrom": null
   },
   {
     "code": "DC",
     "name": "District of Columbia",
     "sources": [
+      {
+        "purpose": "authority",
+        "title": "DC Code § 47–2002",
+        "url": "https://code.dccouncil.gov/us/dc/council/code/sections/47-2002"
+      },
+      {
+        "purpose": "authority",
+        "title": "General exemptions",
+        "url": "https://code.dccouncil.gov/us/dc/council/code/sections/47-2005"
+      },
       {
         "purpose": "nexus",
         "title": "Sales and Use Tax FAQs | otr",
@@ -421,13 +451,23 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "OTR describes tangible property delivered in the District as generally taxable. The bullion treatment and applicable rate for the sale date require confirmation.",
+    "finding": "Standard retail bullion bars fall under the general retail sales tax when collection is due. The general rate is 6% through September 30, 2027. Check the remote-seller obligation independently.",
     "effectiveFrom": null
   },
   {
     "code": "FL",
     "name": "Florida",
     "sources": [
+      {
+        "purpose": "authority",
+        "title": "Exemption for Sales of Gold, Silver, or Platinum Expanded Effective August 1, 2025",
+        "url": "https://floridarevenue.com/taxes/tips/Documents/TIP_25A01-03.pdf"
+      },
+      {
+        "purpose": "authority",
+        "title": "Rule 12A-1.0371 US legal tender",
+        "url": "https://floridarevenue.com/rules/pdf/12A-1_rp_finaltext_eff_010124.pdf"
+      },
       {
         "purpose": "authority",
         "title": "12A-1.0371 Sales of Coins, Currency, or Bullion.",
@@ -451,7 +491,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Florida DOR reports a gold, silver and platinum bullion exemption effective August 1, 2025. Review coins and palladium separately from those bars.",
+    "finding": "Gold, silver and platinum bullion have no price minimum under the August 2025 change. US legal-tender coins have a separate exemption. Check the current currency rule for Canadian coins.",
     "effectiveFrom": "2025-08-01"
   },
   {
@@ -460,7 +500,7 @@
     "sources": [
       {
         "purpose": "authority",
-        "title": "History. Original Rule entitled \"Computer Equipment\" adopted. F. Dec. 21, 2000; eff. Jan. 10, 2001.",
+        "title": "Georgia Department of Revenue Rule 560-12-2-.108",
         "url": "https://rules.sos.ga.gov/download_pdf.aspx?dept=Departments&pdf=Department+560+RULES+OF+DEPARTMENT+OF+REVENUE&st=GASOS&year=2026"
       },
       {
@@ -496,13 +536,18 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Georgia Rule 560-12-2-.108 defines bullion using gold, silver or platinum and valuation by metal content. Classify other metals independently.",
+    "finding": "Rule 560-12-2-.108 addresses qualifying bullion and coins. The bullion definition ties eligibility to the metal content and lists gold, silver and platinum.",
     "effectiveFrom": null
   },
   {
     "code": "HI",
     "name": "Hawaii",
     "sources": [
+      {
+        "purpose": "authority",
+        "title": "General Excise Tax (GET) Information | Department of Taxation",
+        "url": "https://tax.hawaii.gov/get/"
+      },
       {
         "purpose": "authority",
         "title": "Tax Facts 37-1, General Excise Tax (GET) (Rev. May 2025)",
@@ -529,11 +574,6 @@
         "url": "https://data.capitol.hawaii.gov/sessions/session2022/bills/HB1184_HD1_.HTM"
       },
       {
-        "purpose": "nexus",
-        "title": "General Excise Tax (GET) Information | Department of Taxation",
-        "url": "https://tax.hawaii.gov/get/"
-      },
-      {
         "purpose": "registration",
         "title": "Domestic Entity Registration - DCCA Hawaii",
         "url": "https://cca.hawaii.gov/bac/domestic-entity-registration/"
@@ -556,7 +596,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Review general excise tax, sourcing and any county surcharge. Proposed bullion bills need an enactment check.",
+    "finding": "General excise tax applies to a seller’s Hawaii business receipts unless an exemption applies. For a responsible seller, confirm the county and whether the business absorbs or passes on the tax.",
     "effectiveFrom": null
   },
   {
@@ -564,7 +604,7 @@
     "name": "Idaho",
     "sources": [
       {
-        "purpose": "product",
+        "purpose": "authority",
         "title": "Types of Exemptions | Idaho State Tax Commission",
         "url": "https://tax.idaho.gov/taxes/sales-use/exemptions/types-of-exemptions/"
       },
@@ -606,7 +646,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Review Idaho Code §63-3622GG and the Tax Commission’s exemptions guidance for precious metal bullion and monetary uses.",
+    "finding": "Idaho’s Tax Commission points bullion and coin sellers to §63-3622V, §63-3622PP and Rule 039. Section 63-3622GG concerns aircraft. The state says no exemption certificate is needed for bullion, coins and currency.",
     "effectiveFrom": null
   },
   {
@@ -656,7 +696,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "The 2026 Illinois tax matrix lists exemptions for bullion and specified monetary items. Check the applicable item definition before approval.",
+    "finding": "Illinois’ 2026 matrix covers qualifying bullion and legal-tender collector coins, including qualifying foreign issues. Match each catalog coin to its issuing government and composition.",
     "effectiveFrom": null
   },
   {
@@ -711,7 +751,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Indiana distinguishes eligible bullion investments and legal tender. Bulletin 50 addresses collectibles and eligibility under separate exemptions.",
+    "finding": "US legal tender and IRA-eligible bullion have separate tests. A foreign government coin needs an applicable bullion or investment provision.",
     "effectiveFrom": null
   },
   {
@@ -720,13 +760,13 @@
     "sources": [
       {
         "purpose": "authority",
-        "title": "STREAMLINED SALES AND USE TAX ACT, §423.3",
-        "url": "https://www.legis.iowa.gov/docs/code/423.3.pdf"
+        "title": "31 — STREAMLINED SALES AND USE TAX ACT, §423.3",
+        "url": "https://www.legis.iowa.gov/DOCS/ACO/IC/LINC/Chapter.423.pdf"
       },
       {
         "purpose": "authority",
-        "title": "31 — STREAMLINED SALES AND USE TAX ACT, §423.3",
-        "url": "https://www.legis.iowa.gov/DOCS/ACO/IC/LINC/Chapter.423.pdf"
+        "title": "STREAMLINED SALES AND USE TAX ACT, §423.3",
+        "url": "https://www.legis.iowa.gov/docs/code/423.3.pdf"
       },
       {
         "purpose": "authority",
@@ -766,7 +806,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Iowa Code §423.3 defines bullion to include qualifying bars, ingots and commemorative medallions of the specified metals; value must depend on content.",
+    "finding": "Section 423.3(91) covers legal-tender coins and qualifying gold, silver, platinum or palladium bullion priced for metal content.",
     "effectiveFrom": null
   },
   {
@@ -774,14 +814,14 @@
     "name": "Kansas",
     "sources": [
       {
-        "purpose": "product",
+        "purpose": "authority",
         "title": "Notice 19-02 Exempt Sales of Gold or Silver Coins; And Palladium, Platinum, Gold or Silver Bullion",
-        "url": "https://ksrevenue.gov/taxnotices/notice19-02.pdf"
+        "url": "https://www.ksrevenue.gov/taxnotices/notice19-02.pdf"
       },
       {
         "purpose": "product",
         "title": "Notice 19-02 Exempt Sales of Gold or Silver Coins; And Palladium, Platinum, Gold or Silver Bullion",
-        "url": "https://www.ksrevenue.gov/taxnotices/notice19-02.pdf"
+        "url": "https://ksrevenue.gov/taxnotices/notice19-02.pdf"
       },
       {
         "purpose": "nexus",
@@ -811,13 +851,18 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Revenue Notice 19-02 covers specified gold or silver coins and palladium, platinum, gold or silver bullion.",
+    "finding": "Kansas exempts gold and silver coins. Its bullion exemption also covers specified bars, ingots and commemorative medallions valued for their metal content.",
     "effectiveFrom": null
   },
   {
     "code": "KY",
     "name": "Kentucky",
     "sources": [
+      {
+        "purpose": "authority",
+        "title": "26. Currency or Bullion",
+        "url": "https://osbd.ky.gov/Publications/Documents/Special%20Reports/Tax%20Expenditure%20Analysis%20Fiscal%20Years%202027-2029.pdf"
+      },
       {
         "purpose": "authority",
         "title": "### 33. Currency or Bullion",
@@ -827,11 +872,6 @@
         "purpose": "authority",
         "title": "Instructions on Refunds for Sales and Use Tax Paid for Purchases of Bullion and Collectible Currency - Department of Revenue",
         "url": "https://revenue.ky.gov/News/Pages/Instructions-on-Refunds-for-Sales-and-Use-Tax-Paid-for-Purchases-of-Bullion-and-Collectible-Currency.aspx"
-      },
-      {
-        "purpose": "product",
-        "title": "26. Currency or Bullion",
-        "url": "https://osbd.ky.gov/Publications/Documents/Special%20Reports/Tax%20Expenditure%20Analysis%20Fiscal%20Years%202027-2029.pdf"
       },
       {
         "purpose": "nexus",
@@ -861,13 +901,18 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Kentucky’s current expenditure analysis lists an exemption for currency and defined bullion with content-based value and qualifying use.",
+    "finding": "Kentucky’s tax-expenditure analysis describes currency and bullion relief. The bullion definition includes a qualifying use and content-based valuation.",
     "effectiveFrom": null
   },
   {
     "code": "LA",
     "name": "Louisiana",
     "sources": [
+      {
+        "purpose": "authority",
+        "title": "Active Sales and Use Tax Exemptions",
+        "url": "https://dam.ldr.la.gov/miscellaneous/Chart%20of%20Active%20Sales%20and%20Use%20Tax%20Exemptions%2024%203ES%20and%2025%20RS.pdf"
+      },
       {
         "purpose": "authority",
         "title": "HLS 21RS-457",
@@ -906,13 +951,28 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Review metal-content valuation and the distinct numismatic coin rules. Confirm current state and local treatment before use.",
+    "finding": "Louisiana’s active exemption chart lists qualifying coins and bullion under R.S. 47:301(16)(b) for both state and local taxes. Apply the separate statutory coin conditions before classifying a proof.",
     "effectiveFrom": null
   },
   {
     "code": "ME",
     "name": "Maine",
     "sources": [
+      {
+        "purpose": "authority",
+        "title": "Title 36, §1760: Exemptions",
+        "url": "https://www.mainelegislature.org/legis/statutes/36/title36sec1760.html"
+      },
+      {
+        "purpose": "authority",
+        "title": "LD 372 final action",
+        "url": "https://legislature.maine.gov/legis/bills/display_ps.asp?LD=372&snum=132"
+      },
+      {
+        "purpose": "authority",
+        "title": "Title 36 §1811 sales tax",
+        "url": "https://www.mainelegislature.org/legis/statutes/36/title36sec1811.html"
+      },
       {
         "purpose": "authority",
         "title": "LD 1051, SP 420, Text and Status, 131st Legislature, First Special Session",
@@ -956,13 +1016,18 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "The legislative record includes proposed exemptions. Verify enacted §1760 and current Maine Revenue Services treatment before treating a purchase as exempt.",
+    "finding": "Maine applies its general retail tax to tangible property. Its exemption statute lists no general bullion exemption. The 2025 bill to exempt gold and silver died between the houses.",
     "effectiveFrom": null
   },
   {
     "code": "MD",
     "name": "Maryland",
     "sources": [
+      {
+        "purpose": "authority",
+        "title": "Maryland Laws of 2026, Chapter 730",
+        "url": "https://www.mgaleg.maryland.gov/2026RS/chapters_noln/Ch_730_sb0309E.pdf"
+      },
       {
         "purpose": "authority",
         "title": "Legislation - SB0309",
@@ -972,11 +1037,6 @@
         "purpose": "product",
         "title": "Laws - Statute Text",
         "url": "https://mgaleg.maryland.gov/mgawebsite/Laws/StatuteText?article=gtg&enactments=true&section=11-214.1"
-      },
-      {
-        "purpose": "product",
-        "title": "2026 Regular Session  - Senate Bill 309 Chapter",
-        "url": "https://www.mgaleg.maryland.gov/2026RS/chapters_noln/Ch_730_sb0309E.pdf"
       },
       {
         "purpose": "product",
@@ -1011,7 +1071,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "The current §11-214.1(b) requires a sale price greater than $1,000. The July 2026 change removed the Baltimore Convention Center condition. Check refined metal or monetary use and the jewelry and artwork exclusions.",
+    "finding": "Chapter 730 removed the Baltimore Convention Center condition effective July 1, 2026. Qualifying bullion or coin sales must still exceed $1,000. Jewelry and works of art are excluded.",
     "effectiveFrom": "2026-07-01"
   },
   {
@@ -1066,7 +1126,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Chapter 64H §6(ll) sets a $1,000 inclusive threshold for the listed categories, including gold or silver bullion. Fabricated industrial, professional or artistic material falls outside the bullion definition.",
+    "finding": "Chapter 64H §6(ll) uses an inclusive $1,000 threshold for the listed sales, including gold or silver bullion or coins. The law excludes specified fabricated forms from bullion.",
     "effectiveFrom": null
   },
   {
@@ -1131,13 +1191,18 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "MCL §205.54s exempts qualifying bullion and investment coins under separate definitions. Review purity and coin valuation.",
+    "finding": "Eligible bulk gold, silver or platinum requires purity of at least .900 and content-based value. Investment coins have a separate issuer and face-value test.",
     "effectiveFrom": null
   },
   {
     "code": "MN",
     "name": "Minnesota",
     "sources": [
+      {
+        "purpose": "authority",
+        "title": "Nontaxable Sales | Minnesota Department of Revenue",
+        "url": "https://www.revenue.state.mn.us/guide/nontaxable-sales-11"
+      },
       {
         "purpose": "nexus",
         "title": "Sales Tax for Remote Sellers | Minnesota Department of Revenue",
@@ -1181,7 +1246,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "State guidance describes marked bars or rounds containing at least 99.9% by weight of gold, silver, platinum or palladium. Review coins independently.",
+    "finding": "Qualifying bars and rounds require at least 99.9% purity and markings showing weight, purity and content. Coins are excluded from this exemption.",
     "effectiveFrom": null
   },
   {
@@ -1190,13 +1255,13 @@
     "sources": [
       {
         "purpose": "authority",
-        "title": "**SB 2862.** Effective 7/1/23. Signed 4/19/23.",
-        "url": "https://legislature.ms.gov/media/1323/2023_summary_final.pdf"
+        "title": "Mississippi 2023 enacted tax legislation",
+        "url": "https://www.legislature.ms.gov/media/1323/2023_summary_final.pdf"
       },
       {
-        "purpose": "product",
+        "purpose": "authority",
         "title": "**SB 2862.** Effective 7/1/23. Signed 4/19/23.",
-        "url": "https://www.legislature.ms.gov/media/1323/2023_summary_final.pdf"
+        "url": "https://legislature.ms.gov/media/1323/2023_summary_final.pdf"
       },
       {
         "purpose": "nexus",
@@ -1231,7 +1296,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "SB 2862 took effect July 1, 2023. The exemption defines qualifying metal, purpose of issue and intrinsic-value pricing.",
+    "finding": "The exemption defines issuer, purpose and intrinsic-value requirements. Privately issued bars and government coins require separate treatment.",
     "effectiveFrom": "2023-07-01"
   },
   {
@@ -1241,17 +1306,17 @@
       {
         "purpose": "authority",
         "title": "Missouri Revisor of Statutes - Revised Statutes of Missouri, RSMo Section 144.815",
+        "url": "https://revisor.mo.gov/main/OneSection.aspx?section=144.815"
+      },
+      {
+        "purpose": "authority",
+        "title": "Missouri Revisor of Statutes - Revised Statutes of Missouri, RSMo Section 144.815",
         "url": "https://revisor.mo.gov/main/OneSection.aspx?bid=7482&hl=+to+144.%25u2044144.745&hlr=y&section=144.815"
       },
       {
         "purpose": "authority",
         "title": "Missouri Revisor of Statutes - Revised Statutes of Missouri, RSMo Section 144.815",
         "url": "https://www.revisor.mo.gov/main/OneSection.aspx?bid=7482&hl=+to+144.%25u2044144.021&hlr=y&section=144.815"
-      },
-      {
-        "purpose": "product",
-        "title": "Missouri Revisor of Statutes - Revised Statutes of Missouri, RSMo Section 144.815",
-        "url": "https://revisor.mo.gov/main/OneSection.aspx?section=144.815"
       },
       {
         "purpose": "product",
@@ -1291,7 +1356,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "RSMo §144.815 provides state and local relief for defined bullion and investment coins. Confirm composition and valuation.",
+    "finding": "Section 144.815 covers state and local sales taxes. Bullion requires .900 purity and metal-content valuation. Investment coins have a separate fair-market-value versus face-value test.",
     "effectiveFrom": null
   },
   {
@@ -1299,7 +1364,7 @@
     "name": "Montana",
     "sources": [
       {
-        "purpose": "product",
+        "purpose": "authority",
         "title": "Sales Tax Guidance for Montana Business and Residents",
         "url": "https://revenue.mt.gov/taxes/general-sales-tax"
       },
@@ -1336,7 +1401,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Montana reports no general-use sales tax. Confirm any applicable local and seller obligations.",
+    "finding": "Montana lacks a general sales tax. Resort communities can tax certain goods and services. Verify the local ordinance and whether it reaches the particular transaction.",
     "effectiveFrom": null
   },
   {
@@ -1376,7 +1441,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Nebraska Revised Statute §77-2704.66 covers qualifying currency and bullion. Product definitions govern eligibility.",
+    "finding": "Section 77-2704.66 covers qualifying bullion valued primarily by content and currency used as legal tender. The defined forms include bars, ingots and coins.",
     "effectiveFrom": null
   },
   {
@@ -1426,7 +1491,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "NAC 372 distinguishes coins used as a medium of exchange from collector items and includes a face-value comparison. Separately review bullion purchased as an investment.",
+    "finding": "NAC 372.170 distinguishes a monetary exchange from a collector sale. The regulation has a face-value test for coins and a separate rule for bullion. Check actual purpose and pricing.",
     "effectiveFrom": null
   },
   {
@@ -1434,7 +1499,7 @@
     "name": "New Hampshire",
     "sources": [
       {
-        "purpose": "product",
+        "purpose": "authority",
         "title": "Does New Hampshire have a sales tax? | NH Department of Revenue Administration",
         "url": "https://www.revenue.nh.gov/faq/does-new-hampshire-have-sales-tax"
       },
@@ -1471,13 +1536,18 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "New Hampshire reports no general sales tax on goods. Review any applicable business taxes separately.",
+    "finding": "New Hampshire has no general sales tax on goods. Ordinary bullion sales have no customer sales-tax charge.",
     "effectiveFrom": null
   },
   {
     "code": "NJ",
     "name": "New Jersey",
     "sources": [
+      {
+        "purpose": "authority",
+        "title": "NJ Division of Taxation - Exemption for Sales of Certain Investment Bullion and Investment Coins",
+        "url": "https://www.nj.gov/treasury/taxation/businesses/salestax/investbullion-coins.shtml"
+      },
       {
         "purpose": "product",
         "title": "NJ Division of Taxation - Exemption for Sales of Certain Investment Bullion and Investment Coins",
@@ -1506,13 +1576,23 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Qualifying refined investment metal bullion has no dollar minimum. The $1,000 fair-market-value test applies individually to investment coins. Jewelry, works of art and commemorative medallions require separate treatment.",
+    "finding": "Qualifying investment bullion has no dollar minimum. Each qualifying investment coin must individually have a fair market value of at least $1,000. Coin values cannot be pooled.",
     "effectiveFrom": "2025-01-01"
   },
   {
     "code": "NM",
     "name": "New Mexico",
     "sources": [
+      {
+        "purpose": "authority",
+        "title": "2026 SB 174 final disposition",
+        "url": "https://www.nmlegis.gov/Legislation/Legislation?Chamber=S&LegNo=174&LegType=B&year=26"
+      },
+      {
+        "purpose": "authority",
+        "title": "Gross receipts tax overview",
+        "url": "https://www.tax.newmexico.gov/businesses/gross-receipts-overview/"
+      },
       {
         "purpose": "authority",
         "title": "Gross Receipts and Compensating Taxes",
@@ -1556,13 +1636,18 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Review gross receipts tax, delivery location and business registration separately from customer sales tax.",
+    "finding": "A responsible seller can owe gross receipts tax on an ordinary retail gold bar. The proposed 2026 gold and silver deduction, SB 174, died. Location and pass-through treatment affect the quote.",
     "effectiveFrom": null
   },
   {
     "code": "NY",
     "name": "New York",
     "sources": [
+      {
+        "purpose": "authority",
+        "title": "NYS Open Legislation | NYSenate.gov",
+        "url": "https://www.nysenate.gov/legislation/laws/TAX/1115"
+      },
       {
         "purpose": "authority",
         "title": "Quarterly filer forms (Form ST-100 series)",
@@ -1597,11 +1682,6 @@
         "purpose": "authority",
         "title": "Helpful Reminders for Sales Tax Vendors",
         "url": "https://www.tax.ny.gov/bus/st/helpful_reminders.htm"
-      },
-      {
-        "purpose": "authority",
-        "title": "NYS Open Legislation | NYSenate.gov",
-        "url": "https://www.nysenate.gov/legislation/laws/TAX/1115"
       },
       {
         "purpose": "product",
@@ -1646,7 +1726,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Qualifying investment bullion must exceed $1,000. Review metal, form, buyer use, any required dealer registration, and premium limits against the statutory cash-price basis. For coins the face-value comparison can also apply.",
+    "finding": "Qualifying investment bullion requires an invoice over $1,000 plus product, seller, price and use tests. Verify the prior business day’s cash value, fine content and any necessary coin face-value conversion.",
     "effectiveFrom": "1989-09-01"
   },
   {
@@ -1706,7 +1786,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "G.S. §105-164.13(69) lists non-coin currency, investment metal bullion and investment coins as separately defined categories.",
+    "finding": "Section 105-164.13(69) exempts defined non-coin currency, investment metal bullion and investment coins. Apply the product definition to each listing.",
     "effectiveFrom": null
   },
   {
@@ -1761,13 +1841,18 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "North Dakota’s exemptions guidance specifies .999 fineness for refined precious metal bullion. Review legal-tender coins separately.",
+    "finding": "The state exempts qualifying domestic and foreign legal-tender coins. The separate precious-metal bullion provision requires purity of at least .999.",
     "effectiveFrom": null
   },
   {
     "code": "OH",
     "name": "Ohio",
     "sources": [
+      {
+        "purpose": "authority",
+        "title": "Section 5739.02 - Ohio Revised Code | Ohio Laws",
+        "url": "https://codes.ohio.gov/ohio-revised-code/section-5739.02"
+      },
       {
         "purpose": "authority",
         "title": "Section 5739.02 - Ohio Revised Code | Ohio Laws",
@@ -1821,13 +1906,18 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Revised Code §5739.02(B)(57) provides a defined investment bullion and coin exemption. Check the product against the applicable definition.",
+    "finding": "Section 5739.02(B)(57) defines investment coins by primary metal composition. For bullion, check the separate federal definition incorporated by Ohio.",
     "effectiveFrom": null
   },
   {
     "code": "OK",
     "name": "Oklahoma",
     "sources": [
+      {
+        "purpose": "authority",
+        "title": "Chapter 65 Sales and Use Tax 2024 including emergency rules",
+        "url": "https://oklahoma.gov/content/dam/ok/en/tax/documents/resources/rules-and-policies/agency-rules/2024/Chapter_65_Sales_and_Use_Tax__2024.pdf"
+      },
       {
         "purpose": "authority",
         "title": "IEC Schedule 2026-2029",
@@ -1837,11 +1927,6 @@
         "purpose": "authority",
         "title": "Chapter 65 Sales and Use Tax 2024",
         "url": "https://oklahoma.gov/content/dam/ok/en/tax/documents/resources/rules-and-policies/agency-rules/2024/Chapter_65_Sales_and_Use_Tax_2024.pdf"
-      },
-      {
-        "purpose": "product",
-        "title": "Chapter 65 Sales and Use Tax 2024 including emergency rules",
-        "url": "https://oklahoma.gov/content/dam/ok/en/tax/documents/resources/rules-and-policies/agency-rules/2024/Chapter_65_Sales_and_Use_Tax__2024.pdf"
       },
       {
         "purpose": "nexus",
@@ -1866,7 +1951,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Oklahoma lists an exemption for specified bullion and qualifying legal tender valued as metal or an investment. Confirm the current statute and product eligibility.",
+    "finding": "The Tax Commission’s rule covers precious-metal bullion items and legal tender sold for metal value or investment. Check a collectible’s pricing and sale purpose.",
     "effectiveFrom": null
   },
   {
@@ -1874,7 +1959,7 @@
     "name": "Oregon",
     "sources": [
       {
-        "purpose": "product",
+        "purpose": "authority",
         "title": "Oregon Department of Revenue : Sales Tax in Oregon : Businesses : State of Oregon",
         "url": "https://www.oregon.gov/dor/programs/businesses/Pages/Sales-Tax.aspx"
       },
@@ -1906,7 +1991,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Oregon reports no general sales or use tax. Business activity taxes require separate review.",
+    "finding": "Oregon has no general sales or use tax. Ordinary bullion sales have no customer sales-tax charge.",
     "effectiveFrom": null
   },
   {
@@ -1915,13 +2000,13 @@
     "sources": [
       {
         "purpose": "authority",
-        "title": "2026-27 Tax Expenditure Analysis",
-        "url": "https://www.pa.gov/content/dam/copapwp-pagov/en/revenue/documents/news-and-statistics/reportsstats/tax-expenditures/2026-27_tax_expenditures.pdf"
+        "title": "Act of Mar. 4, 1971,P.L. 6, No. 2 Cl. 72 - TAX REFORM CODE OF 1971",
+        "url": "https://www.legis.state.pa.us/WU01/LI/LI/US/HTM/1971/0/0002..HTM"
       },
       {
         "purpose": "authority",
-        "title": "Act of Mar. 4, 1971,P.L. 6, No. 2 Cl. 72 - TAX REFORM CODE OF 1971",
-        "url": "https://www.legis.state.pa.us/WU01/LI/LI/US/HTM/1971/0/0002..HTM"
+        "title": "2026-27 Tax Expenditure Analysis",
+        "url": "https://www.pa.gov/content/dam/copapwp-pagov/en/revenue/documents/news-and-statistics/reportsstats/tax-expenditures/2026-27_tax_expenditures.pdf"
       },
       {
         "purpose": "authority",
@@ -1966,13 +2051,18 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "The state describes relief for investment bullion valued primarily by its metal and for qualifying coins. Check the specific retail sale.",
+    "finding": "Investment bullion is subject to a content-and-form test. Government investment coins above nominal value have a separate exemption. Jewelry, works of art and commemorative medallions have exclusions.",
     "effectiveFrom": null
   },
   {
     "code": "RI",
     "name": "Rhode Island",
     "sources": [
+      {
+        "purpose": "authority",
+        "title": "Rhode Island General Laws § 44-18-30",
+        "url": "https://webserver.rilegislature.gov/Statutes/title44/44-18/44-18-30.htm"
+      },
       {
         "purpose": "authority",
         "title": "Rules and Regulations for the Precious Metals Regulatory Enforcement Unit - Rhode Island Department of State",
@@ -2026,13 +2116,18 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Review §44-18-30 for the investment coin and bullion exemption. Dealer licensing is a separate question.",
+    "finding": "Section 44-18-30(24) covers content-valued refined bullion sold in a transaction substantially equivalent to a securities or commodities transaction. Industrial and artistic fabrications are excluded.",
     "effectiveFrom": null
   },
   {
     "code": "SC",
     "name": "South Carolina",
     "sources": [
+      {
+        "purpose": "authority",
+        "title": "SALES AND USE TAX EXEMPTION REPORT",
+        "url": "https://rfa.sc.gov/index.php/sales_exemp_report"
+      },
       {
         "purpose": "authority",
         "title": "7. SALES AND USE TAX GENERAL PROVISIONS",
@@ -2086,7 +2181,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Section 12-36-2120(70) addresses gold, silver and platinum bullion and specified legal tender. Qualify the product before applying relief.",
+    "finding": "Section 12-36-2120(70) covers gold, silver and platinum bullion and legal-tender coins or currency. Retain documentation supporting exempt sales.",
     "effectiveFrom": null
   },
   {
@@ -2094,7 +2189,7 @@
     "name": "South Dakota",
     "sources": [
       {
-        "purpose": "product",
+        "purpose": "authority",
         "title": "Coins and Bullion",
         "url": "https://dor.sd.gov/media/q34fhrne/financial-institutions.pdf"
       },
@@ -2136,7 +2231,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "The state revenue guidance describes an exemption for qualifying coins, currency and bullion.",
+    "finding": "South Dakota exempts specified content-valued bullion and coins that are or were legal tender. The department distinguishes collectible coins from jewelry and tokens.",
     "effectiveFrom": null
   },
   {
@@ -2144,7 +2239,7 @@
     "name": "Tennessee",
     "sources": [
       {
-        "purpose": "product",
+        "purpose": "authority",
         "title": "SUT-121 - Bullion or Precious Metal Coins – Tennessee Department of Revenue",
         "url": "https://revenue.support.tn.gov/hc/en-us/articles/360058685571-SUT-121-Bullion-or-Precious-Metal-Coins"
       },
@@ -2186,7 +2281,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Revenue guidance SUT-121 defines eligibility for the coins, currency and bullion exemption.",
+    "finding": "The exemption requires a qualifying use as legal tender, security or commodity and a sale based primarily on intrinsic precious-metal or collectible value.",
     "effectiveFrom": "2022-05-27"
   },
   {
@@ -2194,8 +2289,8 @@
     "name": "Texas",
     "sources": [
       {
-        "purpose": "product",
-        "title": "TAX CODE CHAPTER 151. LIMITED SALES, EXCISE, AND USE TAX",
+        "purpose": "authority",
+        "title": "Texas Tax Code Chapter 151",
         "url": "https://tcss.legis.texas.gov/resources/TX/pdf/TX.151.pdf"
       },
       {
@@ -2236,7 +2331,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Tax Code §151.336 lists gold, silver or numismatic coins and platinum, gold or silver bullion. Palladium bars require separate analysis.",
+    "finding": "Section 151.336 covers gold, silver or numismatic coins and platinum, gold or silver bullion. Check the enumerated metal and form before applying this rule to a new listing.",
     "effectiveFrom": "2013-10-01"
   },
   {
@@ -2286,13 +2381,28 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Section 59-12-104 distinguishes legal tender, certain metal-content items and decorative coins. Check each condition before applying the exemption.",
+    "finding": "Utah has a legal-tender category for coins of a state, the US or a foreign nation. Apply the separate metal and form requirements to bars and decorative coins.",
     "effectiveFrom": null
   },
   {
     "code": "VT",
     "name": "Vermont",
     "sources": [
+      {
+        "purpose": "authority",
+        "title": "32 V.S.A. § 9741. Sales not covered",
+        "url": "https://legislature.vermont.gov/statutes/section/32/233/09741"
+      },
+      {
+        "purpose": "authority",
+        "title": "2026 bullion bill status",
+        "url": "https://legislature.vermont.gov/bill/status/2026/H.711"
+      },
+      {
+        "purpose": "authority",
+        "title": "Retail sales tax",
+        "url": "https://legislature.vermont.gov/statutes/section/32/233/09771"
+      },
       {
         "purpose": "authority",
         "title": "SALES AND USE TAX REGULATIONS",
@@ -2341,7 +2451,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Vermont classifies bullion, ingots and wafers as tangible personal property. Coins purchased for use as a medium of exchange are excluded. Ordinary retail bullion sales use the destination sales tax rate.",
+    "finding": "General sales tax applies to ordinary retail bars, with a local option where applicable. The 2026 bullion exemption bill H.711 was referred to committee. The published exemption statute contains no general bullion provision. Coins used as a medium of exchange have a separate rule.",
     "effectiveFrom": null
   },
   {
@@ -2396,13 +2506,18 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Virginia’s enacted 2026 budget continues the §58.1-609.1(19) exemption for qualifying bullion and legal-tender coins through July 1, 2028.",
+    "finding": "The enacted 2026 budget continues the exemption for qualifying gold, silver or platinum bullion and legal-tender coins through July 1, 2028.",
     "effectiveFrom": null
   },
   {
     "code": "WA",
     "name": "Washington",
     "sources": [
+      {
+        "purpose": "authority",
+        "title": "Currency, coins and precious metal bullion | Washington Department of Revenue",
+        "url": "https://dor.wa.gov/education/industry-guides/jewelry-stores/currency-coins-and-precious-metal-bullion"
+      },
       {
         "purpose": "authority",
         "title": "Surcharges including tariffs | Washington Department of Revenue",
@@ -2451,7 +2566,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Retail investment bullion and monetized bullion are taxable for an obligated seller. Track retail sales tax and seller B&O separately. Address-specific local rates and seller registration timing matter.",
+    "finding": "Retail bullion and monetized bullion became taxable January 1, 2026. If collection is due, use the delivery address and applicable quarter. Seller B&O tax is separate.",
     "effectiveFrom": "2026-01-01"
   },
   {
@@ -2506,7 +2621,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "West Virginia Code §11-15-9r exempts defined investment metal bullion and investment coins from sales and use tax.",
+    "finding": "Section 11-15-9r exempts defined investment metal bullion and investment coins. Check content, form and coin conditions against the particular listing.",
     "effectiveFrom": null
   },
   {
@@ -2515,7 +2630,12 @@
     "sources": [
       {
         "purpose": "authority",
-        "title": "WTB 229 Wisconsin Tax Bulletin April 2025",
+        "title": "Wisconsin Department of Revenue, fall 2026 update",
+        "url": "https://www.revenue.wi.gov/Documents/2026-Fall-Tax-Update-Practitioners.pdf"
+      },
+      {
+        "purpose": "authority",
+        "title": "Product criteria",
         "url": "https://www.revenue.wi.gov/WisconsinTaxBulletin/229-04-30-WTB.pdf"
       },
       {
@@ -2576,7 +2696,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Section 77.54(71) specifies metal content, eligible forms and markings or government minting. The 2026 law separately changed the certificate requirement.",
+    "finding": "The bullion exemption has metal-content, form and marking or minting requirements. The state reports the exemption certificate requirement ended March 29, 2026.",
     "effectiveFrom": null
   },
   {
@@ -2585,7 +2705,7 @@
     "sources": [
       {
         "purpose": "authority",
-        "title": "Title - 9.docx",
+        "title": "Wyoming Statutes, Title 9, Article 13",
         "url": "https://wyoleg.gov/statutes/compress/title09.pdf"
       },
       {
@@ -2616,7 +2736,7 @@
     ],
     "reviewStatus": "requires_review",
     "researchDate": "2026-11-26",
-    "finding": "Wyoming’s Legal Tender Act covers specified gold or silver legal tender. Confirm applicable sales-tax treatment for each product and transaction.",
+    "finding": "The Legal Tender Act exempts purchases, sales and exchanges of qualifying specie. Gold and silver coins qualify by definition. Refined bullion also has stamping, purity and value tests.",
     "effectiveFrom": null
   }
 ]

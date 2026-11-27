@@ -97,16 +97,14 @@ export function assess({day,state,policy,address,lines,subtotal,shipping,fee,inv
   // are represented by the first qualifying cent (NY $1,000.01).
   const minimum=integer(policy.first_eligible_cent);
   if (qualified.some(Boolean)) requireMinimum(qualifiedSum, Math.max(floor, policy.store_minimum ? minimum : 0));
-  let thresholdValue = qualifiedSum;
-  if (state === 'CA' && qualified.some(Boolean)) {
-    thresholdValue = lines.reduce((sum, line, index) => {
-      if (!qualified[index]) return sum;
-      const p = line.classification;
-      if (!p.market_source || p.market_day !== day) review('The bullion market value needs review.');
-      return integer(sum + integer(p.market_unit_cents, 1) * line.quantity);
-    }, 0);
+  let meetsExemption = qualifiedSum >= minimum;
+  // California Regulation 1599 uses the sales price of qualifying merchandise.
+  // The store's qualifying-merchandise floor is enforced before testing the exemption.
+  if (state === 'CA' && qualifiedSum > 0 && meetsExemption) {
+    if (policy.ca_commodity_registration === 'required_unregistered') meetsExemption = false;
+    else if (!['registered', 'registration_not_required'].includes(policy.ca_commodity_registration))
+      review('California bullion seller eligibility needs review.');
   }
-  let meetsExemption = thresholdValue >= minimum;
   if(state==='NY' && meetsExemption && qualifiedSum>0){
     if(policy.ny_dealer_status==='required_unregistered') meetsExemption=false;
     else if(!['registered','registration_not_required'].includes(policy.ny_dealer_status))

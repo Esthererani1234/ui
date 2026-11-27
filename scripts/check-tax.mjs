@@ -82,12 +82,31 @@ test('preview migration, permissions, exact address, order and filing accounting
  const beforeInstall=await orderDefinition();
  await db.exec(await readFile(new URL('../supabase/migrations/20261127013002_nationwide_tax_compliance.sql',import.meta.url),'utf8'));
  await db.exec("insert into products values(902,true,2,'AGE-1OZ-BU-RY','1 oz American Gold Eagle BU (Random Year)','gold',1)");
+ await db.exec(`insert into products values
+  (903,true,2,'APMEX-1OZ-TEP','1 oz APMEX Gold Bar (TEP)','gold',1),
+  (904,true,2,'GOTS-834790','1 Kilogram Gold Bar – 999.9 Fine Gold (Random Brand)','gold',32.15),
+  (905,true,2,'GOTS-GBP-1OZ-RY-001','1 oz American Gold Buffalo Proof Coin (Random Year) - .9999 Fine Gold','gold',1),
+  (906,true,2,'MAPLE-1OZ-BU-RY','1 oz Canadian Gold Maple Leaf BU (Random Year)','gold',1),
+  (907,true,2,'PAMP-1OZ-FORTUNA-ASSAY','1 oz PAMP Suisse Lady Fortuna Gold Bar (In Assay)','gold',1),
+  (908,true,2,'RAND-0033','1 oz Rand Refinery Loxodonta Gold Bar – .9999 Fine Gold','gold',1),
+  (909,true,2,'SML-1OZ-BU-RY','1 oz Canadian Silver Maple Leaf Coin BU (Random Year)','silver',1)`);
  await db.exec(await readFile(new URL('../supabase/migrations/20261127015640_reviewed_bullion_catalog.sql',import.meta.url),'utf8'));
  const shippedRule=(await db.query("select state,data->>'treatment' as treatment from private.tax_versions where subject='902' order by state")).rows;
  assert.equal(shippedRule.find(r=>r.state==='WA').treatment,'taxable');
  assert.equal(shippedRule.find(r=>r.state==='TX').treatment,'eligible');
  assert.equal(shippedRule.some(r=>r.state==='FL'),false);
  assert.equal((await db.query("select private.tax_collection_gate('NH',private.tax_version('NH','policy','state','2026-11-26'),'2026-11-26') as decision")).rows[0].decision,'no_obligation');
+ const catalogReview=await readFile(new URL('../supabase/migrations/20261127025232_verified_bullion_products.sql',import.meta.url),'utf8');
+ await db.exec(catalogReview);
+ await db.exec(catalogReview);
+ const allProducts=await db.query("select approval,count(*)::int n from private.tax_versions where kind='product' group by approval");
+ assert.deepEqual(Object.fromEntries(allProducts.rows.map(r=>[r.approval,r.n])),{approved:137,requires_review:1});
+ const reviewedEagle=await db.query("select state,count(*)::int n from private.tax_versions where kind='product' and subject='902' and state in ('IA','KS','NE','SC','SD','IL','ND','OH','UT','WY','FL') group by state");
+ const taxableBars=await db.query("select state from private.tax_versions where subject='903' and data->>'treatment'='taxable' and state in ('DC','HI','ME','NM','VT') order by state");
+ assert.deepEqual(taxableBars.rows.map(r=>r.state),['DC','HI','ME','NM','VT']);
+ assert.equal(reviewedEagle.rows.length,11);
+ assert.ok(reviewedEagle.rows.every(r=>r.n===1));
+ assert.equal((await db.query("select count(*)::int n from private.tax_versions where kind='policy' and state='KS'")).rows[0].n,0);
  await db.exec(await readFile(new URL('../supabase/migrations/20261127030000_website_nexus_activity.sql',import.meta.url),'utf8'));
  const closeFor=async(d)=>(await db.query("select private.tax_ny_market_inputs(private.tax_version('NY','product','902','2026-11-26'),$1) as value",[d])).rows[0].value;
  const actualClose=await closeFor('2026-11-26');
@@ -279,10 +298,21 @@ test('minimum message can be shown before reviewing an exemption or requesting c
   const above=input(110000);above.investment=false;
   assert.equal(assess(above).tax,9763);
 });
-test('California checks statutory market value separately from the store subtotal',()=>{
-  const q=input(205000);q.state='CA';q.policy={...policy,state:'CA',first_eligible_cent:200000};
-  q.address={...address,state:'CA'};q.lines[0].classification={...product,market_unit_cents:199999};
-  assert.equal(assess(q).taxable,205000);
+test('California uses the discounted invoice price for the bulk-sale cutoff and checks seller eligibility',()=>{
+  const q=input(200000);
+  q.state='CA';
+  q.policy={...policy,state:'CA',first_eligible_cent:200000,ca_commodity_registration:'registration_not_required'};
+  q.address={...address,state:'CA'};
+  q.lines[0].gross=205000;
+  q.lines[0].classification={...record,form:'bar',metal:'gold',treatment:'eligible'};
+  assert.equal(assess(q).taxable,0);
+  q.subtotal=199999;
+  assert.throws(()=>assess(q),error=>error.code==='ORDER_MINIMUM' && error.remaining_cents===1);
+  q.subtotal=200000;
+  delete q.policy.ca_commodity_registration;
+  assert.throws(()=>assess(q),/California bullion seller eligibility/);
+  q.policy.ca_commodity_registration='required_unregistered';
+  assert.equal(assess(q).taxable,200000);
 });
 for(const [state,expected] of Object.entries({WA:200000,DC:120000,ME:110000,VT:140000,HI:94240,NM:163750})) {
   test(state+' charged example on $20,000 returns one combined customer amount',()=>{

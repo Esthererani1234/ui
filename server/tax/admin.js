@@ -21,6 +21,8 @@ export function validateVersion(state,v){
     check(subject==='state'&&num(data.first_eligible_cent)&&typeof data.store_minimum==='boolean'&&
       ['combined','component'].includes(data.rounding)&&['full_if_taxable','proportional','excluded'].includes(data.shipping_base)&&
       ['full_if_taxable','proportional','excluded'].includes(data.fee_base),'Check the threshold, rounding and charge treatments.');
+    if (state==='CA' && data.ca_commodity_registration!=null)
+      check(['registered','registration_not_required','required_unregistered'].includes(data.ca_commodity_registration),'Check Commodity Exchange Act registration eligibility.');
     if(state==='NY' && data.ny_dealer_status!=null)
       check(['registered','registration_not_required','required_unregistered'].includes(data.ny_dealer_status),'Check the bullion dealer registration status.');
     if (['HI','NM'].includes(state)) check(['absorb','pass_through'].includes(data.seller_levy_treatment),'Choose whether the business absorbs or passes on the reviewed destination levy.');

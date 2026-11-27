@@ -113,7 +113,7 @@ export default function TaxCompliance({researchOnly=false}){
     {!researchOnly&&<OrderTaxReport from={from} to={to} request={adminRequest}/>}
     {error&&<p className="form-message error" role="alert">{error}</p>}
     {data&&<><div className="metric-grid">{Object.entries({merchandise:'Sales posted to tax ledger',taxable:'Taxable merchandise',exempt:'Exempt merchandise',tax:'Tax posted to ledger',remitted:'Remitted'}).map(([k,v])=><article key={k}><small>{v}</small><b>{currency(aggregate(k))}</b></article>)}{aggregate('merchandise')>aggregate('taxable')+aggregate('exempt') && <article><small>Awaiting product classification</small><b>{currency(aggregate('merchandise')-aggregate('taxable')-aggregate('exempt'))}</b></article>}</div>
-    <p>Net tax movement this period: {currency(aggregate('tax')-aggregate('remitted'))}. Older paid orders awaiting tax reconciliation: {data.legacy_orders}.</p>
+    <p>Net tax movement this period: {currency(aggregate('tax')-aggregate('remitted'))}.</p>
     {data.alerts?.length>0&&<details><summary>Compliance alerts ({data.alerts.length})</summary>{data.alerts.map(a=><p key={a.event_key}>{a.state} · {a.message}</p>)}</details>}</>}
     {row?<><button className="text-button" onClick={()=>select(null)}>← All jurisdictions</button><h3>{row.name}</h3>
       <p>{row.finding||'Product treatment awaits verification.'}</p><p>Source research {row.researchDate} · {row.effectiveFrom?'Source provision effective '+row.effectiveFrom+' · ':''}Checkout approval requires separate review.</p>

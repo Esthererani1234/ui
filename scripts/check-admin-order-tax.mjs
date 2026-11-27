@@ -4,6 +4,7 @@ import {readFile} from 'node:fs/promises';
 import {PGlite} from '@electric-sql/pglite';
 import states from '../shared/taxSources.json' with {type:'json'};
 import {calculateAdminOrder} from '../server/tax/adminOrderReport.js';
+import {processTaxReports} from '../api/operations/order-tax.js';
 import {assess} from '../server/tax/engine.js';
 
 const day='2026-11-24',review={approval:'approved',source:'https://example.invalid/fixture',version:1,valid_from:day,valid_until:day,verified_on:day};
@@ -61,5 +62,65 @@ test('report covers all destinations, refund flags, local day boundaries, unknow
  await db.exec('update orders set total=34 where id=3');assert.match((await read(3)).review,/reconciliation/);
  await db.exec("create or replace function private.tax_version(s text,k text,sub text,d date) returns jsonb language sql as $$select case when k='policy' then jsonb_build_object('approval','approved','verified_on',d,'valid_from',d,'valid_until',d) end$$");
  assert.match((await read(1)).review,/Nationwide/);
+ // The forward-only worker is independent of customer checkout and settlement.
+ await db.exec('create table private.tax_revision(revision bigint);insert into private.tax_revision values (1)');
+ const forward=await readFile(new URL('../supabase/migrations/20261127051001_prospective_admin_tax.sql',import.meta.url),'utf8');
+ await db.exec(forward.split('-- Scheduler authentication')[0]);
+ await db.exec('select private.queue_new_order_reports()');
+ assert.deepEqual((await db.query('select * from public.claim_new_order_tax_reports()')).rows,[]);
+ await db.query("insert into orders(id,order_number,created_at,payment_status,shipping_address,subtotal,total) values(201,'FUTURE',clock_timestamp(),'unpaid',$1,50,50)",[{state:'NY'}]);
+ const discover=()=>db.exec('select private.queue_new_order_reports()');
+ const claim=async()=>(await db.query('select * from public.claim_new_order_tax_reports()')).rows;
+ const finish=async(id,lease,result,retry)=>(await db.query('select public.finish_new_order_tax_report($1,$2,$3,$4) v',[id,lease,result,retry])).rows[0].v;
+ await discover();await discover();const [job]=await claim();assert.equal(job.order_id,201);
+ assert.deepEqual(await claim(),[]);await assert.rejects(db.query('select public.new_order_tax_inputs(201,null)'),/lease expired/);
+ const data=(await db.query('select public.new_order_tax_inputs(201,$1) r',[job.lease])).rows[0].r;
+ assert.match(data.review,/Nationwide/);
+ assert.equal(await finish(201,job.lease,{status:'review',reason:data.review},false),true);
+ await discover();assert.deepEqual(await claim(),[]);
+ await db.exec('update private.tax_revision set revision=2');await discover();const [revised]=await claim();
+ assert.equal(await finish(201,job.lease,{status:'calculated',tax:0},false),false);
+ await assert.rejects(finish(201,revised.lease,{status:'review',tax:0},false),/Invalid tax report/);
+ assert.equal(await finish(201,revised.lease,{status:'calculated',tax:444,taxable:5000,exempt:0,breakdown:[]},false),true);
+ const report=async()=>(await db.query("select public.tax_admin_new_orders($1,current_date-2,current_date+2) r",[admin])).rows[0].r;
+ assert.deepEqual((await report()).orders.map(o=>o.id),[201]);assert.equal((await report()).orders[0].result.tax,444);
+ await db.exec("update orders set paid_at=now() where id=201");
+ await discover();const [paid]=await claim();
+ assert.equal(await finish(201,paid.lease,{status:'calculated',tax:444,taxable:5000,exempt:0,breakdown:[]},false),true);
+ const summary=(await db.query("select public.tax_admin_order_report($1,current_date-2,current_date+2,'NY') r",[admin])).rows[0].r;
+ assert.equal(summary.orders.find(o=>o.order_id===201).calculated_tax,444);
+ assert.equal((await read(201)).report.tax,444);
+ await db.exec('update orders set subtotal=51,total=51 where id=201');
+ assert.equal((await report()).orders[0].result,null);await discover();const [changed]=await claim();
+ await db.exec('update orders set subtotal=52,total=52 where id=201');
+ assert.equal(await finish(201,changed.lease,{status:'calculated',tax:444},false),false);
+ const [retry]=await claim();assert.equal(await finish(201,retry.lease,{status:'review',reason:'retry'},true),true);
+ assert.deepEqual(await claim(),[]);
+ await assert.rejects(db.query("select public.tax_admin_new_orders(null,current_date-1,current_date)"),/Admin required/);
+ assert.equal((await db.query("select has_function_privilege('authenticated','public.new_order_tax_inputs(bigint,uuid)','execute') v")).rows[0].v,false);
  }finally{await db.close();}
+});
+
+test('the worker persists a distinct outcome for every new order across all 51 destinations',async()=>{
+ const queued=states.map((s,i)=>({state:s.code,order_id:i+1,lease:'lease-'+i})),saved=new Map();
+ const db={async rpc(method,args){
+   if(method==='claim_new_order_tax_reports')return {data:queued.splice(0,4)};
+   const {p_order,p_lease}=args;assert.equal(p_lease,'lease-'+(p_order-1));
+   const state=states[p_order-1].code;
+   if(method==='new_order_tax_inputs'){
+     if(state==='NY')return {data:inputs};
+     if(state==='OR')return {data:{...inputs,state,policy:{...inputs.policy,state,collection:'no_obligation'},district:{...inputs.district,state,rates:[]}}};
+     return {data:{review:'Incomplete official evidence',day}};
+   }
+   assert.equal(method,'finish_new_order_tax_report');assert.equal(saved.has(p_order),false);
+   assert.equal(args.p_retry,false);saved.set(p_order,args.p_result);return {data:true};
+ }};
+ while(queued.length)await processTaxReports(db);
+ assert.equal(saved.size,51);
+ for(const [id,result] of saved){
+   const state=states[id-1].code;
+   if(state==='NY')assert.equal(result.tax,859);
+   else if(state==='OR')assert.equal(result.tax,0);
+   else {assert.equal(result.status,'review');assert.equal(Object.hasOwn(result,'tax'),false);}
+ }
 });

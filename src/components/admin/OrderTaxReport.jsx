@@ -35,7 +35,7 @@ function Orders({state,from,to,request}){
     {page.next&&<button className="text-button" onClick={()=>setBefore(page.next)}>Older orders</button>}</>}
   </div>;
 }
-export default function OrderTaxReport({from,to,request}){
+function PaymentPeriodReport({from,to,request}){
   const [data,setData]=useState(null),[error,setError]=useState(''),[selected,select]=useState(null),[all,showAll]=useState(false);
   useEffect(()=>{
     let live=true;setData(null);setError('');select(null);
@@ -44,7 +44,7 @@ export default function OrderTaxReport({from,to,request}){
   },[from,to,request]);
   function download(){
     const columns=['state','orders','refunded_orders','merchandise','customer_total','recorded_tax','calculated_tax','missing_recorded','needs_review'];
-    const header=['State','Paid orders','Orders marked refunded','Gross merchandise cents','Gross order total cents','Recorded tax cents (known only)','Verified tax cents (known only)','Orders with unrecorded tax','Orders needing review'];
+    const header=['State','Paid orders','Orders marked refunded','Gross merchandise cents','Gross order total cents','Recorded tax cents (known only)','Calculated tax cents (known only)','Orders with unrecorded tax','Orders needing review'];
     const rows=data.states.map(r=>columns.map(k=>r[k]??'').join(','));
     const url=URL.createObjectURL(new Blob([[header.join(','),...rows].join('\r\n')],{type:'text/csv;charset=utf-8'}));
     const a=document.createElement('a');a.href=url;a.download='order-tax-'+from+'-'+to+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
@@ -64,4 +64,39 @@ export default function OrderTaxReport({from,to,request}){
     </tr>)}</tbody></table></div>}
     {selected&&<Orders key={selected+from+to} state={selected} from={from} to={to} request={request}/>}</>}
   </section>;
+}
+
+function NewOrderReports({from,to,request}){
+  const [before,setBefore]=useState(null),[page,setPage]=useState(null),[error,setError]=useState('');
+  useEffect(()=>{
+    let live=true,pending=false;
+    const query=new URLSearchParams({view:'new_orders',from,to});if(before)query.set('before',before);
+    async function load(){
+      if(pending)return;pending=true;
+      try{const data=await request('?'+query);if(live){setPage(data);setError('');}}
+      catch(e){if(live)setError(e.message);}
+      finally{pending=false;}
+    }
+    setPage(null);setError('');load();const timer=setInterval(()=>{if(!document.hidden)load();},60000);
+    return()=>{live=false;clearInterval(timer);};
+  },[from,to,before,request]);
+  return <section aria-label="New order tax calculations"><h3>New order tax calculations</h3>
+    {error&&<p role="alert">{error}</p>}{!page&&!error&&<p>Loading new orders…</p>}
+    {page&&<><p>Orders placed from {new Date(page.starts_at).toLocaleString('en-US',{timeZone:'America/New_York',dateStyle:'medium',timeStyle:'short'})} New York time are checked automatically.</p>
+    {!page.orders.length?<p>No new orders in this period.</p>:<div className="tax-table"><table><thead><tr><th>Order</th><th>Destination</th><th>Calculated tax</th></tr></thead>
+    <tbody>{page.orders.map(o=><tr key={o.id}><th>{o.order_number||o.id}</th><td>{name(o.state)}</td><td>
+      {!o.result?'Queued':o.result.status==='review'?o.result.reason:<details><summary>{money(o.result.tax)}</summary>
+        <p>Taxable merchandise {money(o.result.taxable)} · Exempt merchandise {money(o.result.exempt)}</p>
+        {o.result.breakdown.map((b,i)=><p key={i}>{[b.name||b.code,b.county,...(b.districts||[])].filter(Boolean).join(' · ')} · {Number(b.ppm)/10000}% · {money(b.cents)}</p>)}
+        {o.result.rate_source?.startsWith('https://')&&<a href={o.result.rate_source} target="_blank" rel="noreferrer">Rate source</a>}
+      </details>}</td></tr>)}</tbody></table></div>}
+    {before&&<button className="text-button" onClick={()=>setBefore(null)}>Newest orders</button>}
+    {page.next&&<button className="text-button" onClick={()=>setBefore(page.next)}>Older orders</button>}</>}
+  </section>;
+}
+export default function OrderTaxReport({from,to,request}){
+  const [period,showPeriod]=useState(false);
+  return <><NewOrderReports key={from+to} from={from} to={to} request={request}/>
+    <details onToggle={e=>showPeriod(e.currentTarget.open)}><summary>Paid-order history and CSV</summary>
+    {period&&<PaymentPeriodReport from={from} to={to} request={request}/>}</details></>;
 }
